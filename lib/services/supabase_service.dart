@@ -106,6 +106,46 @@ class SupabaseService {
     await client.from('profiles').upsert(profile);
   }
 
+  static Future<Map<String, dynamic>?> getPlatformAdminEntry() async {
+    if (!isInitialized || currentUser == null) return null;
+    final response = await client
+        .from('platform_admins')
+        .select()
+        .eq('user_id', currentUser!.id)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<List<Map<String, dynamic>>> getProfiles() async {
+    if (!isInitialized) return [];
+    final response = await client.from('profiles').select();
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<List<Map<String, dynamic>>> getPlatformDailyMetrics({
+    int limit = 7,
+  }) async {
+    if (!isInitialized) return [];
+    final response = await client
+        .from('platform_daily_metrics')
+        .select()
+        .order('metric_date', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<List<Map<String, dynamic>>> getEarningsLedger({
+    String? beneficiaryRole,
+  }) async {
+    if (!isInitialized) return [];
+    var query = client.from('earnings_ledger').select();
+    if (beneficiaryRole != null && beneficiaryRole.isNotEmpty) {
+      query = query.eq('beneficiary_role', beneficiaryRole);
+    }
+    final response = await query.order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   static Future<void> updateAccount({
     String? email,
     String? password,
