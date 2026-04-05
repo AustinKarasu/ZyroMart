@@ -5,7 +5,7 @@ import 'services/auth_service.dart';
 import 'services/cart_service.dart';
 import 'services/order_service.dart';
 import 'services/supabase_service.dart';
-import 'screens/role_selection_screen.dart';
+import 'screens/auth/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,15 +26,18 @@ class ZyroMartApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => AuthService()..initialize()),
         ChangeNotifierProvider(create: (_) => CartService()),
-        ChangeNotifierProvider(create: (_) => OrderService()),
+        ChangeNotifierProxyProvider<AuthService, OrderService>(
+          create: (_) => OrderService(),
+          update: (_, auth, orderService) => orderService!..bindUser(auth.currentUser),
+        ),
       ],
       child: MaterialApp(
         title: 'ZyroMart',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
-        home: const RoleSelectionScreen(),
+        home: const AuthGate(),
       ),
     );
   }

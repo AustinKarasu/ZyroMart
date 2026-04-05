@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/cart_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_image.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
@@ -18,8 +19,7 @@ class CartScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.shopping_cart_outlined,
-                      size: 80, color: AppTheme.textLight),
+                  Icon(Icons.shopping_cart_outlined, size: 80, color: AppTheme.textLight),
                   SizedBox(height: 16),
                   Text(
                     'Your cart is empty',
@@ -48,30 +48,21 @@ class CartScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
+                        boxShadow: const [
                           BoxShadow(
                             color: AppTheme.cardShadow,
                             blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            offset: Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Row(
                         children: [
-                          ClipRRect(
+                          AppImage(
+                            imageUrl: item.product.imageUrl,
+                            width: 70,
+                            height: 70,
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              item.product.imageUrl,
-                              width: 70,
-                              height: 70,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 70,
-                                height: 70,
-                                color: Colors.grey[200],
-                                child: const Icon(Icons.image, color: Colors.grey),
-                              ),
-                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -88,14 +79,14 @@ class CartScreen extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   item.product.unit,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: AppTheme.textLight,
                                     fontSize: 12,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '₹${item.totalPrice.toInt()}',
+                                  'Rs ${item.totalPrice.toInt()}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -115,18 +106,14 @@ class CartScreen extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     InkWell(
-                                      onTap: () => cart
-                                          .decrementQuantity(item.product.id),
+                                      onTap: () => cart.decrementQuantity(item.product.id),
                                       child: const Padding(
                                         padding: EdgeInsets.all(8),
-                                        child: Icon(Icons.remove,
-                                            size: 18,
-                                            color: AppTheme.primaryRed),
+                                        child: Icon(Icons.remove, size: 18, color: AppTheme.primaryRed),
                                       ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
                                       child: Text(
                                         '${item.quantity}',
                                         style: const TextStyle(
@@ -136,13 +123,10 @@ class CartScreen extends StatelessWidget {
                                       ),
                                     ),
                                     InkWell(
-                                      onTap: () => cart
-                                          .incrementQuantity(item.product.id),
+                                      onTap: () => cart.incrementQuantity(item.product.id),
                                       child: const Padding(
                                         padding: EdgeInsets.all(8),
-                                        child: Icon(Icons.add,
-                                            size: 18,
-                                            color: AppTheme.primaryRed),
+                                        child: Icon(Icons.add, size: 18, color: AppTheme.primaryRed),
                                       ),
                                     ),
                                   ],
@@ -150,8 +134,7 @@ class CartScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 8),
                               GestureDetector(
-                                onTap: () =>
-                                    cart.removeItem(item.product.id),
+                                onTap: () => cart.removeItem(item.product.id),
                                 child: const Text(
                                   'Remove',
                                   style: TextStyle(
@@ -168,7 +151,6 @@ class CartScreen extends StatelessWidget {
                   },
                 ),
               ),
-              // Bill summary
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -185,31 +167,35 @@ class CartScreen extends StatelessWidget {
                   children: [
                     const Text(
                       'Bill Details',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 12),
-                    _buildBillRow('Item Total', '₹${cart.totalAmount.toInt()}'),
+                    _buildBillRow('Item Total', 'Rs ${cart.totalAmount.toInt()}'),
                     if (cart.savings > 0)
                       _buildBillRow(
                         'Savings',
-                        '-₹${cart.savings.toInt()}',
+                        '-Rs ${cart.savings.toInt()}',
                         valueColor: AppTheme.success,
                       ),
                     _buildBillRow(
                       'Delivery Fee',
-                      cart.deliveryFee == 0
-                          ? 'FREE'
-                          : '₹${cart.deliveryFee.toInt()}',
-                      valueColor:
-                          cart.deliveryFee == 0 ? AppTheme.success : null,
+                      cart.deliveryFee == 0 ? 'FREE' : 'Rs ${cart.deliveryFee.toInt()}',
+                      valueColor: cart.deliveryFee == 0 ? AppTheme.success : null,
                     ),
+                    _buildBillRow('Platform Fee', 'Rs ${cart.platformFee.toInt()}'),
+                    _buildBillRow('Handling Fee', 'Rs ${cart.handlingFee.toInt()}'),
+                    if (cart.deliveryTip > 0)
+                      _buildBillRow('Delivery Tip', 'Rs ${cart.deliveryTip.toInt()}'),
+                    if (cart.couponDiscount > 0)
+                      _buildBillRow(
+                        'Coupon Savings',
+                        '-Rs ${cart.couponDiscount.toInt()}',
+                        valueColor: AppTheme.success,
+                      ),
                     const Divider(),
                     _buildBillRow(
                       'Grand Total',
-                      '₹${cart.grandTotal.toInt()}',
+                      'Rs ${cart.grandTotal.toInt()}',
                       isBold: true,
                     ),
                     const SizedBox(height: 16),
@@ -219,11 +205,10 @@ class CartScreen extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
-                              builder: (_) => const CheckoutScreen()),
+                          MaterialPageRoute(builder: (_) => const CheckoutScreen()),
                         ),
                         child: Text(
-                          'Proceed to Checkout • ₹${cart.grandTotal.toInt()}',
+                          'Proceed to Checkout • Rs ${cart.grandTotal.toInt()}',
                           style: const TextStyle(fontSize: 16),
                         ),
                       ),
@@ -238,8 +223,7 @@ class CartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBillRow(String label, String value,
-      {bool isBold = false, Color? valueColor}) {
+  Widget _buildBillRow(String label, String value, {bool isBold = false, Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -266,3 +250,4 @@ class CartScreen extends StatelessWidget {
     );
   }
 }
+

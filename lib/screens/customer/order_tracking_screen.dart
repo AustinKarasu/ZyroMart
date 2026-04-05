@@ -240,6 +240,13 @@ class OrderTrackingScreen extends StatelessWidget {
                           style: TextStyle(
                               color: AppTheme.textMedium, fontSize: 12),
                         ),
+                        const Text(
+                          'Phone verified for delivery updates',
+                          style: TextStyle(
+                            color: AppTheme.textLight,
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
                     ),
                   ),

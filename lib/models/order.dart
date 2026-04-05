@@ -19,6 +19,7 @@ class Order {
   OrderStatus status;
   final String customerId;
   final String customerName;
+  final String customerPhone;
   final String storeId;
   final String storeName;
   String? deliveryPersonId;
@@ -39,6 +40,7 @@ class Order {
     this.status = OrderStatus.placed,
     required this.customerId,
     required this.customerName,
+    required this.customerPhone,
     required this.storeId,
     required this.storeName,
     this.deliveryPersonId,

@@ -1,13 +1,13 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../services/cart_service.dart';
 import '../../services/mock_data.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/product_card.dart';
-import 'product_detail_screen.dart';
-import 'category_products_screen.dart';
 import 'cart_screen.dart';
+import 'category_products_screen.dart';
+import 'product_detail_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -22,25 +22,29 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   List<Product> get _filteredProducts {
     if (_searchQuery.isEmpty) return MockData.products;
-    return MockData.products
-        .where((p) =>
-            p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            p.description.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
+    return MockData.products.where((p) {
+      final query = _searchQuery.toLowerCase();
+      return p.name.toLowerCase().contains(query) || p.description.toLowerCase().contains(query);
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartService>();
+    final freeDeliveryLeft = cart.amountForFreeDelivery;
+
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 82,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('ZyroMart', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const Text('ZyroMart', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
             Text(
-              'Delivered within 24 hours',
-              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.85)),
+              freeDeliveryLeft == 0
+                  ? 'Free delivery unlocked for this cart'
+                  : 'Add Rs ${freeDeliveryLeft.toInt()} more for free delivery',
+              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.88)),
             ),
           ],
         ),
@@ -49,28 +53,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.shopping_cart_outlined),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CartScreen()),
-                ),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
               ),
               if (cart.itemCount > 0)
                 Positioned(
-                  right: 4,
-                  top: 4,
+                  right: 6,
+                  top: 8,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.accentGold,
-                      shape: BoxShape.circle,
-                    ),
+                    padding: const EdgeInsets.all(5),
+                    decoration: const BoxDecoration(color: AppTheme.accentGold, shape: BoxShape.circle),
                     child: Text(
                       '${cart.itemCount}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
-                      ),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                     ),
                   ),
                 ),
@@ -80,15 +74,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // Search bar
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: TextField(
                 controller: _searchController,
                 onChanged: (v) => setState(() => _searchQuery = v),
                 decoration: InputDecoration(
-                  hintText: 'Search for products...',
+                  hintText: 'Search fruits, milk, snacks and more',
                   prefixIcon: const Icon(Icons.search, color: AppTheme.textLight),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -103,115 +96,50 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ),
           ),
-
-          // Banner
-          if (_searchQuery.isEmpty)
-            SliverToBoxAdapter(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primaryRed, AppTheme.primaryRedLight],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Free Delivery',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'On orders above ₹500',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white.withValues(alpha: 0.9),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Text(
-                              'Order Now',
-                              style: TextStyle(
-                                color: AppTheme.primaryRed,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.local_shipping,
-                        size: 64, color: Colors.white24),
-                  ],
-                ),
-              ),
-            ),
-
-          // Categories
           if (_searchQuery.isEmpty) ...[
+            SliverToBoxAdapter(child: _buildHeroBanner()),
+            SliverToBoxAdapter(child: _buildOfferStrip()),
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-                child: Text(
-                  'Shop by Category',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
+                child: Text('Popular categories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
             ),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 100,
+                height: 106,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   itemCount: MockData.categories.length,
                   itemBuilder: (context, index) {
-                    final cat = MockData.categories[index];
+                    final category = MockData.categories[index];
                     return GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => CategoryProductsScreen(category: cat),
-                        ),
+                        MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: category)),
                       ),
                       child: Container(
-                        width: 80,
+                        width: 88,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         child: Column(
                           children: [
                             Container(
-                              width: 56,
-                              height: 56,
+                              width: 60,
+                              height: 60,
                               decoration: BoxDecoration(
-                                color: cat.color.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(16),
+                                color: category.color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Icon(cat.icon, color: cat.color, size: 28),
+                              child: Icon(category.icon, color: category.color, size: 28),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 8),
                             Text(
-                              cat.name,
-                              textAlign: TextAlign.center,
+                              category.name,
                               maxLines: 2,
+                              textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -222,20 +150,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ),
           ],
-
-          // Products header
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
               child: Text(
-                _searchQuery.isEmpty ? 'Popular Products' : 'Search Results',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                _searchQuery.isEmpty ? 'Top picks for tonight' : 'Search results',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
           ),
-
-          // Products grid
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverGrid(
@@ -252,10 +175,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     product: product,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ProductDetailScreen(product: product),
-                      ),
+                      MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
                     ),
                   );
                 },
@@ -263,28 +183,25 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          const SliverToBoxAdapter(child: SizedBox(height: 84)),
         ],
       ),
-      // Floating cart bar
       bottomSheet: cart.itemCount > 0
           ? GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CartScreen()),
-              ),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
               child: Container(
                 margin: const EdgeInsets.all(16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryRed,
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primaryRedDark, AppTheme.primaryRed],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryRed.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      color: AppTheme.primaryRed.withValues(alpha: 0.38),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
@@ -295,32 +212,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text('${cart.itemCount} items', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         Text(
-                          '${cart.itemCount} items',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '₹${cart.totalAmount.toInt()}',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 12,
-                          ),
+                          'Checkout total Rs ${cart.grandTotal.toInt()}',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12),
                         ),
                       ],
                     ),
                     const Row(
                       children: [
-                        Text(
-                          'View Cart',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
+                        Text('View Cart', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                         SizedBox(width: 4),
                         Icon(Icons.arrow_forward, color: Colors.white, size: 20),
                       ],
@@ -332,4 +233,90 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           : null,
     );
   }
+
+  Widget _buildHeroBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFA11414), Color(0xFFE03A34), Color(0xFFFFC06A)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Tonight’s essentials', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+          SizedBox(height: 8),
+          Text(
+            'Fresh produce, dairy, bakery, snacks and home care with delivery windows that feel dependable.',
+            style: TextStyle(color: Colors.white, height: 1.4),
+          ),
+          SizedBox(height: 18),
+          Row(
+            children: [
+              _HeroPill(label: 'Free delivery over ?499'),
+              SizedBox(width: 8),
+              _HeroPill(label: 'Live order tracking'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfferStrip() {
+    const offers = [
+      ('SAVE50', '?50 off above ?699'),
+      ('FREEDEL', 'Delivery fee waived above ?199'),
+      ('WELCOME100', '?100 off above ?999'),
+    ];
+
+    return SizedBox(
+      height: 54,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (_, index) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFF1D7CB)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.local_offer_outlined, color: AppTheme.primaryRed, size: 18),
+              const SizedBox(width: 8),
+              Text('${offers[index].$1}  ${offers[index].$2}'),
+            ],
+          ),
+        ),
+        separatorBuilder: (_, index) => const SizedBox(width: 8),
+        itemCount: offers.length,
+      ),
+    );
+  }
 }
+
+class _HeroPill extends StatelessWidget {
+  final String label;
+
+  const _HeroPill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+    );
+  }
+}
+

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../services/order_service.dart';
@@ -80,7 +80,7 @@ class DeliveryDashboardScreen extends StatelessWidget {
                     Expanded(
                       child: _buildStatCard(
                         'Earnings',
-                        '₹${completedToday * 50}',
+                        'â‚¹${completedToday * 50}',
                         Icons.currency_rupee,
                         AppTheme.warning,
                       ),
@@ -96,7 +96,7 @@ class DeliveryDashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Accept orders to start delivering',
+                  'Pick up ready orders and keep customers updated',
                   style: TextStyle(color: AppTheme.textMedium, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
@@ -125,16 +125,17 @@ class DeliveryDashboardScreen extends StatelessWidget {
                         order: order,
                         showActions: true,
                         onAccept: () {
+                          final nextStatus = order.status == OrderStatus.readyForPickup
+                              ? OrderStatus.outForDelivery
+                              : OrderStatus.delivered;
                           orderService.updateOrderStatus(
                             order.id,
-                            order.status == OrderStatus.readyForPickup
-                                ? OrderStatus.outForDelivery
-                                : OrderStatus.delivered,
+                            nextStatus,
                           );
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                order.status == OrderStatus.readyForPickup
+                                nextStatus == OrderStatus.outForDelivery
                                     ? 'Order picked up! Start delivering.'
                                     : 'Order marked as delivered!',
                               ),
@@ -188,3 +189,4 @@ class DeliveryDashboardScreen extends StatelessWidget {
     );
   }
 }
+

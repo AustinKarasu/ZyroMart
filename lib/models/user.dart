@@ -28,4 +28,32 @@ class AppUser {
     this.completedDeliveries,
     this.isOnline = true,
   });
+
+  AppUser copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? phone,
+    UserRole? role,
+    String? address,
+    LatLng? location,
+    String? profileImageUrl,
+    double? deliveryRating,
+    int? completedDeliveries,
+    bool? isOnline,
+  }) {
+    return AppUser(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      address: address ?? this.address,
+      location: location ?? this.location,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      deliveryRating: deliveryRating ?? this.deliveryRating,
+      completedDeliveries: completedDeliveries ?? this.completedDeliveries,
+      isOnline: isOnline ?? this.isOnline,
+    );
+  }
 }

@@ -93,6 +93,58 @@ class SupabaseService {
         .signInWithPassword(email: email, password: password);
   }
 
+  static Future<void> requestEmailOtp({
+    required String email,
+    required String userName,
+    required String role,
+  }) async {
+    await client.auth.signInWithOtp(
+      email: email,
+      data: {
+        'name': userName,
+        'role': role,
+      },
+    );
+  }
+
+  static Future<void> requestPhoneOtp({
+    required String phone,
+    required String userName,
+    required String role,
+    String? email,
+  }) async {
+    await client.auth.signInWithOtp(
+      phone: phone,
+      data: {
+        'name': userName,
+        'role': role,
+        if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+      },
+    );
+  }
+
+  static Future<AuthResponse> verifyEmailOtp({
+    required String email,
+    required String otpCode,
+  }) async {
+    return await client.auth.verifyOTP(
+      email: email,
+      token: otpCode,
+      type: OtpType.email,
+    );
+  }
+
+  static Future<AuthResponse> verifyPhoneOtp({
+    required String phone,
+    required String otpCode,
+  }) async {
+    return await client.auth.verifyOTP(
+      phone: phone,
+      token: otpCode,
+      type: OtpType.sms,
+    );
+  }
+
   static Future<void> signOut() async {
     await client.auth.signOut();
   }

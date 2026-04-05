@@ -3,27 +3,44 @@ import '../models/cart_item.dart';
 import '../models/product.dart';
 
 class CartService extends ChangeNotifier {
+  static const double freeDeliveryThreshold = 499;
+  static const double baseDeliveryFee = 29;
+  static const double platformFeeAmount = 7;
+  static const double handlingFeeAmount = 5;
+
   final List<CartItem> _items = [];
+  String? _appliedCoupon;
+  double _couponDiscount = 0;
+  double _deliveryTip = 0;
 
   List<CartItem> get items => List.unmodifiable(_items);
+  String? get appliedCoupon => _appliedCoupon;
+  double get deliveryTip => _deliveryTip;
+  double get platformFee => _items.isEmpty ? 0 : platformFeeAmount;
+  double get handlingFee => _items.isEmpty ? 0 : handlingFeeAmount;
+  double get couponDiscount => _couponDiscount;
 
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
 
-  double get totalAmount =>
-      _items.fold(0, (sum, item) => sum + item.totalPrice);
+  double get totalAmount => _items.fold(0, (sum, item) => sum + item.totalPrice);
 
-  double get deliveryFee => totalAmount > 500 ? 0 : 29;
+  double get deliveryFee => totalAmount >= freeDeliveryThreshold ? 0 : baseDeliveryFee;
 
-  double get grandTotal => totalAmount + deliveryFee;
+  double get grandTotal {
+    final total = totalAmount + deliveryFee + platformFee + handlingFee + deliveryTip - couponDiscount;
+    return total < 0 ? 0 : total;
+  }
 
   double get savings => _items.fold(0.0, (sum, item) {
         if (item.product.originalPrice != null) {
           return sum +
-              (item.product.originalPrice! - item.product.price) *
-                  item.quantity;
+              (item.product.originalPrice! - item.product.price) * item.quantity;
         }
         return sum;
       });
+
+  double get amountForFreeDelivery =>
+      totalAmount >= freeDeliveryThreshold ? 0 : (freeDeliveryThreshold - totalAmount);
 
   bool isInCart(String productId) {
     return _items.any((item) => item.product.id == productId);
@@ -35,8 +52,7 @@ class CartService extends ChangeNotifier {
   }
 
   void addItem(Product product) {
-    final existingIndex =
-        _items.indexWhere((item) => item.product.id == product.id);
+    final existingIndex = _items.indexWhere((item) => item.product.id == product.id);
     if (existingIndex >= 0) {
       _items[existingIndex].quantity++;
     } else {
@@ -84,6 +100,45 @@ class CartService extends ChangeNotifier {
 
   void clear() {
     _items.clear();
+    _deliveryTip = 0;
+    _appliedCoupon = null;
+    _couponDiscount = 0;
     notifyListeners();
+  }
+
+  void setDeliveryTip(double value) {
+    _deliveryTip = value;
+    notifyListeners();
+  }
+
+  String? applyCoupon(String rawCode) {
+    final code = rawCode.trim().toUpperCase();
+    if (code.isEmpty) {
+      _appliedCoupon = null;
+      _couponDiscount = 0;
+      notifyListeners();
+      return 'Enter a coupon code';
+    }
+
+    double? discount;
+    if (code == 'FREEDEL' && totalAmount >= 199) {
+      discount = deliveryFee;
+    } else if (code == 'SAVE50' && totalAmount >= 699) {
+      discount = 50;
+    } else if (code == 'WELCOME100' && totalAmount >= 999) {
+      discount = 100;
+    }
+
+    if (discount == null || discount <= 0) {
+      _appliedCoupon = null;
+      _couponDiscount = 0;
+      notifyListeners();
+      return 'Coupon is invalid for this cart';
+    }
+
+    _appliedCoupon = code;
+    _couponDiscount = discount;
+    notifyListeners();
+    return null;
   }
 }

@@ -203,7 +203,7 @@ class DeliveryDetailScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(currentOrder.customerName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  const Text('Customer', style: TextStyle(color: AppTheme.textMedium, fontSize: 12)),
+                                  Text(currentOrder.customerPhone, style: const TextStyle(color: AppTheme.textMedium, fontSize: 12)),
                                 ],
                               ),
                             ),

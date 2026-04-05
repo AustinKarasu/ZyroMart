@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/order_service.dart';
 import '../../services/mock_data.dart';
@@ -48,7 +48,7 @@ class StoreDashboardScreen extends StatelessWidget {
                 Expanded(
                   child: _buildStatCard(
                     'Revenue',
-                    '₹${store.totalRevenue.toInt()}',
+                    'â‚¹${store.totalRevenue.toInt()}',
                     Icons.currency_rupee,
                     AppTheme.success,
                   ),
@@ -128,9 +128,11 @@ class StoreDashboardScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text('${order.itemCount} items • ₹${order.grandTotal.toInt()}', style: TextStyle(color: AppTheme.textMedium)),
+                        Text('${order.itemCount} items â€¢ â‚¹${order.grandTotal.toInt()}', style: TextStyle(color: AppTheme.textMedium)),
                         const SizedBox(height: 4),
                         Text(order.customerName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 2),
+                        Text(order.customerPhone, style: const TextStyle(color: AppTheme.textMedium, fontSize: 12)),
                         const SizedBox(height: 4),
                         Text(order.deliveryAddress, style: TextStyle(color: AppTheme.textLight, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ],
@@ -201,3 +203,4 @@ class StoreDashboardScreen extends StatelessWidget {
     );
   }
 }
+

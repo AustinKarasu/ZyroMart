@@ -3,6 +3,7 @@ import '../models/product.dart';
 import '../services/cart_service.dart';
 import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
+import 'app_image.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -33,18 +34,11 @@ class ProductCard extends StatelessWidget {
               flex: 3,
               child: Stack(
                 children: [
-                  ClipRRect(
+                  AppImage(
+                    imageUrl: product.imageUrl,
+                    width: double.infinity,
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Image.network(
-                      product.imageUrl,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.image, size: 40, color: Colors.grey),
-                      ),
-                    ),
                   ),
                   if (product.discount > 0)
                     Positioned(

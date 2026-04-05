@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/mock_data.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_image.dart';
 
 class StoreProductsScreen extends StatefulWidget {
   const StoreProductsScreen({super.key});
@@ -10,6 +11,8 @@ class StoreProductsScreen extends StatefulWidget {
 }
 
 class _StoreProductsScreenState extends State<StoreProductsScreen> {
+  static const int _maxProductNameLength = 80;
+  static const int _maxUnitLength = 20;
   String _selectedCategory = 'all';
   String _searchQuery = '';
 
@@ -92,20 +95,11 @@ class _StoreProductsScreenState extends State<StoreProductsScreen> {
                   ),
                   child: Row(
                     children: [
-                      ClipRRect(
+                      AppImage(
+                        imageUrl: product.imageUrl,
+                        width: 60,
+                        height: 60,
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          product.imageUrl,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 60,
-                            height: 60,
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.image, color: Colors.grey),
-                          ),
-                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -230,33 +224,72 @@ class _StoreProductsScreenState extends State<StoreProductsScreen> {
   }
 
   void _showAddProductDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+    final unitController = TextEditingController();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Add Product'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(decoration: InputDecoration(labelText: 'Product Name')),
-            SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(labelText: 'Price'),
-              keyboardType: TextInputType.number,
+              controller: nameController,
+              textCapitalization: TextCapitalization.words,
+              maxLength: _maxProductNameLength,
+              decoration: const InputDecoration(labelText: 'Product Name'),
             ),
-            SizedBox(height: 12),
-            TextField(decoration: InputDecoration(labelText: 'Unit (e.g., kg, piece)')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(labelText: 'Price'),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: unitController,
+              maxLength: _maxUnitLength,
+              decoration: const InputDecoration(labelText: 'Unit (e.g., kg, piece)'),
+            ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              final name = nameController.text.trim();
+              final unit = unitController.text.trim();
+              final price = double.tryParse(priceController.text.trim());
+
+              if (name.isEmpty || name.length < 2) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid product name')),
+                );
+                return;
+              }
+
+              if (price == null || price <= 0 || price > 100000) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid product price')),
+                );
+                return;
+              }
+
+              if (unit.isEmpty) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid product unit')),
+                );
+                return;
+              }
+
+              Navigator.pop(dialogContext);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Product added successfully!')),
+                const SnackBar(content: Text('Product input validated successfully')),
               );
             },
             child: const Text('Add'),

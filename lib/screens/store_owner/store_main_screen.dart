@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
-import '../role_selection_screen.dart';
 import 'store_dashboard_screen.dart';
 import 'store_products_screen.dart';
 import 'store_orders_screen.dart';
@@ -96,7 +95,6 @@ class _StoreSettingsScreen extends StatelessWidget {
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
             onTap: () {
               auth.logout();
-              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const RoleSelectionScreen()), (route) => false);
             },
             tileColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

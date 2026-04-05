@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
-import '../role_selection_screen.dart';
 import 'customer_home_screen.dart';
 import 'customer_orders_screen.dart';
 
@@ -96,19 +95,9 @@ class _CustomerProfileScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _buildMenuItem(Icons.swap_horiz, 'Switch Role', () {
             auth.logout();
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-              (route) => false,
-            );
           }),
           _buildMenuItem(Icons.logout, 'Logout', () {
             auth.logout();
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-              (route) => false,
-            );
           }, isDestructive: true),
         ],
       ),

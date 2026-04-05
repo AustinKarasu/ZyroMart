@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../services/cart_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_image.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   final Product product;
@@ -24,12 +25,9 @@ class ProductDetailScreen extends StatelessWidget {
               width: double.infinity,
               height: 300,
               color: Colors.white,
-              child: Image.network(
-                product.imageUrl,
+              child: AppImage(
+                imageUrl: product.imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Center(
-                  child: Icon(Icons.image, size: 80, color: Colors.grey),
-                ),
               ),
             ),
             Padding(
