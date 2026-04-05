@@ -6,6 +6,6 @@ class SupabaseConfig {
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'sb_publishable_W2vck9WcUzGx5y3uzU2oTA_shmUEoJP',
+    defaultValue: 'sb_publishable_W2vck9WcUzGxSy3uzU2oTA_shmUEoJP',
   );
 }
