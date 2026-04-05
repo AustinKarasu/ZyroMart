@@ -34,6 +34,15 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  static Future<List<Map<String, dynamic>>> getCategories() async {
+    if (!isInitialized) return [];
+    final response = await client
+        .from('categories')
+        .select()
+        .order('sort_order', ascending: true);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   static Future<void> addProduct(Map<String, dynamic> product) async {
     if (!isInitialized) return;
     await client.from('products').insert(product);
@@ -80,6 +89,36 @@ class SupabaseService {
     if (!isInitialized) return [];
     final response = await client.from('stores').select();
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<Map<String, dynamic>?> getMyProfile() async {
+    if (!isInitialized || currentUser == null) return null;
+    final response = await client
+        .from('profiles')
+        .select()
+        .eq('id', currentUser!.id)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<void> upsertProfile(Map<String, dynamic> profile) async {
+    if (!isInitialized) return;
+    await client.from('profiles').upsert(profile);
+  }
+
+  static Future<void> updateAccount({
+    String? email,
+    String? password,
+    Map<String, dynamic>? data,
+  }) async {
+    if (!isInitialized) return;
+    await client.auth.updateUser(
+      UserAttributes(
+        email: email,
+        password: password,
+        data: data,
+      ),
+    );
   }
 
   // ─── Users / Auth ────────────────────────────────────────

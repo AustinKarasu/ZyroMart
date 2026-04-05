@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../models/user.dart';
 import 'mock_data.dart';
 import 'supabase_service.dart';
@@ -13,6 +15,7 @@ class AuthService extends ChangeNotifier {
   String? _pendingName;
   String? _errorMessage;
   String? _statusMessage;
+  bool _isPasswordLogin = false;
 
   AppUser? get currentUser => _currentUser;
   UserRole? get selectedRole => _selectedRole;
@@ -24,32 +27,22 @@ class AuthService extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get statusMessage => _statusMessage;
   bool get canUseSupabaseAuth => SupabaseService.isInitialized;
+  bool get isPasswordLogin => _isPasswordLogin;
 
   Future<void> initialize() async {
-    if (!SupabaseService.isInitialized) {
-      return;
-    }
-
-    final sessionUser = SupabaseService.currentUser;
-    if (sessionUser == null) {
-      return;
-    }
-
-    final role = _selectedRole ?? _inferRoleFromEmail(sessionUser.email ?? '');
-    _currentUser = _buildUser(
-      email: sessionUser.email ?? _fallbackEmailForPhone(sessionUser.phone ?? '+910000000000'),
-      phone: sessionUser.phone ?? MockData.defaultCustomer.phone,
-      name: sessionUser.userMetadata?['name']?.toString(),
-      role: role,
-    );
-    _selectedRole = role;
-    notifyListeners();
+    if (!SupabaseService.isInitialized) return;
+    await _hydrateCurrentUser();
   }
 
   void selectRole(UserRole role) {
     _selectedRole = role;
-    _errorMessage = null;
-    _statusMessage = null;
+    _clearMessages();
+    notifyListeners();
+  }
+
+  void setPasswordMode(bool value) {
+    _isPasswordLogin = value;
+    _clearMessages();
     notifyListeners();
   }
 
@@ -60,8 +53,7 @@ class AuthService extends ChangeNotifier {
     required UserRole role,
   }) async {
     _isLoading = true;
-    _errorMessage = null;
-    _statusMessage = null;
+    _clearMessages();
     _selectedRole = role;
     _pendingPhone = _normalizePhone(phone);
     _pendingEmail = email?.trim().toLowerCase();
@@ -74,16 +66,15 @@ class AuthService extends ChangeNotifier {
         return false;
       }
       if (!canUseSupabaseAuth) {
-        _errorMessage =
-            'Supabase auth is not configured. Add a valid SUPABASE_ANON_KEY and enable phone auth.';
+        _errorMessage = 'Supabase auth is not configured.';
         return false;
       }
 
       await SupabaseService.requestPhoneOtp(
         phone: _pendingPhone!,
         email: _pendingEmail,
-        userName: _pendingName!,
-        role: role.name,
+        userName: _pendingName!.isEmpty ? 'ZyroMart User' : _pendingName!,
+        role: _roleToDb(role),
       );
 
       _statusMessage = 'OTP sent to $_pendingPhone';
@@ -106,32 +97,139 @@ class AuthService extends ChangeNotifier {
     }
 
     _isLoading = true;
-    _errorMessage = null;
-    _statusMessage = null;
+    _clearMessages();
     notifyListeners();
 
     try {
-      if (!canUseSupabaseAuth) {
-        _errorMessage =
-            'Supabase auth is not configured. Real OTP verification is unavailable.';
-        return false;
-      }
-
       await SupabaseService.verifyPhoneOtp(
         phone: _pendingPhone!,
         otpCode: otpCode.trim(),
       );
-
-      _currentUser = _buildUser(
-        email: _pendingEmail ?? _fallbackEmailForPhone(_pendingPhone!),
-        phone: _pendingPhone!,
-        name: _pendingName,
+      await _upsertCurrentProfile(
         role: _selectedRole!,
+        phone: _pendingPhone!,
+        email: _pendingEmail,
+        name: _pendingName,
+      );
+      await _hydrateCurrentUser(
+        fallbackRole: _selectedRole,
+        fallbackName: _pendingName,
+        fallbackPhone: _pendingPhone,
+        fallbackEmail: _pendingEmail,
       );
       _otpRequested = false;
+      _statusMessage = 'Logged in successfully';
       return true;
     } catch (error) {
       _errorMessage = _friendlyOtpError(error, isVerification: true);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> signInWithPassword({
+    required String email,
+    required String password,
+    required UserRole role,
+  }) async {
+    _isLoading = true;
+    _clearMessages();
+    _selectedRole = role;
+    notifyListeners();
+
+    try {
+      await SupabaseService.signIn(email.trim().toLowerCase(), password);
+      await _hydrateCurrentUser(fallbackRole: role, fallbackEmail: email.trim().toLowerCase());
+      _statusMessage = 'Signed in successfully';
+      return true;
+    } catch (error) {
+      _errorMessage = 'Could not sign in. ${error.toString()}';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> setupEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    if (!canUseSupabaseAuth || SupabaseService.currentUser == null) {
+      _errorMessage = 'Log in first before setting email and password.';
+      notifyListeners();
+      return false;
+    }
+
+    _isLoading = true;
+    _clearMessages();
+    notifyListeners();
+
+    try {
+      final normalizedEmail = email.trim().toLowerCase();
+      await SupabaseService.updateAccount(
+        email: normalizedEmail,
+        password: password,
+        data: {
+          'name': _currentUser?.name,
+          'role': _roleToDb(_currentUser?.role ?? UserRole.customer),
+        },
+      );
+      await _upsertCurrentProfile(
+        role: _currentUser?.role ?? UserRole.customer,
+        phone: _currentUser?.phone ?? '',
+        email: normalizedEmail,
+        name: _currentUser?.name,
+      );
+      await _hydrateCurrentUser(
+        fallbackRole: _currentUser?.role,
+        fallbackName: _currentUser?.name,
+        fallbackPhone: _currentUser?.phone,
+        fallbackEmail: normalizedEmail,
+      );
+      _statusMessage = 'Email and password updated. You can now use password login.';
+      return true;
+    } catch (error) {
+      _errorMessage = 'Could not save password login. ${error.toString()}';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateProfile({
+    required String name,
+    required String email,
+    required String address,
+    required UserRole role,
+  }) async {
+    if (_currentUser == null) return false;
+
+    _isLoading = true;
+    _clearMessages();
+    notifyListeners();
+
+    try {
+      await _upsertCurrentProfile(
+        role: role,
+        phone: _currentUser!.phone,
+        email: email.trim().toLowerCase(),
+        name: name.trim(),
+        address: address.trim(),
+      );
+      await _hydrateCurrentUser(
+        fallbackRole: role,
+        fallbackName: name.trim(),
+        fallbackPhone: _currentUser!.phone,
+        fallbackEmail: email.trim().toLowerCase(),
+      );
+      _statusMessage = 'Profile saved';
+      return true;
+    } catch (error) {
+      _errorMessage = 'Could not update profile. ${error.toString()}';
       return false;
     } finally {
       _isLoading = false;
@@ -149,36 +247,113 @@ class AuthService extends ChangeNotifier {
     _pendingPhone = null;
     _pendingEmail = null;
     _pendingName = null;
-    _errorMessage = null;
-    _statusMessage = null;
+    _clearMessages();
     notifyListeners();
   }
 
-  AppUser _buildUser({
-    required String email,
-    required String phone,
-    String? name,
+  Future<void> _hydrateCurrentUser({
+    UserRole? fallbackRole,
+    String? fallbackName,
+    String? fallbackPhone,
+    String? fallbackEmail,
+  }) async {
+    final sessionUser = SupabaseService.currentUser;
+    if (sessionUser == null) return;
+
+    final profile = await SupabaseService.getMyProfile();
+    final dbRole = (profile?['role'] ?? sessionUser.userMetadata?['role'] ?? '').toString();
+    final role = _roleFromDb(dbRole.isEmpty ? null : dbRole) ??
+        fallbackRole ??
+        _inferRoleFromEmail(sessionUser.email ?? fallbackEmail ?? '');
+
+    final phone = (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? MockData.defaultCustomer.phone).toString();
+    final email = (profile?['email'] ??
+            sessionUser.email ??
+            fallbackEmail ??
+            _fallbackEmailForPhone(phone))
+        .toString();
+
+    _currentUser = AppUser(
+      id: sessionUser.id,
+      name: (profile?['name'] ??
+              sessionUser.userMetadata?['name'] ??
+              fallbackName ??
+              'ZyroMart User')
+          .toString(),
+      email: email,
+      phone: phone,
+      role: role,
+      address: (profile?['address'] ?? '').toString(),
+      location: LatLng(
+        ((profile?['latitude'] ?? _fallbackLocation(role).latitude) as num).toDouble(),
+        ((profile?['longitude'] ?? _fallbackLocation(role).longitude) as num).toDouble(),
+      ),
+      profileImageUrl: profile?['profile_image_url']?.toString(),
+      deliveryRating: profile?['delivery_rating'] == null
+          ? null
+          : ((profile?['delivery_rating']) as num).toDouble(),
+      completedDeliveries: profile?['completed_deliveries'] as int?,
+      isOnline: profile?['is_online'] ?? true,
+    );
+    _selectedRole = role;
+  }
+
+  Future<void> _upsertCurrentProfile({
     required UserRole role,
-  }) {
+    required String phone,
+    String? email,
+    String? name,
+    String? address,
+  }) async {
+    final sessionUser = SupabaseService.currentUser;
+    if (sessionUser == null) return;
+
+    final fallback = _fallbackLocation(role);
+    await SupabaseService.upsertProfile({
+      'id': sessionUser.id,
+      'name': (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
+      'email': (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone)).toString(),
+      'phone': phone,
+      'role': _roleToDb(role),
+      'address': address ?? _currentUser?.address ?? '',
+      'latitude': _currentUser?.location.latitude ?? fallback.latitude,
+      'longitude': _currentUser?.location.longitude ?? fallback.longitude,
+      'is_online': _currentUser?.isOnline ?? true,
+    });
+  }
+
+  LatLng _fallbackLocation(UserRole role) {
     switch (role) {
       case UserRole.customer:
-        return MockData.defaultCustomer.copyWith(
-          email: email,
-          phone: phone,
-          name: name,
-        );
+        return MockData.defaultCustomer.location;
       case UserRole.storeOwner:
-        return MockData.defaultStoreOwner.copyWith(
-          email: email,
-          phone: phone,
-          name: name,
-        );
+        return MockData.defaultStoreOwner.location;
       case UserRole.delivery:
-        return MockData.deliveryPersons.first.copyWith(
-          email: email,
-          phone: phone,
-          name: name,
-        );
+        return MockData.deliveryPersons.first.location;
+    }
+  }
+
+  UserRole? _roleFromDb(String? value) {
+    switch (value) {
+      case 'customer':
+        return UserRole.customer;
+      case 'store_owner':
+        return UserRole.storeOwner;
+      case 'delivery':
+        return UserRole.delivery;
+      default:
+        return null;
+    }
+  }
+
+  String _roleToDb(UserRole role) {
+    switch (role) {
+      case UserRole.customer:
+        return 'customer';
+      case UserRole.storeOwner:
+        return 'store_owner';
+      case UserRole.delivery:
+        return 'delivery';
     }
   }
 
@@ -194,18 +369,9 @@ class AuthService extends ChangeNotifier {
 
   String? _normalizePhone(String input) {
     final trimmed = input.trim().replaceAll(' ', '');
-    if (trimmed.length < 10) {
-      return null;
-    }
-
-    if (trimmed.startsWith('+')) {
-      return trimmed;
-    }
-
-    if (trimmed.length == 10) {
-      return '+91$trimmed';
-    }
-
+    if (trimmed.length < 10) return null;
+    if (trimmed.startsWith('+')) return trimmed;
+    if (trimmed.length == 10) return '+91$trimmed';
     return '+$trimmed';
   }
 
@@ -214,25 +380,27 @@ class AuthService extends ChangeNotifier {
     return 'user$digits@zyromart.app';
   }
 
+  void _clearMessages() {
+    _errorMessage = null;
+    _statusMessage = null;
+  }
+
   String _friendlyOtpError(Object error, {bool isVerification = false}) {
     final message = error.toString();
     final lowered = message.toLowerCase();
 
+    if (lowered.contains('invalid api key')) {
+      return 'Supabase publishable key is invalid. Install the latest app build.';
+    }
     if (lowered.contains('sms') &&
         (lowered.contains('not enabled') ||
             lowered.contains('not configured') ||
             lowered.contains('provider'))) {
-      return 'Supabase phone auth is not fully configured. Enable Phone login and an SMS provider in Supabase Auth.';
+      return 'Supabase phone auth is not fully configured. Enable Phone and your SMS provider.';
     }
-
-    if (lowered.contains('anonymous sign-ins are disabled')) {
-      return 'Auth is misconfigured in Supabase. Check the project auth settings.';
-    }
-
     if (lowered.contains('invalid phone')) {
       return 'Enter a valid phone number in international format, for example +919876543210.';
     }
-
     if (lowered.contains('expired') || lowered.contains('token')) {
       return isVerification
           ? 'The OTP is invalid or expired. Request a new code and try again.'

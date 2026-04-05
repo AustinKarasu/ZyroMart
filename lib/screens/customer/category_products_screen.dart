@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../models/category.dart';
-import '../../services/mock_data.dart';
+import '../../services/catalog_service.dart';
 import '../../widgets/product_card.dart';
 import 'product_detail_screen.dart';
 
@@ -11,9 +13,7 @@ class CategoryProductsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final products = MockData.products
-        .where((p) => p.categoryId == category.id)
-        .toList();
+    final products = context.watch<CatalogService>().products.where((p) => p.categoryId == category.id).toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(category.name)),
@@ -24,10 +24,7 @@ class CategoryProductsScreen extends StatelessWidget {
                 children: [
                   Icon(category.icon, size: 64, color: Colors.grey[300]),
                   const SizedBox(height: 16),
-                  Text(
-                    'No products available',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 16),
-                  ),
+                  Text('No products available', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
                 ],
               ),
             )
@@ -44,12 +41,7 @@ class CategoryProductsScreen extends StatelessWidget {
                 final product = products[index];
                 return ProductCard(
                   product: product,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: product),
-                    ),
-                  ),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product))),
                 );
               },
             ),

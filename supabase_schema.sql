@@ -432,3 +432,331 @@ CREATE POLICY "Assigned delivery update tracking" ON delivery_tracking FOR UPDAT
 
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE delivery_tracking;
+
+-- Backend foundation: admin, payouts, ratings, notifications, radius, recommendations
+
+CREATE TABLE IF NOT EXISTS platform_admins (
+  user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  access_level TEXT NOT NULL DEFAULT 'admin'
+    CHECK (access_level IN ('admin', 'super_admin', 'support')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS payout_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  account_type TEXT NOT NULL CHECK (account_type IN ('bank', 'upi')),
+  account_holder_name TEXT NOT NULL,
+  bank_name TEXT,
+  account_last4 TEXT,
+  ifsc_code TEXT,
+  upi_id TEXT,
+  provider_name TEXT DEFAULT 'manual_settlement',
+  verification_status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (verification_status IN ('pending', 'verified', 'failed')),
+  is_primary BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS earnings_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  beneficiary_user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  beneficiary_role TEXT NOT NULL
+    CHECK (beneficiary_role IN ('platform', 'store_owner', 'delivery')),
+  entry_type TEXT NOT NULL
+    CHECK (entry_type IN ('commission_hold', 'commission_release', 'delivery_fee_hold', 'delivery_fee_release', 'store_sale_hold', 'store_sale_release', 'refund', 'adjustment')),
+  gross_amount DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (gross_amount >= 0),
+  commission_amount DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (commission_amount >= 0),
+  net_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+  settlement_state TEXT NOT NULL DEFAULT 'held'
+    CHECK (settlement_state IN ('held', 'pending_payout', 'paid_out', 'reversed')),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS payouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payout_account_id UUID REFERENCES payout_accounts(id) ON DELETE SET NULL,
+  beneficiary_user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  payout_provider TEXT NOT NULL DEFAULT 'manual_settlement',
+  payout_reference TEXT,
+  amount DOUBLE PRECISION NOT NULL CHECK (amount >= 0),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'processing', 'paid', 'failed', 'cancelled')),
+  triggered_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS delivery_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  delivery_person_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  feedback_text TEXT,
+  tags TEXT[] DEFAULT ARRAY[]::TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  order_updates BOOLEAN DEFAULT TRUE,
+  marketing_updates BOOLEAN DEFAULT TRUE,
+  recommendations BOOLEAN DEFAULT TRUE,
+  earnings_alerts BOOLEAN DEFAULT TRUE,
+  account_alerts BOOLEAN DEFAULT TRUE,
+  quiet_hours_start TIME,
+  quiet_hours_end TIME,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  category TEXT NOT NULL
+    CHECK (category IN ('order', 'promotion', 'earning', 'system', 'recommendation')),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  action_type TEXT DEFAULT 'none'
+    CHECK (action_type IN ('none', 'open_order', 'open_cart', 'open_product', 'open_wallet')),
+  action_target TEXT,
+  is_read BOOLEAN DEFAULT FALSE,
+  delivered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS store_service_areas (
+  store_id UUID PRIMARY KEY REFERENCES stores(id) ON DELETE CASCADE,
+  radius_km DOUBLE PRECISION NOT NULL DEFAULT 5 CHECK (radius_km > 0),
+  minimum_order_amount DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (minimum_order_amount >= 0),
+  is_active BOOLEAN DEFAULT TRUE,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_activity_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL
+    CHECK (event_type IN ('view_product', 'add_to_cart', 'remove_from_cart', 'place_order', 'repeat_order', 'search', 'open_notification')),
+  event_value TEXT,
+  budget_hint DOUBLE PRECISION,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS product_recommendations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  recommendation_reason TEXT NOT NULL,
+  score DOUBLE PRECISION NOT NULL DEFAULT 0,
+  valid_until TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, product_id, recommendation_reason)
+);
+
+CREATE TABLE IF NOT EXISTS platform_daily_metrics (
+  metric_date DATE PRIMARY KEY,
+  gross_merchandise_value DOUBLE PRECISION NOT NULL DEFAULT 0,
+  platform_commission_earned DOUBLE PRECISION NOT NULL DEFAULT 0,
+  delivery_payout_due DOUBLE PRECISION NOT NULL DEFAULT 0,
+  store_payout_due DOUBLE PRECISION NOT NULL DEFAULT 0,
+  completed_orders INTEGER NOT NULL DEFAULT 0,
+  cancelled_orders INTEGER NOT NULL DEFAULT 0,
+  active_customers INTEGER NOT NULL DEFAULT 0,
+  active_delivery_partners INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payout_accounts_user ON payout_accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_earnings_ledger_order ON earnings_ledger(order_id);
+CREATE INDEX IF NOT EXISTS idx_earnings_ledger_beneficiary ON earnings_ledger(beneficiary_user_id, settlement_state);
+CREATE INDEX IF NOT EXISTS idx_payouts_beneficiary ON payouts(beneficiary_user_id, status);
+CREATE INDEX IF NOT EXISTS idx_delivery_feedback_delivery ON delivery_feedback(delivery_person_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_activity_events_user ON user_activity_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_product_recommendations_user ON product_recommendations(user_id, score DESC);
+
+DROP TRIGGER IF EXISTS set_payout_accounts_updated_at ON payout_accounts;
+CREATE TRIGGER set_payout_accounts_updated_at
+BEFORE UPDATE ON payout_accounts
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_payouts_updated_at ON payouts;
+CREATE TRIGGER set_payouts_updated_at
+BEFORE UPDATE ON payouts
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_notification_preferences_updated_at ON notification_preferences;
+CREATE TRIGGER set_notification_preferences_updated_at
+BEFORE UPDATE ON notification_preferences
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_store_service_areas_updated_at ON store_service_areas;
+CREATE TRIGGER set_store_service_areas_updated_at
+BEFORE UPDATE ON store_service_areas
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_platform_daily_metrics_updated_at ON platform_daily_metrics;
+CREATE TRIGGER set_platform_daily_metrics_updated_at
+BEFORE UPDATE ON platform_daily_metrics
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE platform_admins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payout_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE earnings_ledger ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE store_service_areas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_activity_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_recommendations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_daily_metrics ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE platform_admins FORCE ROW LEVEL SECURITY;
+ALTER TABLE payout_accounts FORCE ROW LEVEL SECURITY;
+ALTER TABLE earnings_ledger FORCE ROW LEVEL SECURITY;
+ALTER TABLE payouts FORCE ROW LEVEL SECURITY;
+ALTER TABLE delivery_feedback FORCE ROW LEVEL SECURITY;
+ALTER TABLE notification_preferences FORCE ROW LEVEL SECURITY;
+ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
+ALTER TABLE store_service_areas FORCE ROW LEVEL SECURITY;
+ALTER TABLE user_activity_events FORCE ROW LEVEL SECURITY;
+ALTER TABLE product_recommendations FORCE ROW LEVEL SECURITY;
+ALTER TABLE platform_daily_metrics FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins read platform admins" ON platform_admins;
+DROP POLICY IF EXISTS "Users manage own payout accounts" ON payout_accounts;
+DROP POLICY IF EXISTS "Admins manage payout accounts" ON payout_accounts;
+DROP POLICY IF EXISTS "Users read own earnings ledger" ON earnings_ledger;
+DROP POLICY IF EXISTS "Admins manage earnings ledger" ON earnings_ledger;
+DROP POLICY IF EXISTS "Users read own payouts" ON payouts;
+DROP POLICY IF EXISTS "Admins manage payouts" ON payouts;
+DROP POLICY IF EXISTS "Users read related feedback" ON delivery_feedback;
+DROP POLICY IF EXISTS "Customers insert delivery feedback" ON delivery_feedback;
+DROP POLICY IF EXISTS "Users manage own notification preferences" ON notification_preferences;
+DROP POLICY IF EXISTS "Users read own notifications" ON notifications;
+DROP POLICY IF EXISTS "Admins insert notifications" ON notifications;
+DROP POLICY IF EXISTS "Users update own notifications" ON notifications;
+DROP POLICY IF EXISTS "Public read service areas" ON store_service_areas;
+DROP POLICY IF EXISTS "Owners manage service areas" ON store_service_areas;
+DROP POLICY IF EXISTS "Users insert own activity events" ON user_activity_events;
+DROP POLICY IF EXISTS "Users read own activity events" ON user_activity_events;
+DROP POLICY IF EXISTS "Users read own recommendations" ON product_recommendations;
+DROP POLICY IF EXISTS "Admins manage recommendations" ON product_recommendations;
+DROP POLICY IF EXISTS "Admins read daily metrics" ON platform_daily_metrics;
+DROP POLICY IF EXISTS "Admins manage daily metrics" ON platform_daily_metrics;
+
+CREATE POLICY "Admins read platform admins" ON platform_admins FOR SELECT
+  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Users manage own payout accounts" ON payout_accounts FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins manage payout accounts" ON payout_accounts FOR ALL
+  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Users read own earnings ledger" ON earnings_ledger FOR SELECT
+  USING (
+    auth.uid() = beneficiary_user_id
+    OR (beneficiary_role = 'platform' AND EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+  );
+
+CREATE POLICY "Admins manage earnings ledger" ON earnings_ledger FOR ALL
+  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Users read own payouts" ON payouts FOR SELECT
+  USING (auth.uid() = beneficiary_user_id);
+
+CREATE POLICY "Admins manage payouts" ON payouts FOR ALL
+  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Users read related feedback" ON delivery_feedback FOR SELECT
+  USING (
+    auth.uid() = customer_id
+    OR auth.uid() = delivery_person_id
+    OR EXISTS (
+      SELECT 1 FROM orders
+      JOIN stores ON stores.id = orders.store_id
+      WHERE orders.id = delivery_feedback.order_id
+        AND stores.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Customers insert delivery feedback" ON delivery_feedback FOR INSERT
+  WITH CHECK (
+    auth.uid() = customer_id
+    AND EXISTS (
+      SELECT 1 FROM orders
+      WHERE orders.id = delivery_feedback.order_id
+        AND orders.customer_id = auth.uid()
+        AND orders.delivery_person_id = delivery_feedback.delivery_person_id
+        AND orders.status = 'delivered'
+    )
+  );
+
+CREATE POLICY "Users manage own notification preferences" ON notification_preferences FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users read own notifications" ON notifications FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users update own notifications" ON notifications FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins insert notifications" ON notifications FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Public read service areas" ON store_service_areas FOR SELECT
+  USING (true);
+
+CREATE POLICY "Owners manage service areas" ON store_service_areas FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = store_service_areas.store_id
+        AND stores.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = store_service_areas.store_id
+        AND stores.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users insert own activity events" ON user_activity_events FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users read own activity events" ON user_activity_events FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users read own recommendations" ON product_recommendations FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Admins manage recommendations" ON product_recommendations FOR ALL
+  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Admins read daily metrics" ON platform_daily_metrics FOR SELECT
+  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Admins manage daily metrics" ON platform_daily_metrics FOR ALL
+  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));

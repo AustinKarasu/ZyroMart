@@ -3,14 +3,13 @@ import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/cart_service.dart';
+import 'services/catalog_service.dart';
 import 'services/order_service.dart';
 import 'services/supabase_service.dart';
-import 'screens/auth/auth_gate.dart';
+import 'screens/auth/animated_splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize Supabase if credentials are configured.
-  // Falls back to mock data if not available.
   try {
     await SupabaseService.initialize();
   } catch (e) {
@@ -28,6 +27,7 @@ class ZyroMartApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()..initialize()),
         ChangeNotifierProvider(create: (_) => CartService()),
+        ChangeNotifierProvider(create: (_) => CatalogService()..load()),
         ChangeNotifierProxyProvider<AuthService, OrderService>(
           create: (_) => OrderService(),
           update: (_, auth, orderService) => orderService!..bindUser(auth.currentUser),
@@ -37,7 +37,7 @@ class ZyroMartApp extends StatelessWidget {
         title: 'ZyroMart',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
-        home: const AuthGate(),
+        home: const AnimatedSplashScreen(),
       ),
     );
   }
