@@ -16,6 +16,10 @@ class Order {
   final List<CartItem> items;
   final double totalAmount;
   final double deliveryFee;
+  final double platformFee;
+  final double handlingFee;
+  final double deliveryTip;
+  final double couponDiscount;
   OrderStatus status;
   final String customerId;
   final String customerName;
@@ -31,12 +35,17 @@ class Order {
   final LatLng storeLocation;
   LatLng? deliveryPersonLocation;
   final String? notes;
+  final String paymentMethod;
 
   Order({
     required this.id,
     required this.items,
     required this.totalAmount,
     this.deliveryFee = 29.0,
+    this.platformFee = 0,
+    this.handlingFee = 0,
+    this.deliveryTip = 0,
+    this.couponDiscount = 0,
     this.status = OrderStatus.placed,
     required this.customerId,
     required this.customerName,
@@ -52,9 +61,11 @@ class Order {
     required this.storeLocation,
     this.deliveryPersonLocation,
     this.notes,
+    this.paymentMethod = 'cod',
   });
 
-  double get grandTotal => totalAmount + deliveryFee;
+  double get grandTotal =>
+      totalAmount + deliveryFee + platformFee + handlingFee + deliveryTip - couponDiscount;
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
 

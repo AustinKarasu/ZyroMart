@@ -1,37 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/order.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 
-class OrderTrackingScreen extends StatelessWidget {
+class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
 
   const OrderTrackingScreen({super.key, required this.orderId});
 
   @override
+  State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
+}
+
+class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  bool _showingRatingSheet = false;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Order #$orderId')),
+      backgroundColor: const Color(0xFFF6F7F2),
+      appBar: AppBar(title: Text('Order #${widget.orderId}')),
       body: Consumer<OrderService>(
         builder: (context, orderService, _) {
-          final order = orderService.getOrder(orderId);
+          final order = orderService.getOrder(widget.orderId);
           if (order == null) {
             return const Center(child: Text('Order not found'));
           }
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!_showingRatingSheet &&
+                orderService.shouldPromptCustomerForRating(order.id) &&
+                mounted) {
+              _showingRatingSheet = true;
+              orderService.markCustomerPromptSeen(order.id);
+              _showRatingSheet(context, orderService, order).whenComplete(() {
+                _showingRatingSheet = false;
+              });
+            }
+          });
+
           return Column(
             children: [
-              // Map
-              Expanded(
-                flex: 3,
-                child: _buildMap(order),
-              ),
-              // Order details
+              Expanded(flex: 3, child: _buildMap(order)),
               Expanded(
                 flex: 4,
                 child: SingleChildScrollView(
-                  child: _buildOrderDetails(order),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _buildStatusPanel(order),
+                      const SizedBox(height: 14),
+                      if (order.deliveryPersonName != null)
+                        _buildPartnerCard(order, orderService),
+                      if (order.deliveryPersonName != null)
+                        const SizedBox(height: 14),
+                      _buildAddressCard(order),
+                      const SizedBox(height: 14),
+                      _buildItemsCard(order),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -43,14 +73,12 @@ class OrderTrackingScreen extends StatelessWidget {
 
   Widget _buildMap(Order order) {
     final markers = <Marker>[
-      // Store location
       Marker(
         point: order.storeLocation,
         width: 40,
         height: 40,
         child: const Icon(Icons.store, color: AppTheme.primaryRed, size: 36),
       ),
-      // Customer location
       Marker(
         point: order.customerLocation,
         width: 40,
@@ -59,7 +87,6 @@ class OrderTrackingScreen extends StatelessWidget {
       ),
     ];
 
-    // Delivery person location
     if (order.deliveryPersonLocation != null &&
         order.status == OrderStatus.outForDelivery) {
       markers.add(
@@ -72,12 +99,6 @@ class OrderTrackingScreen extends StatelessWidget {
               color: AppTheme.primaryRed,
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                ),
-              ],
             ),
             child: const Icon(Icons.delivery_dining,
                 color: Colors.white, size: 24),
@@ -86,11 +107,9 @@ class OrderTrackingScreen extends StatelessWidget {
       );
     }
 
-    final center = order.deliveryPersonLocation ?? order.storeLocation;
-
     return FlutterMap(
       options: MapOptions(
-        initialCenter: center,
+        initialCenter: order.deliveryPersonLocation ?? order.storeLocation,
         initialZoom: 14,
       ),
       children: [
@@ -98,7 +117,6 @@ class OrderTrackingScreen extends StatelessWidget {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.zyromart.app',
         ),
-        // Route line
         if (order.status == OrderStatus.outForDelivery &&
             order.deliveryPersonLocation != null)
           PolylineLayer(
@@ -110,7 +128,7 @@ class OrderTrackingScreen extends StatelessWidget {
                   order.customerLocation,
                 ],
                 color: AppTheme.primaryRed.withValues(alpha: 0.7),
-                strokeWidth: 3,
+                strokeWidth: 4,
                 pattern: const StrokePattern.dotted(),
               ),
             ],
@@ -120,42 +138,23 @@ class OrderTrackingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderDetails(Order order) {
+  Widget _buildStatusPanel(Order order) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Status
           Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: _statusColor(order.status).withValues(alpha: 0.1),
+                  color: _statusColor(order.status).withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -163,7 +162,7 @@ class OrderTrackingScreen extends StatelessWidget {
                   color: _statusColor(order.status),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,16 +170,17 @@ class OrderTrackingScreen extends StatelessWidget {
                     Text(
                       order.statusLabel,
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
                         color: _statusColor(order.status),
                       ),
                     ),
+                    const SizedBox(height: 4),
                     Text(
                       _statusDescription(order.status),
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppTheme.textMedium,
-                        fontSize: 13,
+                        height: 1.35,
                       ),
                     ),
                   ],
@@ -188,141 +188,276 @@ class OrderTrackingScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Progress
+          const SizedBox(height: 18),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: order.statusProgress,
-              backgroundColor: Colors.grey[200],
+              backgroundColor: const Color(0xFFEAEAEA),
               valueColor:
                   AlwaysStoppedAnimation<Color>(_statusColor(order.status)),
-              minHeight: 6,
+              minHeight: 7,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Placed', style: TextStyle(fontSize: 11, color: AppTheme.textLight)),
-              Text('Delivered', style: TextStyle(fontSize: 11, color: AppTheme.textLight)),
+            children: const [
+              Text('Placed', style: TextStyle(color: AppTheme.textLight)),
+              Text('Delivered', style: TextStyle(color: AppTheme.textLight)),
             ],
           ),
-          const SizedBox(height: 20),
-          // Delivery person info
-          if (order.deliveryPersonName != null) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppTheme.primaryRed,
-                    child: Text(
-                      order.deliveryPersonName![0],
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          order.deliveryPersonName!,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const Text(
-                          'Delivery Partner',
-                          style: TextStyle(
-                              color: AppTheme.textMedium, fontSize: 12),
-                        ),
-                        const Text(
-                          'Phone verified for delivery updates',
-                          style: TextStyle(
-                            color: AppTheme.textLight,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.phone, color: AppTheme.primaryRed),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          // Delivery address
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPartnerCard(Order order, OrderService orderService) {
+    final feedback = orderService.feedbackForOrder(order.id);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.location_on,
-                  color: AppTheme.primaryRed, size: 20),
-              const SizedBox(width: 8),
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: AppTheme.primaryRed,
+                child: Text(
+                  order.deliveryPersonName![0],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Delivery Address',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                    Text(
+                      order.deliveryPersonName!,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
                       ),
                     ),
+                    const Text(
+                      'Delivery partner',
+                      style: TextStyle(color: AppTheme.textMedium),
+                    ),
                     Text(
-                      order.deliveryAddress,
-                      style: TextStyle(
-                        color: AppTheme.textMedium,
-                        fontSize: 13,
+                      order.status == OrderStatus.delivered
+                          ? 'Delivery completed'
+                          : 'Phone verified for order updates',
+                      style: const TextStyle(
+                        color: AppTheme.textLight,
+                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
+              const Icon(Icons.phone_outlined, color: AppTheme.primaryRed),
             ],
           ),
-          const SizedBox(height: 16),
-          // Items
+          if (feedback != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF8F0),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                'You rated this delivery ${feedback.rating}/5${feedback.feedback.isEmpty ? '' : ' • ${feedback.feedback}'}',
+                style: const TextStyle(
+                  color: Color(0xFF196F2A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressCard(Order order) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.location_on_outlined, color: AppTheme.primaryRed),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Delivery Address',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  order.deliveryAddress,
+                  style: const TextStyle(
+                    color: AppTheme.textMedium,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemsCard(Order order) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           const Text(
             'Items Ordered',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
           ),
-          const SizedBox(height: 8),
-          ...order.items.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('${item.product.name} x${item.quantity}'),
-                    Text('₹${item.totalPrice.toInt()}',
-                        style: const TextStyle(fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              )),
+          const SizedBox(height: 12),
+          ...order.items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text('${item.product.name} x${item.quantity}'),
+                  ),
+                  Text(
+                    'Rs ${item.totalPrice.toInt()}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('₹${order.grandTotal.toInt()}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.primaryRed)),
+              const Text(
+                'Total paid',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+              Text(
+                'Rs ${order.grandTotal.toInt()}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: AppTheme.primaryRed,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+
+  Future<void> _showRatingSheet(
+      BuildContext context, OrderService orderService, Order order) async {
+    final feedbackController = TextEditingController();
+    var rating = 5;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Rate your delivery',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'How was ${order.deliveryPersonName ?? 'your delivery partner'} on order ${order.id}?',
+                    style: const TextStyle(color: AppTheme.textMedium),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: List.generate(
+                      5,
+                      (index) => IconButton(
+                        onPressed: () => setModalState(() => rating = index + 1),
+                        icon: Icon(
+                          index < rating ? Icons.star : Icons.star_border,
+                          color: const Color(0xFFFFB627),
+                          size: 32,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: feedbackController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Share quick feedback for the rider',
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        orderService.submitDeliveryFeedback(
+                          orderId: order.id,
+                          rating: rating,
+                          feedback: feedbackController.text,
+                        );
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Submit rating'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -354,32 +489,32 @@ class OrderTrackingScreen extends StatelessWidget {
       case OrderStatus.preparing:
         return Icons.restaurant;
       case OrderStatus.readyForPickup:
-        return Icons.inventory;
+        return Icons.inventory_2_outlined;
       case OrderStatus.outForDelivery:
         return Icons.delivery_dining;
       case OrderStatus.delivered:
         return Icons.done_all;
       case OrderStatus.cancelled:
-        return Icons.cancel;
+        return Icons.cancel_outlined;
     }
   }
 
   String _statusDescription(OrderStatus status) {
     switch (status) {
       case OrderStatus.placed:
-        return 'Your order has been placed successfully';
+        return 'Your order is in the store queue.';
       case OrderStatus.confirmed:
-        return 'Store has confirmed your order';
+        return 'The store has confirmed and accepted the order.';
       case OrderStatus.preparing:
-        return 'Your order is being prepared';
+        return 'Your basket is currently being packed.';
       case OrderStatus.readyForPickup:
-        return 'Order is ready for pickup by delivery partner';
+        return 'Packed and waiting for rider pickup.';
       case OrderStatus.outForDelivery:
-        return 'Your order is on the way!';
+        return 'The delivery partner is on the way.';
       case OrderStatus.delivered:
-        return 'Order has been delivered';
+        return 'Delivered successfully. Settlement and rating are now available.';
       case OrderStatus.cancelled:
-        return 'Order was cancelled';
+        return 'This order was cancelled before completion.';
     }
   }
 }

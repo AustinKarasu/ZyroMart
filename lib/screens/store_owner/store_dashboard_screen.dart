@@ -1,7 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../services/order_service.dart';
+
+import '../../models/order.dart';
+import '../../models/user.dart';
+import '../../services/auth_service.dart';
 import '../../services/mock_data.dart';
+import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 
 class StoreDashboardScreen extends StatelessWidget {
@@ -9,103 +13,168 @@ class StoreDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final orderService = context.watch<OrderService>();
-    final store = MockData.stores[0];
+    final auth = context.watch<AuthService>();
+    final storeOwner = auth.currentUser;
+    final store = MockData.stores.firstWhere(
+      (candidate) => candidate.ownerId == storeOwner?.id,
+      orElse: () => MockData.stores.first,
+    );
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F7F2),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('ZyroMart Central', style: TextStyle(fontSize: 18)),
+            Text(store.name, style: const TextStyle(fontSize: 18)),
             Text(
-              store.isOpen ? 'Open Now' : 'Closed',
-              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.85)),
+              store.isOpen ? 'Open now' : 'Closed',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.82),
+              ),
             ),
           ],
         ),
-        actions: [
-          IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {}),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Stats cards
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    'Today\'s Orders',
-                    '${orderService.orders.length}',
-                    Icons.receipt_long,
-                    AppTheme.primaryRed,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    'Revenue',
-                    'â‚¹${store.totalRevenue.toInt()}',
-                    Icons.currency_rupee,
-                    AppTheme.success,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    'Total Orders',
-                    '${store.totalOrders}',
-                    Icons.shopping_bag,
-                    AppTheme.info,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    'Rating',
-                    '${store.rating}',
-                    Icons.star,
-                    AppTheme.warning,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+      body: Consumer<OrderService>(
+        builder: (context, orderService, _) {
+          final earnings = orderService.earningsFor(
+            UserRole.storeOwner,
+            userId: store.ownerId,
+          );
+          final activeOrders = orderService.allOrders
+              .where((order) =>
+                  order.storeId == store.id &&
+                  order.status != OrderStatus.delivered &&
+                  order.status != OrderStatus.cancelled)
+              .toList();
+          final admin = orderService.adminSnapshot;
+          final radius = orderService.radiusForStore(store.id);
 
-            // Active orders
-            const Text(
-              'Active Orders',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            if (orderService.activeOrders.isEmpty)
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Live orders',
+                      '${activeOrders.length}',
+                      Icons.receipt_long_outlined,
+                      const Color(0xFFBE342A),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Held payout',
+                      'Rs ${earnings.held.toInt()}',
+                      Icons.lock_clock_outlined,
+                      const Color(0xFFD58A09),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Released',
+                      'Rs ${earnings.released.toInt()}',
+                      Icons.payments_outlined,
+                      const Color(0xFF1D8C3A),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Platform share',
+                      'Rs ${orderService.platformReleasedBalance.toInt()}',
+                      Icons.account_balance_outlined,
+                      const Color(0xFF255E96),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
               Container(
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Center(
-                  child: Text('No active orders', style: TextStyle(color: AppTheme.textLight)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Service radius',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Customers inside this coverage radius can place orders with this store. The default is 5 km.',
+                      style: TextStyle(
+                        color: AppTheme.textMedium,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${radius.toStringAsFixed(1)} km',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          '${admin['totalOrders']} platform orders tracked',
+                          style: const TextStyle(color: AppTheme.textMedium),
+                        ),
+                      ],
+                    ),
+                    Slider(
+                      min: 1,
+                      max: 12,
+                      divisions: 22,
+                      value: radius,
+                      onChanged: (value) =>
+                          orderService.updateStoreRadius(store.id, value),
+                    ),
+                  ],
                 ),
-              )
-            else
-              ...orderService.activeOrders.map((order) => Container(
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Active orders',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              if (activeOrders.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(34),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: const Text(
+                    'No active orders right now.',
+                    style: TextStyle(color: AppTheme.textMedium),
+                  ),
+                )
+              else
+                ...activeOrders.map(
+                  (order) => Container(
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2)),
-                      ],
+                      borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,64 +182,63 @@ class StoreDashboardScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('#${order.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.warning.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
+                            Text(
+                              '#${order.id}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
                               ),
-                              child: Text(
-                                order.statusLabel,
-                                style: const TextStyle(color: AppTheme.warning, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              order.statusLabel,
+                              style: const TextStyle(
+                                color: AppTheme.primaryRed,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text('${order.itemCount} items â€¢ â‚¹${order.grandTotal.toInt()}', style: TextStyle(color: AppTheme.textMedium)),
+                        const SizedBox(height: 10),
+                        Text(
+                          '${order.itemCount} items • Rs ${order.grandTotal.toInt()}',
+                          style: const TextStyle(
+                            color: AppTheme.textMedium,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          order.customerName,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 4),
-                        Text(order.customerName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 2),
-                        Text(order.customerPhone, style: const TextStyle(color: AppTheme.textMedium, fontSize: 12)),
-                        const SizedBox(height: 4),
-                        Text(order.deliveryAddress, style: TextStyle(color: AppTheme.textLight, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                          order.deliveryAddress,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.textMedium,
+                            height: 1.35,
+                          ),
+                        ),
                       ],
                     ),
-                  )),
-            const SizedBox(height: 24),
-
-            // Products overview
-            const Text('Products', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildProductStat('Total', '${MockData.products.length}', AppTheme.textDark),
-                  _buildProductStat('In Stock', '${MockData.products.where((p) => p.inStock).length}', AppTheme.success),
-                  _buildProductStat('Out of Stock', '${MockData.products.where((p) => !p.inStock).length}', AppTheme.primaryRed),
-                ],
-              ),
-            ),
-          ],
-        ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color accent) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,28 +247,20 @@ class StoreDashboardScreen extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: accent),
           ),
-          const SizedBox(height: 12),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: AppTheme.textMedium, fontSize: 13)),
+          Text(label, style: const TextStyle(color: AppTheme.textMedium)),
         ],
       ),
     );
   }
-
-  Widget _buildProductStat(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: AppTheme.textMedium, fontSize: 13)),
-      ],
-    );
-  }
 }
-

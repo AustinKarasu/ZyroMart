@@ -128,12 +128,17 @@ class StoreOrdersScreen extends StatelessWidget {
                   leading: Icon(_statusIcon(status), color: AppTheme.primaryRed),
                   title: Text(_statusLabel(status)),
                   onTap: () {
-                    orderService.updateOrderStatus(order.id, status);
+                    final success = orderService.updateOrderStatus(order.id, status);
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Order updated to ${_statusLabel(status)}'),
-                        backgroundColor: AppTheme.success,
+                        content: Text(
+                          success
+                              ? 'Order updated to ${_statusLabel(status)}'
+                              : 'This order cannot be moved to ${_statusLabel(status)} right now',
+                        ),
+                        backgroundColor:
+                            success ? AppTheme.success : AppTheme.primaryRed,
                       ),
                     );
                   },

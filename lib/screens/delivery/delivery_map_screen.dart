@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:provider/provider.dart';
 import '../../models/order.dart';
+import '../../services/location_service.dart';
 import '../../services/order_service.dart';
 import '../../services/mock_data.dart';
 import '../../theme/app_theme.dart';
@@ -16,6 +17,7 @@ class DeliveryMapScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Delivery Map')),
       body: Consumer<OrderService>(
         builder: (context, orderService, _) {
+          final location = context.watch<LocationService>();
           final activeOrders = orderService.orders
               .where((o) =>
                   o.status == OrderStatus.readyForPickup ||
@@ -113,7 +115,8 @@ class DeliveryMapScreen extends StatelessWidget {
             children: [
               FlutterMap(
                 options: MapOptions(
-                  initialCenter: MockData.deliveryPersons[0].location,
+                  initialCenter:
+                      location.currentLocation ?? MockData.deliveryPersons[0].location,
                   initialZoom: 13,
                 ),
                 children: [
@@ -127,6 +130,45 @@ class DeliveryMapScreen extends StatelessWidget {
                 ],
               ),
               // Legend
+              if (!location.hasUsableLocation)
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_off_outlined,
+                            color: AppTheme.warning),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Enable location to center the map on your live position.',
+                            style: TextStyle(
+                              color: AppTheme.textMedium,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: location.refreshLocation,
+                          child: const Text('Enable'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               Positioned(
                 bottom: 16,
                 left: 16,

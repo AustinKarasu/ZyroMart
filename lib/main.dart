@@ -4,6 +4,7 @@ import 'theme/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/cart_service.dart';
 import 'services/catalog_service.dart';
+import 'services/location_service.dart';
 import 'services/order_service.dart';
 import 'services/supabase_service.dart';
 import 'screens/auth/animated_splash_screen.dart';
@@ -28,6 +29,7 @@ class ZyroMartApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthService()..initialize()),
         ChangeNotifierProvider(create: (_) => CartService()),
         ChangeNotifierProvider(create: (_) => CatalogService()..load()),
+        ChangeNotifierProvider(create: (_) => LocationService()..initialize()),
         ChangeNotifierProxyProvider<AuthService, OrderService>(
           create: (_) => OrderService(),
           update: (_, auth, orderService) => orderService!..bindUser(auth.currentUser),

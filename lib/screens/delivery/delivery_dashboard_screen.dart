@@ -1,6 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/order.dart';
+import '../../models/user.dart';
+import '../../services/auth_service.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/order_card.dart';
@@ -11,182 +14,246 @@ class DeliveryDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final rider = auth.currentUser;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F7F2),
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Delivery Dashboard', style: TextStyle(fontSize: 18)),
-            Text('Online', style: TextStyle(fontSize: 12, color: Colors.greenAccent)),
+            const Text('Delivery Command', style: TextStyle(fontSize: 18)),
+            Text(
+              rider?.isOnline == true ? 'Online and dispatch-ready' : 'Offline',
+              style: const TextStyle(fontSize: 12, color: Colors.greenAccent),
+            ),
           ],
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.circle, color: Colors.greenAccent, size: 10),
-                SizedBox(width: 6),
-                Text('Active', style: TextStyle(color: Colors.white, fontSize: 13)),
-              ],
+          Consumer<OrderService>(
+            builder: (context, orders, _) => Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.notifications_active_outlined,
+                        color: Colors.white, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${orders.unreadNotificationCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
       ),
       body: Consumer<OrderService>(
         builder: (context, orderService, _) {
-          final availableOrders = orderService.orders
-              .where((o) =>
-                  o.status == OrderStatus.readyForPickup ||
-                  o.status == OrderStatus.outForDelivery)
+          final availableOrders = orderService.allOrders
+              .where((order) =>
+                  order.status == OrderStatus.readyForPickup ||
+                  (order.status == OrderStatus.outForDelivery &&
+                      order.deliveryPersonId == rider?.id))
               .toList();
+          final earnings = orderService.earningsFor(UserRole.delivery);
 
-          final completedToday = orderService.orders
-              .where((o) => o.status == OrderStatus.delivered)
-              .length;
-
-          return SingleChildScrollView(
+          return ListView(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Stats
-                Row(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Available',
+                      '${availableOrders.length}',
+                      Icons.local_shipping_outlined,
+                      const Color(0xFFCC3A2D),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Held',
+                      'Rs ${earnings.held.toInt()}',
+                      Icons.lock_clock_outlined,
+                      const Color(0xFFD4830D),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Released',
+                      'Rs ${earnings.released.toInt()}',
+                      Icons.account_balance_wallet_outlined,
+                      const Color(0xFF1D8C3A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _buildStatCard(
-                        'Available',
-                        '${availableOrders.length}',
-                        Icons.local_shipping,
-                        AppTheme.primaryRed,
+                    const Text(
+                      'Settlement logic',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Delivery earnings stay on hold until the order reaches delivered status. Once completed, the rider share becomes released and visible here.',
+                      style: TextStyle(
+                        color: AppTheme.textMedium,
+                        height: 1.45,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        'Completed Today',
-                        '$completedToday',
-                        Icons.done_all,
-                        AppTheme.success,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        'Earnings',
-                        'â‚¹${completedToday * 50}',
-                        Icons.currency_rupee,
-                        AppTheme.warning,
+                    const SizedBox(height: 12),
+                    Text(
+                      '${earnings.completedOrders} completed deliveries tracked in this session',
+                      style: const TextStyle(
+                        color: AppTheme.primaryRed,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-
-                // Available orders
-                const Text(
-                  'Available Orders',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Pick up ready orders and keep customers updated',
-                  style: TextStyle(color: AppTheme.textMedium, fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-
-                if (availableOrders.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(40),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Center(
-                      child: Column(
-                        children: [
-                          Icon(Icons.delivery_dining, size: 64, color: AppTheme.textLight),
-                          SizedBox(height: 12),
-                          Text('No orders available', style: TextStyle(color: AppTheme.textMedium, fontSize: 16)),
-                          SizedBox(height: 4),
-                          Text('New orders will appear here', style: TextStyle(color: AppTheme.textLight, fontSize: 13)),
-                        ],
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Pickup and delivery queue',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              if (availableOrders.isEmpty)
+                _EmptyDeliveryState()
+              else
+                ...availableOrders.map(
+                  (order) => OrderCard(
+                    order: order,
+                    showActions: true,
+                    onAccept: () {
+                      final nextStatus = order.status == OrderStatus.readyForPickup
+                          ? OrderStatus.outForDelivery
+                          : OrderStatus.delivered;
+                      final success =
+                          orderService.updateOrderStatus(order.id, nextStatus);
+                      final message = success
+                          ? (nextStatus == OrderStatus.outForDelivery
+                              ? 'Pickup confirmed. Navigate to customer.'
+                              : 'Delivery complete. Earnings are now released.')
+                          : 'This order cannot move to that state yet.';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(message),
+                          backgroundColor:
+                              success ? AppTheme.success : AppTheme.primaryRed,
+                        ),
+                      );
+                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DeliveryDetailScreen(order: order),
                       ),
                     ),
-                  )
-                else
-                  ...availableOrders.map((order) => OrderCard(
-                        order: order,
-                        showActions: true,
-                        onAccept: () {
-                          final nextStatus = order.status == OrderStatus.readyForPickup
-                              ? OrderStatus.outForDelivery
-                              : OrderStatus.delivered;
-                          orderService.updateOrderStatus(
-                            order.id,
-                            nextStatus,
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                nextStatus == OrderStatus.outForDelivery
-                                    ? 'Order picked up! Start delivering.'
-                                    : 'Order marked as delivered!',
-                              ),
-                              backgroundColor: AppTheme.success,
-                            ),
-                          );
-                        },
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => DeliveryDetailScreen(order: order),
-                          ),
-                        ),
-                      )),
-
-                const SizedBox(height: 24),
-
-                // All orders
-                const Text(
-                  'Recent Deliveries',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                ...orderService.orders
-                    .where((o) => o.status == OrderStatus.delivered)
-                    .map((order) => OrderCard(order: order)),
-              ],
-            ),
+              const SizedBox(height: 22),
+              const Text(
+                'Recent deliveries',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              ...orderService.allOrders
+                  .where((order) =>
+                      order.status == OrderStatus.delivered &&
+                      order.deliveryPersonId == rider?.id)
+                  .map((order) => OrderCard(order: order)),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color accent) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(label, style: TextStyle(color: AppTheme.textMedium, fontSize: 11)),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: accent),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(color: AppTheme.textMedium)),
         ],
       ),
     );
   }
 }
 
+class _EmptyDeliveryState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.delivery_dining_rounded,
+              size: 62, color: AppTheme.textLight),
+          SizedBox(height: 14),
+          Text(
+            'No active tasks right now',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'New ready-for-pickup orders will appear here automatically.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.textMedium, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+}

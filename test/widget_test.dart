@@ -7,6 +7,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('ZyroMart'), findsOneWidget);
-    expect(find.text('Everyday delivery, storefront, and rider operations'), findsOneWidget);
+    expect(find.text('Groceries, snacks, and essentials with quick commerce energy'), findsOneWidget);
   });
 }

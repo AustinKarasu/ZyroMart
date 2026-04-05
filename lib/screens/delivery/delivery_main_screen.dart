@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/user.dart';
 import '../../services/auth_service.dart';
+import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 import 'delivery_dashboard_screen.dart';
 import 'delivery_map_screen.dart';
@@ -44,7 +46,12 @@ class _DeliveryProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
+    final orderService = context.watch<OrderService>();
     final user = auth.currentUser;
+    final earnings = orderService.earningsFor(
+      user?.role ?? UserRole.delivery,
+      userId: user?.id,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Delivery Profile')),
@@ -77,6 +84,7 @@ class _DeliveryProfileScreen extends StatelessWidget {
                   children: [
                     _buildStat('Rating', '${user?.deliveryRating ?? 0}', Icons.star, AppTheme.warning),
                     _buildStat('Deliveries', '${user?.completedDeliveries ?? 0}', Icons.delivery_dining, AppTheme.success),
+                    _buildStat('Released', 'Rs ${earnings.released.toInt()}', Icons.account_balance_wallet, AppTheme.info),
                   ],
                 ),
               ],
@@ -105,6 +113,7 @@ class _DeliveryProfileScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.account_balance_wallet, color: AppTheme.textMedium),
             title: const Text('Earnings'),
+            subtitle: Text('Held Rs ${earnings.held.toInt()} • Released Rs ${earnings.released.toInt()}'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
             onTap: () {},
             tileColor: Colors.white,
