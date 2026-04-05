@@ -1,6 +1,4 @@
 class SupabaseConfig {
-  // These should be set via environment variables or a .env file in production.
-  // For development, they can be overridden here.
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
     defaultValue: 'https://uhlfphrtmaxffchivsip.supabase.co',
@@ -8,6 +6,6 @@ class SupabaseConfig {
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: '',
+    defaultValue: 'sb_publishable_W2vck9WcUzGx5y3uzU2oTA_shmUEoJP',
   );
 }

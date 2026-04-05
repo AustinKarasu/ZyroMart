@@ -12,6 +12,7 @@ class AuthService extends ChangeNotifier {
   String? _pendingEmail;
   String? _pendingName;
   String? _errorMessage;
+  String? _statusMessage;
 
   AppUser? get currentUser => _currentUser;
   UserRole? get selectedRole => _selectedRole;
@@ -21,6 +22,7 @@ class AuthService extends ChangeNotifier {
   String? get pendingPhone => _pendingPhone;
   String? get pendingEmail => _pendingEmail;
   String? get errorMessage => _errorMessage;
+  String? get statusMessage => _statusMessage;
   bool get canUseSupabaseAuth => SupabaseService.isInitialized;
 
   Future<void> initialize() async {
@@ -47,6 +49,7 @@ class AuthService extends ChangeNotifier {
   void selectRole(UserRole role) {
     _selectedRole = role;
     _errorMessage = null;
+    _statusMessage = null;
     notifyListeners();
   }
 
@@ -58,6 +61,7 @@ class AuthService extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _errorMessage = null;
+    _statusMessage = null;
     _selectedRole = role;
     _pendingPhone = _normalizePhone(phone);
     _pendingEmail = email?.trim().toLowerCase();
@@ -69,18 +73,24 @@ class AuthService extends ChangeNotifier {
         _errorMessage = 'Enter a valid phone number with country code.';
         return false;
       }
-      if (canUseSupabaseAuth) {
-        await SupabaseService.requestPhoneOtp(
-          phone: _pendingPhone!,
-          email: _pendingEmail,
-          userName: _pendingName!,
-          role: role.name,
-        );
+      if (!canUseSupabaseAuth) {
+        _errorMessage =
+            'Supabase auth is not configured. Add a valid SUPABASE_ANON_KEY and enable phone auth.';
+        return false;
       }
+
+      await SupabaseService.requestPhoneOtp(
+        phone: _pendingPhone!,
+        email: _pendingEmail,
+        userName: _pendingName!,
+        role: role.name,
+      );
+
+      _statusMessage = 'OTP sent to $_pendingPhone';
       _otpRequested = true;
       return true;
     } catch (error) {
-      _errorMessage = 'Could not send OTP. Please try again.';
+      _errorMessage = _friendlyOtpError(error);
       return false;
     } finally {
       _isLoading = false;
@@ -97,18 +107,20 @@ class AuthService extends ChangeNotifier {
 
     _isLoading = true;
     _errorMessage = null;
+    _statusMessage = null;
     notifyListeners();
 
     try {
-      if (canUseSupabaseAuth) {
-        await SupabaseService.verifyPhoneOtp(
-          phone: _pendingPhone!,
-          otpCode: otpCode.trim(),
-        );
-      } else if (otpCode.trim() != '123456') {
-        _errorMessage = 'Use 123456 in demo mode.';
+      if (!canUseSupabaseAuth) {
+        _errorMessage =
+            'Supabase auth is not configured. Real OTP verification is unavailable.';
         return false;
       }
+
+      await SupabaseService.verifyPhoneOtp(
+        phone: _pendingPhone!,
+        otpCode: otpCode.trim(),
+      );
 
       _currentUser = _buildUser(
         email: _pendingEmail ?? _fallbackEmailForPhone(_pendingPhone!),
@@ -119,7 +131,7 @@ class AuthService extends ChangeNotifier {
       _otpRequested = false;
       return true;
     } catch (error) {
-      _errorMessage = 'Invalid or expired OTP. Please try again.';
+      _errorMessage = _friendlyOtpError(error, isVerification: true);
       return false;
     } finally {
       _isLoading = false;
@@ -138,6 +150,7 @@ class AuthService extends ChangeNotifier {
     _pendingEmail = null;
     _pendingName = null;
     _errorMessage = null;
+    _statusMessage = null;
     notifyListeners();
   }
 
@@ -199,5 +212,35 @@ class AuthService extends ChangeNotifier {
   String _fallbackEmailForPhone(String phone) {
     final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
     return 'user$digits@zyromart.app';
+  }
+
+  String _friendlyOtpError(Object error, {bool isVerification = false}) {
+    final message = error.toString();
+    final lowered = message.toLowerCase();
+
+    if (lowered.contains('sms') &&
+        (lowered.contains('not enabled') ||
+            lowered.contains('not configured') ||
+            lowered.contains('provider'))) {
+      return 'Supabase phone auth is not fully configured. Enable Phone login and an SMS provider in Supabase Auth.';
+    }
+
+    if (lowered.contains('anonymous sign-ins are disabled')) {
+      return 'Auth is misconfigured in Supabase. Check the project auth settings.';
+    }
+
+    if (lowered.contains('invalid phone')) {
+      return 'Enter a valid phone number in international format, for example +919876543210.';
+    }
+
+    if (lowered.contains('expired') || lowered.contains('token')) {
+      return isVerification
+          ? 'The OTP is invalid or expired. Request a new code and try again.'
+          : 'OTP request failed. Please try again.';
+    }
+
+    return isVerification
+        ? 'Could not verify OTP. $message'
+        : 'Could not send OTP. $message';
   }
 }
