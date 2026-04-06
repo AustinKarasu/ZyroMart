@@ -10,6 +10,7 @@ import '../models/order.dart';
 import '../models/product.dart';
 import '../models/store.dart';
 import '../models/user.dart';
+import 'local_state_service.dart';
 import 'mock_data.dart';
 import 'supabase_service.dart';
 
@@ -39,6 +40,7 @@ class OrderService extends ChangeNotifier {
   RealtimeChannel? _notificationChannel;
   RealtimeChannel? _ordersChannel;
   AppUser? _viewer;
+  String _scope = 'guest';
 
   OrderService() {
     _orders.addAll(MockData.sampleOrders);
@@ -52,10 +54,14 @@ class OrderService extends ChangeNotifier {
         _releaseSettlement(order);
       }
     }
+    _restoreLocalState();
   }
 
   void bindUser(AppUser? user) {
-    if (_viewer?.id == user?.id && _viewer?.role == user?.role) {
+    final nextScope = user?.id ?? 'guest';
+    if (_viewer?.id == user?.id &&
+        _viewer?.role == user?.role &&
+        _scope == nextScope) {
       return;
     }
     _notificationChannel?.unsubscribe();
@@ -63,6 +69,8 @@ class OrderService extends ChangeNotifier {
     _ordersChannel?.unsubscribe();
     _ordersChannel = null;
     _viewer = user;
+    _scope = nextScope;
+    _restoreLocalState();
     if (_viewer != null) {
       _syncRemoteNotifications();
       _syncRemoteOrders();
@@ -134,6 +142,7 @@ class OrderService extends ChangeNotifier {
 
   void markCustomerPromptSeen(String orderId) {
     _customerPromptedByOrderId[orderId] = true;
+    _persistLocalState();
   }
 
   bool shouldPromptDeliveryPartner(String orderId) {
@@ -147,6 +156,7 @@ class OrderService extends ChangeNotifier {
 
   void markDeliveryPromptSeen(String orderId) {
     _deliveryPartnerPromptedByOrderId[orderId] = true;
+    _persistLocalState();
   }
 
   EarningsSummary earningsFor(UserRole role, {String? userId}) {
@@ -368,6 +378,7 @@ class OrderService extends ChangeNotifier {
         final index = _orders.indexWhere((item) => item.id == order.id);
         if (index >= 0) {
           _orders[index] = savedOrder;
+          _persistLocalState();
           notifyListeners();
         }
       });
@@ -383,6 +394,7 @@ class OrderService extends ChangeNotifier {
       notes: 'Order created and forwarded to the store.',
     );
     _pushOrderNotifications(order);
+    _persistLocalState();
     notifyListeners();
     return order;
   }
@@ -464,6 +476,7 @@ class OrderService extends ChangeNotifier {
 
     _notifyStatusChange(order);
 
+    _persistLocalState();
     notifyListeners();
     return true;
   }
@@ -495,6 +508,7 @@ class OrderService extends ChangeNotifier {
       'notes': proofNotes?.trim(),
       'delivered_at': DateTime.now().toIso8601String(),
     };
+    _persistLocalState();
     return updateOrderStatus(orderId, OrderStatus.delivered);
   }
 
@@ -531,6 +545,7 @@ class OrderService extends ChangeNotifier {
     if (SupabaseService.isInitialized) {
       await SupabaseService.insertDeliveryRouteUpdate(payload).catchError((_) {});
     }
+    _persistLocalState();
     notifyListeners();
   }
 
@@ -615,6 +630,7 @@ class OrderService extends ChangeNotifier {
         }
       }
       await Future.wait(remoteOrders.map(_loadRemoteOrderDetails));
+      _persistLocalState();
       notifyListeners();
     } catch (_) {
       // Keep local state when remote sync fails.
@@ -1072,6 +1088,7 @@ class OrderService extends ChangeNotifier {
     }
     _notifications.add(notification);
     _notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _persistLocalState();
   }
 
   List<Map<String, dynamic>> statusEventsForOrder(String orderId) {
@@ -1091,6 +1108,69 @@ class OrderService extends ChangeNotifier {
 
   Map<String, dynamic>? proofOfDeliveryForOrder(String orderId) =>
       _proofOfDeliveryByOrderId[orderId];
+
+  Future<void> _restoreLocalState() async {
+    final cached = await LocalStateService.loadOrders(_scope);
+    if (cached == null) return;
+    final cachedOrders = (cached['orders'] as List? ?? const [])
+        .map(
+          (entry) => LocalStateService.orderFromMap(
+            Map<String, dynamic>.from(entry as Map),
+          ),
+        )
+        .toList();
+    if (cachedOrders.isNotEmpty) {
+      _orders
+        ..clear()
+        ..addAll(cachedOrders);
+    }
+    _statusEventsByOrderId
+      ..clear()
+      ..addAll(_decodeMapOfLists(cached['status_events']));
+    _inventoryReservationsByOrderId
+      ..clear()
+      ..addAll(_decodeMapOfLists(cached['reservations']));
+    _routeUpdatesByOrderId
+      ..clear()
+      ..addAll(_decodeMapOfLists(cached['route_updates']));
+    _proofOfDeliveryByOrderId
+      ..clear()
+      ..addAll(_decodeMapOfMaps(cached['proof']));
+    notifyListeners();
+  }
+
+  void _persistLocalState() {
+    LocalStateService.saveOrders(
+      _scope,
+      _orders,
+      statusEvents: _statusEventsByOrderId,
+      reservations: _inventoryReservationsByOrderId,
+      routeUpdates: _routeUpdatesByOrderId,
+      proofByOrderId: _proofOfDeliveryByOrderId,
+    );
+  }
+
+  Map<String, List<Map<String, dynamic>>> _decodeMapOfLists(Object? raw) {
+    if (raw is! Map) return {};
+    return raw.map(
+      (key, value) => MapEntry(
+        key.toString(),
+        (value as List? ?? const [])
+            .map((entry) => Map<String, dynamic>.from(entry as Map))
+            .toList(),
+      ),
+    );
+  }
+
+  Map<String, Map<String, dynamic>> _decodeMapOfMaps(Object? raw) {
+    if (raw is! Map) return {};
+    return raw.map(
+      (key, value) => MapEntry(
+        key.toString(),
+        Map<String, dynamic>.from(value as Map),
+      ),
+    );
+  }
 
   void _recordStatusEvent({
     required Order order,
@@ -1113,6 +1193,7 @@ class OrderService extends ChangeNotifier {
     if (SupabaseService.isInitialized) {
       SupabaseService.insertOrderStatusEvent(event).catchError((_) {});
     }
+    _persistLocalState();
   }
 
   void _reserveInventory(Order order) {
@@ -1135,6 +1216,7 @@ class OrderService extends ChangeNotifier {
     if (SupabaseService.isInitialized) {
       SupabaseService.reserveInventory(reservations).catchError((_) {});
     }
+    _persistLocalState();
   }
 
   void _releaseInventory(String orderId) {
@@ -1150,6 +1232,7 @@ class OrderService extends ChangeNotifier {
         status: 'released',
       ).catchError((_) {});
     }
+    _persistLocalState();
   }
 
   void _consumeInventory(String orderId) {
@@ -1164,6 +1247,7 @@ class OrderService extends ChangeNotifier {
         status: 'consumed',
       ).catchError((_) {});
     }
+    _persistLocalState();
   }
 
   void _captureProofOfDelivery(Order order) {
@@ -1182,6 +1266,7 @@ class OrderService extends ChangeNotifier {
     if (SupabaseService.isInitialized) {
       SupabaseService.saveProofOfDelivery(proof).catchError((_) {});
     }
+    _persistLocalState();
   }
 
   String _actorRole(UserRole role) {

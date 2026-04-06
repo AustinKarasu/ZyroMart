@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/category.dart';
 import '../../models/product.dart';
+import '../../services/app_telemetry_service.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
 import '../../theme/app_theme.dart';
@@ -23,6 +24,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _dietFilters = {};
+
+  @override
+  void initState() {
+    super.initState();
+    AppTelemetryService.trackFeatureUse(
+      eventName: 'customer_home_opened',
+      appVariant: 'storefront',
+    );
+  }
 
   @override
   void dispose() {
@@ -300,9 +310,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  childAspectRatio: 0.72,
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 110,
+                  childAspectRatio: 0.78,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 12,
                 ),
@@ -745,12 +755,14 @@ class _CategoryTile extends StatelessWidget {
                   : Icon(category.icon, color: category.color, size: 28),
             ),
             const SizedBox(height: 10),
-            Text(              category.name,
+            Text(
+              category.name,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11.5,
+                height: 1.18,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -791,8 +803,10 @@ class _TrendingProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+            Expanded(
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(26)),
                 child: AppImage(
                   imageUrl: product.imageUrl,
                   fit: BoxFit.cover,
@@ -805,13 +819,14 @@ class _TrendingProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(                    product.name,
-                    maxLines: 1,
+                  Text(
+                    product.name,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
-                  Text(                    'Rs ${product.price.toInt()} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ ${product.unit}',
+                  Text(
+                    'Rs ${product.price.toInt()} • ${product.unit}',
                     style: const TextStyle(
                       color: AppTheme.textMedium,
                       fontWeight: FontWeight.w600,
@@ -826,5 +841,6 @@ class _TrendingProductCard extends StatelessWidget {
     );
   }
 }
+
 
 

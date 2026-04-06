@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/product.dart';
 import '../../services/app_preferences_service.dart';
+import '../../services/app_telemetry_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/order_service.dart';
@@ -36,6 +37,10 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
   @override
   void initState() {
     super.initState();
+    AppTelemetryService.trackFeatureUse(
+      eventName: 'address_book_opened',
+      appVariant: 'storefront',
+    );
     _load();
   }
 

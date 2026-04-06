@@ -58,6 +58,8 @@ class AdminService extends ChangeNotifier {
         SupabaseService.getProfiles(),
         SupabaseService.getEarningsLedger(beneficiaryRole: 'platform'),
         SupabaseService.getPlatformDailyMetrics(limit: 7),
+        SupabaseService.getAppUsageEvents(limit: 120),
+        SupabaseService.getCrashReports(limit: 40),
       ]);
 
       final orders = List<Map<String, dynamic>>.from(results[0] as List);
@@ -66,6 +68,8 @@ class AdminService extends ChangeNotifier {
       final profiles = List<Map<String, dynamic>>.from(results[3] as List);
       final platformLedger = List<Map<String, dynamic>>.from(results[4] as List);
       final metrics = List<Map<String, dynamic>>.from(results[5] as List);
+      final usageEvents = List<Map<String, dynamic>>.from(results[6] as List);
+      final crashReports = List<Map<String, dynamic>>.from(results[7] as List);
       final latest = metrics.isEmpty ? null : metrics.first;
       final recentOrders = orders.take(6).toList();
       final detailResults = await Future.wait(
@@ -98,6 +102,8 @@ class AdminService extends ChangeNotifier {
         recentOperationalEvents: _buildOperationalEvents(
           recentOrders,
           detailResults,
+          usageEvents,
+          crashReports,
         ),
         liveSignals: {
           'pending_orders': orders
@@ -119,6 +125,8 @@ class AdminService extends ChangeNotifier {
           'active_customers': latest?['active_customers'] ?? 0,
           'active_delivery_partners':
               latest?['active_delivery_partners'] ?? 0,
+          'top_feature': _topFeature(usageEvents),
+          'crashes_24h': _recentCrashCount(crashReports),
         },
         orderStatusCounts: _buildStatusCounts(orders),
       );
@@ -258,6 +266,8 @@ class AdminService extends ChangeNotifier {
   List<Map<String, dynamic>> _buildOperationalEvents(
     List<Map<String, dynamic>> orders,
     List<Map<String, dynamic>> detailResults,
+    List<Map<String, dynamic>> usageEvents,
+    List<Map<String, dynamic>> crashReports,
   ) {
     final events = <Map<String, dynamic>>[];
     for (var index = 0; index < orders.length && index < detailResults.length; index++) {
@@ -309,6 +319,26 @@ class AdminService extends ChangeNotifier {
         });
       }
     }
+    for (final event in usageEvents.take(4)) {
+      events.add({
+        'title': 'Feature usage',
+        'subtitle':
+            '${(event['event_name'] ?? 'unknown').toString().replaceAll('_', ' ')} • ${(event['app_variant'] ?? 'storefront').toString()}',
+        'color': const Color(0xFF7A4AC7),
+        'timestamp': (event['created_at'] ?? '').toString(),
+        'source': 'feature',
+      });
+    }
+    for (final crash in crashReports.take(4)) {
+      events.add({
+        'title': 'Crash report',
+        'subtitle':
+            '${(crash['app_variant'] ?? 'storefront').toString()} • ${(crash['message'] ?? 'Unhandled exception').toString()}',
+        'color': const Color(0xFFBE342A),
+        'timestamp': (crash['created_at'] ?? '').toString(),
+        'source': 'crash',
+      });
+    }
     events.sort(
       (a, b) => (b['timestamp'] ?? '').toString().compareTo(
             (a['timestamp'] ?? '').toString(),
@@ -348,5 +378,29 @@ class AdminService extends ChangeNotifier {
       counts[status] = (counts[status] ?? 0) + 1;
     }
     return counts;
+  }
+
+  String _topFeature(List<Map<String, dynamic>> usageEvents) {
+    final buckets = <String, int>{};
+    for (final event in usageEvents) {
+      final name = (event['event_name'] ?? '').toString();
+      if (name.isEmpty || name == 'auth_success' || name == 'auth_failure') {
+        continue;
+      }
+      buckets[name] = (buckets[name] ?? 0) + 1;
+    }
+    if (buckets.isEmpty) return 'n/a';
+    final sorted = buckets.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.first.key.replaceAll('_', ' ');
+  }
+
+  int _recentCrashCount(List<Map<String, dynamic>> crashReports) {
+    final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+    return crashReports.where((crash) {
+      final createdAt =
+          DateTime.tryParse((crash['created_at'] ?? '').toString());
+      return createdAt != null && createdAt.isAfter(cutoff);
+    }).length;
   }
 }

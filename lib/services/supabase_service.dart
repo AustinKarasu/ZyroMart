@@ -5,14 +5,15 @@ class SupabaseService {
   static SupabaseClient get client => Supabase.instance.client;
 
   static Future<void> initialize() async {
+    final url = SupabaseConfig.supabaseUrl;
     final anonKey = SupabaseConfig.supabaseAnonKey;
-    if (anonKey.isEmpty) {
+    if (url.isEmpty || anonKey.isEmpty) {
       // Skip Supabase initialization if no key is configured.
-      // The app will use mock data instead.
+      // The app will use local/offline data instead.
       return;
     }
     await Supabase.initialize(
-      url: SupabaseConfig.supabaseUrl,
+      url: url,
       anonKey: anonKey,
     );
   }
@@ -494,6 +495,46 @@ class SupabaseService {
         .select()
         .eq('user_id', currentUser!.id)
         .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<void> insertAppUsageEvent(Map<String, dynamic> payload) async {
+    if (!isInitialized) return;
+    await client.from('app_usage_events').insert({
+      ...payload,
+      if (currentUser != null) 'user_id': currentUser!.id,
+    });
+  }
+
+  static Future<void> insertCrashReport(Map<String, dynamic> payload) async {
+    if (!isInitialized) return;
+    await client.from('app_crash_reports').insert({
+      ...payload,
+      if (currentUser != null) 'user_id': currentUser!.id,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getAppUsageEvents({
+    int limit = 100,
+  }) async {
+    if (!isInitialized) return [];
+    final response = await client
+        .from('app_usage_events')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<List<Map<String, dynamic>>> getCrashReports({
+    int limit = 50,
+  }) async {
+    if (!isInitialized) return [];
+    final response = await client
+        .from('app_crash_reports')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(limit);
     return List<Map<String, dynamic>>.from(response);
   }
 

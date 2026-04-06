@@ -567,8 +567,11 @@ class _LiveSignalsPanel extends StatelessWidget {
             children: [
               _signalChip('Pending', '${signals['pending_orders'] ?? 0}'),
               _signalChip('Proof Ready', '${signals['proof_of_delivery_ready'] ?? 0}'),
+              _signalChip('Route Pings', '${signals['active_route_pings'] ?? 0}'),
               _signalChip('Active Customers', '${signals['active_customers'] ?? 0}'),
               _signalChip('Riders Online', '${signals['active_delivery_partners'] ?? 0}'),
+              _signalChip('Top Feature', '${signals['top_feature'] ?? 'n/a'}'),
+              _signalChip('Crashes 24h', '${signals['crashes_24h'] ?? 0}'),
             ],
           ),
         ],

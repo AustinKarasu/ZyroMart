@@ -3,6 +3,9 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/user.dart';
 import 'app_preferences_service.dart';
+import 'app_telemetry_service.dart';
+import 'input_security_service.dart';
+import 'rate_limit_service.dart';
 import 'mock_data.dart';
 import 'supabase_service.dart';
 
@@ -90,6 +93,26 @@ class AuthService extends ChangeNotifier {
         _errorMessage = 'Enter a valid phone number with country code.';
         return false;
       }
+      if (_pendingName == null || _pendingName!.isEmpty) {
+        _errorMessage = 'Enter your full name.';
+        return false;
+      }
+      if (_pendingName!.length > InputSecurityService.nameMaxLength) {
+        _errorMessage = 'Name is too long.';
+        return false;
+      }
+      if (_pendingEmail != null &&
+          !InputSecurityService.isValidEmail(_pendingEmail!)) {
+        _errorMessage = 'Enter a valid email address.';
+        return false;
+      }
+      final decision =
+          await RateLimitService.beforeAttempt('otp:${_pendingPhone!}');
+      if (!decision.allowed) {
+        _errorMessage =
+            'Too many OTP attempts. Try again in ${RateLimitService.formatRetry(decision.retryAfter!)}.';
+        return false;
+      }
       if (!canUseSupabaseAuth) {
         _errorMessage = 'Supabase auth is not configured.';
         return false;
@@ -101,11 +124,23 @@ class AuthService extends ChangeNotifier {
         userName: _pendingName!.isEmpty ? 'ZyroMart User' : _pendingName!,
         role: _roleToDb(role),
       );
+      await RateLimitService.clear('otp:${_pendingPhone!}');
+      await AppTelemetryService.trackAuthAttempt(
+        route: 'phone_otp_request',
+        success: true,
+        identifierHash: _pendingPhone!.hashCode.toString(),
+      );
 
       _statusMessage = 'OTP sent to $_pendingPhone';
       _otpRequested = true;
       return true;
     } catch (error) {
+      await RateLimitService.recordFailure('otp:${_pendingPhone!}');
+      await AppTelemetryService.trackAuthAttempt(
+        route: 'phone_otp_request',
+        success: false,
+        identifierHash: _pendingPhone!.hashCode.toString(),
+      );
       _errorMessage = _friendlyOtpError(error);
       return false;
     } finally {
@@ -176,22 +211,48 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await SupabaseService.signIn(email.trim().toLowerCase(), password);
+      final normalizedEmail = InputSecurityService.sanitizeEmail(email);
+      if (!InputSecurityService.isValidEmail(normalizedEmail)) {
+        _errorMessage = 'Enter a valid email address.';
+        return false;
+      }
+      final decision =
+          await RateLimitService.beforeAttempt('password:$normalizedEmail');
+      if (!decision.allowed) {
+        _errorMessage =
+            'Too many sign-in attempts. Try again in ${RateLimitService.formatRetry(decision.retryAfter!)}.';
+        return false;
+      }
+      await SupabaseService.signIn(normalizedEmail, password);
       final profile = await SupabaseService.getMyProfile();
       final actualRole = _roleFromDb(profile?['role']?.toString());
       if (actualRole == null || actualRole != role) {
         await SupabaseService.signOut();
         _errorMessage =
             'This account belongs to ${_roleLabel(actualRole)}. Use the matching role to sign in.';
+        await RateLimitService.recordFailure('password:$normalizedEmail');
         return false;
       }
+      await RateLimitService.clear('password:$normalizedEmail');
+      await AppTelemetryService.trackAuthAttempt(
+        route: 'password_sign_in',
+        success: true,
+        identifierHash: normalizedEmail.hashCode.toString(),
+      );
       await _hydrateCurrentUser(
         fallbackRole: role,
-        fallbackEmail: email.trim().toLowerCase(),
+        fallbackEmail: normalizedEmail,
       );
       _statusMessage = 'Signed in successfully';
       return true;
     } catch (error) {
+      final normalizedEmail = InputSecurityService.sanitizeEmail(email);
+      await RateLimitService.recordFailure('password:$normalizedEmail');
+      await AppTelemetryService.trackAuthAttempt(
+        route: 'password_sign_in',
+        success: false,
+        identifierHash: normalizedEmail.hashCode.toString(),
+      );
       _errorMessage = 'Could not sign in. ${error.toString()}';
       return false;
     } finally {
@@ -402,13 +463,19 @@ class AuthService extends ChangeNotifier {
     final fallback = _fallbackLocation(role);
     await SupabaseService.upsertProfile({
       'id': sessionUser.id,
-      'name':
-          (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
+      'name': InputSecurityService.sanitizePlainText(
+        (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
+        maxLength: InputSecurityService.nameMaxLength,
+      ),
       'email':
           (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone)).toString(),
       'phone': phone,
       'role': _roleToDb(role),
-      'address': address ?? _currentUser?.address ?? '',
+      'address': InputSecurityService.sanitizePlainText(
+        address ?? _currentUser?.address ?? '',
+        maxLength: InputSecurityService.addressMaxLength,
+        allowNewLines: true,
+      ),
       'profile_image_url': profileImageUrl ?? _currentUser?.profileImageUrl,
       'latitude': location?.latitude ?? _currentUser?.location.latitude ?? fallback.latitude,
       'longitude': location?.longitude ?? _currentUser?.location.longitude ?? fallback.longitude,
@@ -462,7 +529,8 @@ class AuthService extends ChangeNotifier {
   }
 
   String? _normalizePhone(String input) {
-    final trimmed = input.trim().replaceAll(' ', '');
+    final trimmed =
+        InputSecurityService.sanitizePhone(input)?.replaceAll(' ', '') ?? '';
     if (trimmed.length < 10) return null;
     if (trimmed.startsWith('+')) return trimmed;
     if (trimmed.length == 10) return '+91$trimmed';

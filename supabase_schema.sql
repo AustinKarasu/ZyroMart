@@ -428,6 +428,60 @@ CREATE POLICY "Assigned delivery update tracking" ON delivery_tracking FOR UPDAT
     )
   );
 
+-- Telemetry and platform diagnostics
+CREATE TABLE IF NOT EXISTS app_usage_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  app_variant TEXT NOT NULL CHECK (app_variant IN ('storefront', 'admin', 'store_owner', 'delivery')),
+  event_name TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS app_crash_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  app_variant TEXT NOT NULL CHECK (app_variant IN ('storefront', 'admin', 'store_owner', 'delivery')),
+  source TEXT DEFAULT 'flutter',
+  message TEXT NOT NULL,
+  stack_trace TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_usage_events_created_at ON app_usage_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_usage_events_user_id ON app_usage_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_app_crash_reports_created_at ON app_crash_reports(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_crash_reports_user_id ON app_crash_reports(user_id);
+
+ALTER TABLE app_usage_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_crash_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_usage_events FORCE ROW LEVEL SECURITY;
+ALTER TABLE app_crash_reports FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users insert app usage events" ON app_usage_events;
+DROP POLICY IF EXISTS "Users insert crash reports" ON app_crash_reports;
+DROP POLICY IF EXISTS "Admins read app usage events" ON app_usage_events;
+DROP POLICY IF EXISTS "Admins read crash reports" ON app_crash_reports;
+
+CREATE POLICY "Users insert app usage events" ON app_usage_events FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL AND (user_id IS NULL OR user_id = auth.uid()));
+CREATE POLICY "Users insert crash reports" ON app_crash_reports FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL AND (user_id IS NULL OR user_id = auth.uid()));
+CREATE POLICY "Admins read app usage events" ON app_usage_events FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM platform_admins
+      WHERE platform_admins.user_id = auth.uid()
+    )
+  );
+CREATE POLICY "Admins read crash reports" ON app_crash_reports FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM platform_admins
+      WHERE platform_admins.user_id = auth.uid()
+    )
+  );
+
 -- ─── Realtime ──────────────────────────────────────────────
 
 DO $$
