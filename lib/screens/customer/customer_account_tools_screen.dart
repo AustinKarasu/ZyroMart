@@ -12,6 +12,7 @@ import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/order_service.dart';
+import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 
 class AddressBookScreen extends StatefulWidget {
@@ -39,26 +40,10 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = _ScopedAccountStore.addressesKey(widget.userId);
-    final stored = prefs.getStringList(key) ?? const [];
-    final decoded = stored
-        .map((entry) => _SavedAddress.fromJson(jsonDecode(entry) as Map<String, dynamic>))
-        .toList();
-    if (decoded.isEmpty && widget.initialAddress.trim().isNotEmpty) {
-      decoded.add(
-        _SavedAddress(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          label: 'Primary',
-          address: widget.initialAddress.trim(),
-          isDefault: true,
-        ),
-      );
-      await prefs.setStringList(
-        key,
-        decoded.map((entry) => jsonEncode(entry.toJson())).toList(),
-      );
-    }
+    final decoded = await _AccountStateRepository.loadAddresses(
+      widget.userId,
+      fallbackAddress: widget.initialAddress,
+    );
     if (!mounted) return;
     setState(() {
       _addresses = decoded;
@@ -67,11 +52,7 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
   }
 
   Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _ScopedAccountStore.addressesKey(widget.userId),
-      _addresses.map((entry) => jsonEncode(entry.toJson())).toList(),
-    );
+    await _AccountStateRepository.saveAddresses(widget.userId, _addresses);
   }
 
   Future<void> _editAddress({_SavedAddress? existing}) async {
@@ -295,8 +276,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final ids = prefs.getStringList(_ScopedAccountStore.wishlistKey(widget.userId)) ?? const [];
+    final ids = await _AccountStateRepository.loadWishlist(widget.userId);
     if (!mounted) return;
     setState(() {
       _wishlistIds = ids.toSet();
@@ -311,8 +291,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
     } else {
       next.add(productId);
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_ScopedAccountStore.wishlistKey(widget.userId), next.toList());
+    await _AccountStateRepository.saveWishlist(widget.userId, next.toList());
     if (!mounted) return;
     setState(() => _wishlistIds = next);
   }
@@ -404,10 +383,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final payload = prefs.getString(_ScopedAccountStore.paymentMethodsKey(widget.userId));
-    if (payload != null) {
-      final data = jsonDecode(payload) as Map<String, dynamic>;
+    final data = await _AccountStateRepository.loadPaymentSettings(widget.userId);
+    if (data.isNotEmpty) {
       _upiController.text = (data['upi_id'] ?? '').toString();
       _billingNameController.text = (data['billing_name'] ?? '').toString();
       _preferredMethod = (data['preferred_method'] ?? _preferredMethod).toString();
@@ -419,15 +396,14 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _ScopedAccountStore.paymentMethodsKey(widget.userId),
-      jsonEncode({
+    await _AccountStateRepository.savePaymentSettings(
+      widget.userId,
+      {
         'upi_id': _upiController.text.trim(),
         'billing_name': _billingNameController.text.trim(),
         'preferred_method': _preferredMethod,
         'cash_on_delivery_enabled': _cashOnDeliveryEnabled,
-      }),
+      },
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -535,10 +511,8 @@ class _GstDetailsScreenState extends State<GstDetailsScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final payload = prefs.getString(_ScopedAccountStore.gstKey(widget.userId));
-    if (payload != null) {
-      final data = jsonDecode(payload) as Map<String, dynamic>;
+    final data = await _AccountStateRepository.loadGstProfile(widget.userId);
+    if (data.isNotEmpty) {
       _businessNameController.text = (data['business_name'] ?? '').toString();
       _gstNumberController.text = (data['gst_number'] ?? '').toString();
       _businessAddressController.text = (data['business_address'] ?? '').toString();
@@ -550,15 +524,14 @@ class _GstDetailsScreenState extends State<GstDetailsScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _ScopedAccountStore.gstKey(widget.userId),
-      jsonEncode({
+    await _AccountStateRepository.saveGstProfile(
+      widget.userId,
+      {
         'business_name': _businessNameController.text.trim(),
         'gst_number': _gstNumberController.text.trim().toUpperCase(),
         'business_address': _businessAddressController.text.trim(),
         'active': _active,
-      }),
+      },
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -635,7 +608,7 @@ class PromoCodesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Promo codes')),
       body: FutureBuilder<List<String>>(
-        future: _ScopedAccountStore.loadStringList(_ScopedAccountStore.promoCodesKey(userId)),
+        future: _AccountStateRepository.loadPromoCodes(userId),
         builder: (context, snapshot) {
           final codes = snapshot.data ?? const [];
           if (snapshot.connectionState != ConnectionState.done) {
@@ -704,8 +677,7 @@ class _GiftCardScreenState extends State<GiftCardScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _balance = prefs.getDouble(_ScopedAccountStore.giftBalanceKey(widget.userId)) ?? 0;
+    _balance = await _AccountStateRepository.loadGiftBalance(widget.userId);
     if (!mounted) return;
     setState(() => _isLoading = false);
   }
@@ -719,9 +691,8 @@ class _GiftCardScreenState extends State<GiftCardScreen> {
       return;
     }
     final credit = ((code.codeUnits.fold<int>(0, (sum, value) => sum + value) % 400) + 100).toDouble();
-    final prefs = await SharedPreferences.getInstance();
     _balance += credit;
-    await prefs.setDouble(_ScopedAccountStore.giftBalanceKey(widget.userId), _balance);
+    await _AccountStateRepository.saveGiftBalance(widget.userId, _balance);
     _controller.clear();
     if (!mounted) return;
     setState(() {});
@@ -1240,6 +1211,175 @@ class _EmptyStateCard extends StatelessWidget {
   }
 }
 
+class _AccountStateRepository {
+  static Future<Map<String, dynamic>> _loadRemoteState() async {
+    if (!SupabaseService.isInitialized) return const {};
+    return await SupabaseService.getUserAccountState() ?? const {};
+  }
+
+  static Future<List<_SavedAddress>> loadAddresses(
+    String userId, {
+    required String fallbackAddress,
+  }) async {
+    final remote = await _loadRemoteState();
+    final remoteAddresses = remote['addresses'];
+    if (remoteAddresses is List) {
+      final addresses = remoteAddresses
+          .map((entry) => _SavedAddress.fromJson(Map<String, dynamic>.from(entry as Map)))
+          .toList();
+      if (addresses.isNotEmpty) {
+        return addresses;
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final key = _ScopedAccountStore.addressesKey(userId);
+    final stored = prefs.getStringList(key) ?? const [];
+    final decoded = stored
+        .map((entry) => _SavedAddress.fromJson(jsonDecode(entry) as Map<String, dynamic>))
+        .toList();
+    if (decoded.isEmpty && fallbackAddress.trim().isNotEmpty) {
+      decoded.add(
+        _SavedAddress(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          label: 'Primary',
+          address: fallbackAddress.trim(),
+          isDefault: true,
+        ),
+      );
+      await prefs.setStringList(
+        key,
+        decoded.map((entry) => jsonEncode(entry.toJson())).toList(),
+      );
+    }
+    if (decoded.isNotEmpty && SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({
+        'addresses': decoded.map((entry) => entry.toJson()).toList(),
+      });
+    }
+    return decoded;
+  }
+
+  static Future<void> saveAddresses(String userId, List<_SavedAddress> addresses) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _ScopedAccountStore.addressesKey(userId),
+      addresses.map((entry) => jsonEncode(entry.toJson())).toList(),
+    );
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({
+        'addresses': addresses.map((entry) => entry.toJson()).toList(),
+      });
+    }
+  }
+
+  static Future<List<String>> loadWishlist(String userId) async {
+    final remote = await _loadRemoteState();
+    final remoteIds = remote['wishlist_product_ids'];
+    if (remoteIds is List && remoteIds.isNotEmpty) {
+      return remoteIds.map((entry) => entry.toString()).toList();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList(_ScopedAccountStore.wishlistKey(userId)) ?? const [];
+    if (ids.isNotEmpty && SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({
+        'wishlist_product_ids': ids,
+      });
+    }
+    return ids;
+  }
+
+  static Future<void> saveWishlist(String userId, List<String> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_ScopedAccountStore.wishlistKey(userId), ids);
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({
+        'wishlist_product_ids': ids,
+      });
+    }
+  }
+
+  static Future<Map<String, dynamic>> loadPaymentSettings(String userId) async {
+    final remote = await _loadRemoteState();
+    final remoteSettings = remote['payment_settings'];
+    if (remoteSettings is Map && remoteSettings.isNotEmpty) {
+      return Map<String, dynamic>.from(remoteSettings);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final payload = prefs.getString(_ScopedAccountStore.paymentMethodsKey(userId));
+    if (payload == null) return const {};
+    final decoded = Map<String, dynamic>.from(jsonDecode(payload) as Map<String, dynamic>);
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({'payment_settings': decoded});
+    }
+    return decoded;
+  }
+
+  static Future<void> savePaymentSettings(String userId, Map<String, dynamic> settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ScopedAccountStore.paymentMethodsKey(userId), jsonEncode(settings));
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({'payment_settings': settings});
+    }
+  }
+
+  static Future<Map<String, dynamic>> loadGstProfile(String userId) async {
+    final remote = await _loadRemoteState();
+    final remoteProfile = remote['gst_profile'];
+    if (remoteProfile is Map && remoteProfile.isNotEmpty) {
+      return Map<String, dynamic>.from(remoteProfile);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final payload = prefs.getString(_ScopedAccountStore.gstKey(userId));
+    if (payload == null) return const {};
+    final decoded = Map<String, dynamic>.from(jsonDecode(payload) as Map<String, dynamic>);
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({'gst_profile': decoded});
+    }
+    return decoded;
+  }
+
+  static Future<void> saveGstProfile(String userId, Map<String, dynamic> profile) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ScopedAccountStore.gstKey(userId), jsonEncode(profile));
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({'gst_profile': profile});
+    }
+  }
+
+  static Future<List<String>> loadPromoCodes(String userId) async {
+    final remote = await _loadRemoteState();
+    final remoteCodes = remote['promo_codes'];
+    if (remoteCodes is List) {
+      return remoteCodes.map((entry) => entry.toString()).toList();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_ScopedAccountStore.promoCodesKey(userId)) ?? const [];
+  }
+
+  static Future<double> loadGiftBalance(String userId) async {
+    final remote = await _loadRemoteState();
+    final remoteBalance = remote['gift_balance'];
+    if (remoteBalance is num) {
+      return remoteBalance.toDouble();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getDouble(_ScopedAccountStore.giftBalanceKey(userId)) ?? 0;
+    if (value > 0 && SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({'gift_balance': value});
+    }
+    return value;
+  }
+
+  static Future<void> saveGiftBalance(String userId, double balance) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_ScopedAccountStore.giftBalanceKey(userId), balance);
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.upsertUserAccountState({'gift_balance': balance});
+    }
+  }
+}
+
 class _ScopedAccountStore {
   static String addressesKey(String userId) => 'account::$userId::addresses';
   static String wishlistKey(String userId) => 'account::$userId::wishlist';
@@ -1247,11 +1387,6 @@ class _ScopedAccountStore {
   static String gstKey(String userId) => 'account::$userId::gst';
   static String promoCodesKey(String userId) => 'account::$userId::promo_codes';
   static String giftBalanceKey(String userId) => 'account::$userId::gift_balance';
-
-  static Future<List<String>> loadStringList(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(key) ?? const [];
-  }
 }
 
 class _SavedAddress {

@@ -294,6 +294,24 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  static Future<Map<String, dynamic>?> getUserAccountState() async {
+    if (!isInitialized || currentUser == null) return null;
+    final response = await client
+        .from('user_account_state')
+        .select()
+        .eq('user_id', currentUser!.id)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<void> upsertUserAccountState(Map<String, dynamic> payload) async {
+    if (!isInitialized || currentUser == null) return;
+    await client.from('user_account_state').upsert({
+      ...payload,
+      'user_id': currentUser!.id,
+    });
+  }
+
   static Future<List<Map<String, dynamic>>> getPlatformDailyMetrics({
     int limit = 7,
   }) async {
