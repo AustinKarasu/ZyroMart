@@ -312,6 +312,31 @@ class SupabaseService {
     });
   }
 
+  static Future<Map<String, dynamic>?> getOperatorPreferences({
+    required String appVariant,
+  }) async {
+    if (!isInitialized || currentUser == null) return null;
+    final response = await client
+        .from('operator_preferences')
+        .select()
+        .eq('user_id', currentUser!.id)
+        .eq('app_variant', appVariant)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<void> upsertOperatorPreferences({
+    required String appVariant,
+    required Map<String, dynamic> settings,
+  }) async {
+    if (!isInitialized || currentUser == null) return;
+    await client.from('operator_preferences').upsert({
+      'user_id': currentUser!.id,
+      'app_variant': appVariant,
+      'settings': settings,
+    });
+  }
+
   static Future<List<Map<String, dynamic>>> getPlatformDailyMetrics({
     int limit = 7,
   }) async {

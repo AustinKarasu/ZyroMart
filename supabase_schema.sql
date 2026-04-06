@@ -714,6 +714,17 @@ CREATE TABLE IF NOT EXISTS user_account_state (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS operator_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  app_variant TEXT NOT NULL
+    CHECK (app_variant IN ('store_owner', 'delivery', 'admin')),
+  settings JSONB NOT NULL DEFAULT '{}'::JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, app_variant)
+);
+
 CREATE INDEX IF NOT EXISTS idx_payout_accounts_user ON payout_accounts(user_id);
 CREATE INDEX IF NOT EXISTS idx_earnings_ledger_order ON earnings_ledger(order_id);
 CREATE INDEX IF NOT EXISTS idx_earnings_ledger_beneficiary ON earnings_ledger(beneficiary_user_id, settlement_state);
@@ -730,6 +741,7 @@ CREATE INDEX IF NOT EXISTS idx_delivery_route_updates_order ON delivery_route_up
 CREATE INDEX IF NOT EXISTS idx_notification_devices_user ON notification_devices(user_id, push_enabled);
 CREATE INDEX IF NOT EXISTS idx_user_restock_subscriptions_user ON user_restock_subscriptions(user_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_user_account_state_wishlist ON user_account_state USING GIN(wishlist_product_ids);
+CREATE INDEX IF NOT EXISTS idx_operator_preferences_user_variant ON operator_preferences(user_id, app_variant);
 
 DROP TRIGGER IF EXISTS set_payout_accounts_updated_at ON payout_accounts;
 CREATE TRIGGER set_payout_accounts_updated_at
@@ -781,6 +793,11 @@ CREATE TRIGGER set_user_account_state_updated_at
 BEFORE UPDATE ON user_account_state
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_operator_preferences_updated_at ON operator_preferences;
+CREATE TRIGGER set_operator_preferences_updated_at
+BEFORE UPDATE ON operator_preferences
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 ALTER TABLE platform_admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payout_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE earnings_ledger ENABLE ROW LEVEL SECURITY;
@@ -801,6 +818,7 @@ ALTER TABLE proof_of_delivery ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_restock_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_account_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE operator_preferences ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE platform_admins FORCE ROW LEVEL SECURITY;
 ALTER TABLE payout_accounts FORCE ROW LEVEL SECURITY;
@@ -822,6 +840,7 @@ ALTER TABLE proof_of_delivery FORCE ROW LEVEL SECURITY;
 ALTER TABLE notification_devices FORCE ROW LEVEL SECURITY;
 ALTER TABLE user_restock_subscriptions FORCE ROW LEVEL SECURITY;
 ALTER TABLE user_account_state FORCE ROW LEVEL SECURITY;
+ALTER TABLE operator_preferences FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins read platform admins" ON platform_admins;
 DROP POLICY IF EXISTS "Users manage own payout accounts" ON payout_accounts;
@@ -860,6 +879,7 @@ DROP POLICY IF EXISTS "Delivery insert proof of delivery" ON proof_of_delivery;
 DROP POLICY IF EXISTS "Users manage own notification devices" ON notification_devices;
 DROP POLICY IF EXISTS "Users manage own restock subscriptions" ON user_restock_subscriptions;
 DROP POLICY IF EXISTS "Users manage own account state" ON user_account_state;
+DROP POLICY IF EXISTS "Users manage own operator preferences" ON operator_preferences;
 
 CREATE POLICY "Admins read platform admins" ON platform_admins FOR SELECT
   USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
@@ -1125,6 +1145,10 @@ CREATE POLICY "Users manage own restock subscriptions" ON user_restock_subscript
   WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users manage own account state" ON user_account_state FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users manage own operator preferences" ON operator_preferences FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 

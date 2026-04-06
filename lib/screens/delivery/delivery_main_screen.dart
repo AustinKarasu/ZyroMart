@@ -10,6 +10,7 @@ import '../shared/notification_center_screen.dart';
 import 'delivery_dashboard_screen.dart';
 import 'delivery_map_screen.dart';
 import 'delivery_profile_tools_screen.dart';
+import 'delivery_settings_tools_screen.dart';
 
 class DeliveryMainScreen extends StatefulWidget {
   const DeliveryMainScreen({super.key});
@@ -157,6 +158,23 @@ class _DeliveryProfileScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => const NotificationCenterScreen(
                   title: 'Delivery notifications',
+                ),
+              ),
+            ),
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          const SizedBox(height: 4),
+          ListTile(
+            leading: const Icon(Icons.tune_rounded, color: AppTheme.textMedium),
+            title: const Text('Delivery preferences'),
+            subtitle: const Text('Route mode, proof checklist, and emergency shortcut behavior.'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DeliveryOperationsPreferencesScreen(
+                  userId: user?.id ?? 'guest',
                 ),
               ),
             ),

@@ -10,6 +10,7 @@ import '../shared/notification_center_screen.dart';
 import 'store_dashboard_screen.dart';
 import 'store_orders_screen.dart';
 import 'store_products_screen.dart';
+import 'store_settings_tools_screen.dart';
 
 class StoreMainScreen extends StatefulWidget {
   const StoreMainScreen({super.key});
@@ -127,6 +128,13 @@ class _StoreSettingsScreen extends StatelessWidget {
             'Notification center',
             'Review order updates, payout alerts, and ops messages',
             const NotificationCenterScreen(title: 'Store notifications'),
+          ),
+          _buildTapItem(
+            context,
+            Icons.tune_rounded,
+            'Operations preferences',
+            'Pickup timing, substitutions, and stock attention',
+            StoreOperationsPreferencesScreen(userId: user?.id ?? 'guest'),
           ),
           const SizedBox(height: 16),
           SwitchListTile.adaptive(

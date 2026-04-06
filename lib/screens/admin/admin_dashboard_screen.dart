@@ -6,6 +6,7 @@ import '../../services/admin_auth_service.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import 'admin_operations_screens.dart';
+import 'admin_preferences_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -217,6 +218,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    _ActionLaunchCard(
+                      title: 'Admin preferences',
+                      subtitle: 'Configure how this control-room account prioritizes signals, metrics windows, and cancellation emphasis.',
+                      icon: Icons.tune_rounded,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminPreferencesScreen(),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Container(
