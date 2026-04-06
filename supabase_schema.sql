@@ -760,6 +760,7 @@ CREATE TABLE IF NOT EXISTS user_account_state (
   user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
   addresses JSONB NOT NULL DEFAULT '[]'::JSONB,
   wishlist_product_ids TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  app_preferences JSONB NOT NULL DEFAULT '{}'::JSONB,
   payment_settings JSONB NOT NULL DEFAULT '{}'::JSONB,
   gst_profile JSONB NOT NULL DEFAULT '{}'::JSONB,
   promo_codes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
@@ -767,6 +768,9 @@ CREATE TABLE IF NOT EXISTS user_account_state (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE user_account_state
+  ADD COLUMN IF NOT EXISTS app_preferences JSONB NOT NULL DEFAULT '{}'::JSONB;
 
 CREATE TABLE IF NOT EXISTS operator_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

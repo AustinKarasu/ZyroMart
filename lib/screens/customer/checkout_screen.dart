@@ -23,7 +23,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _addressController = TextEditingController();
   final _notesController = TextEditingController();
   final _couponController = TextEditingController();
-  String _paymentMethod = 'upi_gpay';
+  String _paymentMethod = 'cod';
   bool _isPlacing = false;
 
   @override
@@ -207,16 +207,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: Column(
                 children: [
                   _paymentOption(
-                    'upi_gpay',
-                    'GPay / UPI',
-                    'UPI-first checkout flow. App-side foundation only; real bank-verification and automated split settlement require a dedicated payment backend.',
-                    Icons.account_balance_wallet_outlined,
-                  ),
-                  const SizedBox(height: 10),
-                  _paymentOption(
                     'cod',
                     'Cash on delivery',
-                    'Collected on handoff. Store and rider settlement still release only after delivery completion.',
+                    'Collected only after successful handoff. Order settlement and payout release happen only after delivery completion.',
                     Icons.payments_outlined,
                   ),
                 ],
