@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/order.dart';
 import '../../services/location_service.dart';
 import '../../services/order_service.dart';
@@ -21,6 +23,8 @@ class DeliveryDetailScreen extends StatelessWidget {
       body: Consumer<OrderService>(
         builder: (context, orderService, _) {
           final currentOrder = orderService.getOrder(order.id) ?? order;
+          final routeUpdates = orderService.routeUpdatesForOrder(order.id);
+          final proof = orderService.proofOfDeliveryForOrder(order.id);
           final locationService = context.watch<LocationService>();
           return Column(
             children: [
@@ -237,11 +241,125 @@ class DeliveryDetailScreen extends StatelessWidget {
                             ),
                             IconButton(
                               icon: const Icon(Icons.phone, color: AppTheme.primaryRed),
-                              onPressed: () {},
+                              onPressed: () => _launchContactAction(
+                                context,
+                                Uri.parse('tel:${currentOrder.customerPhone}'),
+                                'Could not open phone dialer.',
+                              ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.message, color: AppTheme.primaryRed),
-                              onPressed: () {},
+                              onPressed: () => _launchContactAction(
+                                context,
+                                Uri.parse('sms:${currentOrder.customerPhone}'),
+                                'Could not open messaging app.',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Route activity',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (routeUpdates.isEmpty)
+                              const Text(
+                                'Route updates will appear here once live location sharing starts.',
+                                style: TextStyle(
+                                  color: AppTheme.textMedium,
+                                  height: 1.4,
+                                ),
+                              )
+                            else
+                              ...routeUpdates.take(4).map(
+                                (update) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 34,
+                                        height: 34,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEAF4FF),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: const Icon(
+                                          Icons.route_rounded,
+                                          color: AppTheme.info,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _routeHeadline(update),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              _routeSubtitle(update),
+                                              style: const TextStyle(
+                                                color: AppTheme.textMedium,
+                                                height: 1.35,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Proof checkpoint',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              proof == null
+                                  ? 'The final handoff record will be attached here after OTP verification is completed.'
+                                  : 'Delivered to ${(proof['handed_to_name'] ?? currentOrder.customerName).toString()} • ${(proof['notes'] ?? 'No delivery notes').toString()}',
+                              style: const TextStyle(
+                                color: AppTheme.textMedium,
+                                height: 1.4,
+                              ),
                             ),
                           ],
                         ),
@@ -465,5 +583,43 @@ class DeliveryDetailScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  static Future<void> _launchContactAction(
+    BuildContext context,
+    Uri uri,
+    String fallbackMessage,
+  ) async {
+    final launched =
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(fallbackMessage),
+          backgroundColor: AppTheme.primaryRed,
+        ),
+      );
+    }
+  }
+
+  String _routeHeadline(Map<String, dynamic> update) {
+    final etaMinutes = (update['eta_minutes'] as num?)?.round();
+    if (etaMinutes == null) {
+      return 'Location ping received';
+    }
+    return 'ETA updated to $etaMinutes min';
+  }
+
+  String _routeSubtitle(Map<String, dynamic> update) {
+    final capturedAt =
+        DateTime.tryParse((update['captured_at'] ?? '').toString());
+    final speed = (update['speed_kmph'] as num?)?.toDouble();
+    final pieces = <String>[
+      if (capturedAt != null) DateFormat('dd MMM, hh:mm a').format(capturedAt),
+      if (speed != null) '${speed.toStringAsFixed(1)} km/h',
+      'Lat ${(update['latitude'] as num?)?.toStringAsFixed(4) ?? '--'}',
+      'Lng ${(update['longitude'] as num?)?.toStringAsFixed(4) ?? '--'}',
+    ];
+    return pieces.join(' • ');
   }
 }

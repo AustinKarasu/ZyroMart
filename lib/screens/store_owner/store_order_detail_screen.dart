@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/order.dart';
@@ -26,6 +27,7 @@ class StoreOrderDetailScreen extends StatelessWidget {
           final events = orderService.statusEventsForOrder(order.id);
           final reservations =
               orderService.inventoryReservationsForOrder(order.id);
+          final routeUpdates = orderService.routeUpdatesForOrder(order.id);
           final proof = orderService.proofOfDeliveryForOrder(order.id);
 
           return ListView(
@@ -203,6 +205,69 @@ class StoreOrderDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              _section(
+                title: 'Rider route feed',
+                child: routeUpdates.isEmpty
+                    ? const Text(
+                        'Live rider route pings will appear here once the assigned partner starts sharing location.',
+                        style: TextStyle(
+                          color: AppTheme.textMedium,
+                          height: 1.4,
+                        ),
+                      )
+                    : Column(
+                        children: routeUpdates
+                            .take(4)
+                            .map(
+                              (update) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEAF4FF),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.near_me_rounded,
+                                        color: AppTheme.info,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _routeHeadline(update),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            _routeSubtitle(update),
+                                            style: const TextStyle(
+                                              color: AppTheme.textMedium,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+              ),
+              const SizedBox(height: 14),
               _ActionPanel(order: order),
             ],
           );
@@ -235,6 +300,27 @@ class StoreOrderDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _routeHeadline(Map<String, dynamic> update) {
+    final etaMinutes = (update['eta_minutes'] as num?)?.round();
+    if (etaMinutes == null) {
+      return 'Location ping received';
+    }
+    return 'ETA updated to $etaMinutes min';
+  }
+
+  String _routeSubtitle(Map<String, dynamic> update) {
+    final capturedAt =
+        DateTime.tryParse((update['captured_at'] ?? '').toString());
+    final accuracy = (update['accuracy_meters'] as num?)?.round();
+    final pieces = <String>[
+      if (capturedAt != null) DateFormat('dd MMM, hh:mm a').format(capturedAt),
+      if (accuracy != null) 'Accuracy ${accuracy}m',
+      'Lat ${(update['latitude'] as num?)?.toStringAsFixed(4) ?? '--'}',
+      'Lng ${(update['longitude'] as num?)?.toStringAsFixed(4) ?? '--'}',
+    ];
+    return pieces.join(' • ');
   }
 }
 

@@ -99,6 +99,9 @@ class AdminOperationsLogScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final event = events[index];
                 final color = event['color'] as Color? ?? AppTheme.info;
+                final timestamp =
+                    DateTime.tryParse((event['timestamp'] ?? '').toString());
+                final source = (event['source'] ?? 'ops').toString();
                 return Card(
                   child: ListTile(
                     leading: CircleAvatar(
@@ -106,13 +109,64 @@ class AdminOperationsLogScreen extends StatelessWidget {
                       child: Icon(Icons.fiber_manual_record, color: color, size: 16),
                     ),
                     title: Text((event['title'] ?? '').toString(), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text((event['subtitle'] ?? '').toString()),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text((event['subtitle'] ?? '').toString()),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _OpsChip(
+                              label: source.toUpperCase(),
+                              color: color,
+                            ),
+                            if (timestamp != null)
+                              _OpsChip(
+                                label: DateFormat('dd MMM, hh:mm a')
+                                    .format(timestamp),
+                                color: const Color(0xFF4B5B6A),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
               separatorBuilder: (_, index) => const SizedBox(height: 12),
               itemCount: events.length,
             ),
+    );
+  }
+}
+
+class _OpsChip extends StatelessWidget {
+  const _OpsChip({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

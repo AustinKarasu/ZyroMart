@@ -34,6 +34,7 @@ class OrderService extends ChangeNotifier {
   final Map<String, String> _completionCodes = {};
   final Map<String, List<Map<String, dynamic>>> _statusEventsByOrderId = {};
   final Map<String, List<Map<String, dynamic>>> _inventoryReservationsByOrderId = {};
+  final Map<String, List<Map<String, dynamic>>> _routeUpdatesByOrderId = {};
   final Map<String, Map<String, dynamic>> _proofOfDeliveryByOrderId = {};
   RealtimeChannel? _notificationChannel;
   RealtimeChannel? _ordersChannel;
@@ -226,6 +227,10 @@ class OrderService extends ChangeNotifier {
             bucket
                 .where((reservation) => reservation['reservation_status'] == 'reserved')
                 .length,
+      ),
+      'routeUpdateCount': _routeUpdatesByOrderId.values.fold<int>(
+        0,
+        (sum, bucket) => sum + bucket.length,
       ),
       'proofOfDeliveryCount': _proofOfDeliveryByOrderId.length,
     };
@@ -485,6 +490,7 @@ class OrderService extends ChangeNotifier {
     );
     final etaMinutes = (remainingMeters / 320).clamp(1, 120).round();
     final payload = <String, dynamic>{
+      'id': 'RT${DateTime.now().microsecondsSinceEpoch}',
       'order_id': orderId,
       'delivery_person_id': order.deliveryPersonId ?? _viewer?.id,
       'latitude': location.latitude,
@@ -495,6 +501,8 @@ class OrderService extends ChangeNotifier {
       'eta_minutes': etaMinutes,
       'captured_at': DateTime.now().toIso8601String(),
     };
+    final bucket = _routeUpdatesByOrderId.putIfAbsent(orderId, () => []);
+    bucket.insert(0, payload);
     if (SupabaseService.isInitialized) {
       await SupabaseService.insertDeliveryRouteUpdate(payload).catchError((_) {});
     }
@@ -592,13 +600,16 @@ class OrderService extends ChangeNotifier {
     final results = await Future.wait([
       SupabaseService.getOrderStatusEvents(order.id).catchError((_) => <Map<String, dynamic>>[]),
       SupabaseService.getInventoryReservations(order.id).catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getDeliveryRouteUpdates(order.id).catchError((_) => <Map<String, dynamic>>[]),
       SupabaseService.getProofOfDelivery(order.id).catchError((_) => null),
     ]);
     _statusEventsByOrderId[order.id] =
         List<Map<String, dynamic>>.from(results[0] as List);
     _inventoryReservationsByOrderId[order.id] =
         List<Map<String, dynamic>>.from(results[1] as List);
-    final proof = results[2];
+    _routeUpdatesByOrderId[order.id] =
+        List<Map<String, dynamic>>.from(results[2] as List);
+    final proof = results[3];
     if (proof is Map<String, dynamic>) {
       _proofOfDeliveryByOrderId[order.id] = proof;
     }
@@ -1046,6 +1057,11 @@ class OrderService extends ChangeNotifier {
   List<Map<String, dynamic>> inventoryReservationsForOrder(String orderId) {
     final reservations = _inventoryReservationsByOrderId[orderId] ?? const [];
     return List.unmodifiable(reservations);
+  }
+
+  List<Map<String, dynamic>> routeUpdatesForOrder(String orderId) {
+    final updates = _routeUpdatesByOrderId[orderId] ?? const [];
+    return List.unmodifiable(updates);
   }
 
   Map<String, dynamic>? proofOfDeliveryForOrder(String orderId) =>

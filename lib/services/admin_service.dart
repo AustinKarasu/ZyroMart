@@ -60,13 +60,17 @@ class AdminService extends ChangeNotifier {
         SupabaseService.getPlatformDailyMetrics(limit: 7),
       ]);
 
-      final orders = results[0];
-      final products = results[1];
-      final stores = results[2];
-      final profiles = results[3];
-      final platformLedger = results[4];
-      final metrics = results[5];
+      final orders = List<Map<String, dynamic>>.from(results[0] as List);
+      final products = List<Map<String, dynamic>>.from(results[1] as List);
+      final stores = List<Map<String, dynamic>>.from(results[2] as List);
+      final profiles = List<Map<String, dynamic>>.from(results[3] as List);
+      final platformLedger = List<Map<String, dynamic>>.from(results[4] as List);
+      final metrics = List<Map<String, dynamic>>.from(results[5] as List);
       final latest = metrics.isEmpty ? null : metrics.first;
+      final recentOrders = orders.take(6).toList();
+      final detailResults = await Future.wait(
+        recentOrders.map(_loadOperationalDetail),
+      );
 
       double pending = 0;
       double paid = 0;
@@ -90,15 +94,31 @@ class AdminService extends ChangeNotifier {
         pendingPlatformBalance: pending,
         paidPlatformBalance: paid,
         latestMetrics: latest,
-        metricsHistory: List<Map<String, dynamic>>.from(metrics),
-        recentOperationalEvents: _buildOperationalEvents(orders),
+        metricsHistory: metrics,
+        recentOperationalEvents: _buildOperationalEvents(
+          recentOrders,
+          detailResults,
+        ),
         liveSignals: {
           'pending_orders': orders
-              .where((row) => row['status'] != 'delivered' && row['status'] != 'cancelled')
+              .where(
+                (row) =>
+                    row['status'] != 'delivered' &&
+                    row['status'] != 'cancelled',
+              )
               .length,
-          'proof_of_delivery_ready': latest?['completed_orders'] ?? 0,
+          'proof_of_delivery_ready': detailResults
+              .where((detail) => detail['proof'] != null)
+              .length,
+          'active_route_pings': detailResults.fold<int>(
+            0,
+            (sum, detail) =>
+                sum +
+                (detail['route_updates'] as List<Map<String, dynamic>>).length,
+          ),
           'active_customers': latest?['active_customers'] ?? 0,
-          'active_delivery_partners': latest?['active_delivery_partners'] ?? 0,
+          'active_delivery_partners':
+              latest?['active_delivery_partners'] ?? 0,
         },
         orderStatusCounts: _buildStatusCounts(orders),
       );
@@ -111,10 +131,22 @@ class AdminService extends ChangeNotifier {
   }
 
   void loadLocalDashboard() {
-    _errorMessage = 'Running in local owner mode. Live Supabase admin access is not available for this session.';
-    final completedOrders = MockData.sampleOrders.where((o) => o.status == OrderStatus.delivered).length;
-    final pendingOrders = MockData.sampleOrders.where((o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled).length;
-    final grossValue = MockData.sampleOrders.fold<double>(0, (sum, order) => sum + order.grandTotal);
+    _errorMessage =
+        'Running in local owner mode. Live Supabase admin access is not available for this session.';
+    final completedOrders = MockData.sampleOrders
+        .where((o) => o.status == OrderStatus.delivered)
+        .length;
+    final pendingOrders = MockData.sampleOrders
+        .where(
+          (o) =>
+              o.status != OrderStatus.delivered &&
+              o.status != OrderStatus.cancelled,
+        )
+        .length;
+    final grossValue = MockData.sampleOrders.fold<double>(
+      0,
+      (sum, order) => sum + order.grandTotal,
+    );
     _snapshot = AdminDashboardSnapshot(
       totalOrders: MockData.sampleOrders.length,
       totalProducts: MockData.products.length,
@@ -126,10 +158,15 @@ class AdminService extends ChangeNotifier {
       latestMetrics: {
         'gross_merchandise_value': grossValue,
         'platform_commission_earned': grossValue * 0.05,
-        'delivery_payout_due': MockData.sampleOrders.fold<double>(0, (sum, order) => sum + order.deliveryFee + order.deliveryTip),
+        'delivery_payout_due': MockData.sampleOrders.fold<double>(
+          0,
+          (sum, order) => sum + order.deliveryFee + order.deliveryTip,
+        ),
         'store_payout_due': grossValue * 0.95,
         'completed_orders': completedOrders,
-        'cancelled_orders': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
+        'cancelled_orders': MockData.sampleOrders
+            .where((o) => o.status == OrderStatus.cancelled)
+            .length,
         'pending_orders': pendingOrders,
       },
       metricsHistory: [
@@ -137,50 +174,147 @@ class AdminService extends ChangeNotifier {
           'metric_date': DateTime.now().toIso8601String(),
           'gross_merchandise_value': grossValue,
           'platform_commission_earned': grossValue * 0.05,
-          'delivery_payout_due': MockData.sampleOrders.fold<double>(0, (sum, order) => sum + order.deliveryFee + order.deliveryTip),
+          'delivery_payout_due': MockData.sampleOrders.fold<double>(
+            0,
+            (sum, order) => sum + order.deliveryFee + order.deliveryTip,
+          ),
           'store_payout_due': grossValue * 0.95,
           'completed_orders': completedOrders,
-          'cancelled_orders': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
+          'cancelled_orders': MockData.sampleOrders
+              .where((o) => o.status == OrderStatus.cancelled)
+              .length,
         },
       ],
-      recentOperationalEvents: MockData.sampleOrders.take(6).map((order) {
+      recentOperationalEvents: MockData.sampleOrders.take(8).map((order) {
         final status = order.statusLabel;
         return {
           'title': 'Order ${order.id}',
           'subtitle': '$status • ${order.customerName}',
           'color': _eventColorForStatus(order.status.name),
+          'timestamp': order.placedAt.toIso8601String(),
+          'source': 'order',
         };
       }).toList(),
       liveSignals: {
         'pending_orders': pendingOrders,
         'proof_of_delivery_ready': completedOrders,
+        'active_route_pings': 0,
         'active_customers': 1,
-        'active_delivery_partners': MockData.deliveryPersons.where((item) => item.isOnline).length,
+        'active_delivery_partners':
+            MockData.deliveryPersons.where((item) => item.isOnline).length,
       },
       orderStatusCounts: {
-        'placed': MockData.sampleOrders.where((o) => o.status == OrderStatus.placed).length,
-        'confirmed': MockData.sampleOrders.where((o) => o.status == OrderStatus.confirmed).length,
-        'preparing': MockData.sampleOrders.where((o) => o.status == OrderStatus.preparing).length,
-        'ready_for_pickup': MockData.sampleOrders.where((o) => o.status == OrderStatus.readyForPickup).length,
-        'out_for_delivery': MockData.sampleOrders.where((o) => o.status == OrderStatus.outForDelivery).length,
+        'placed': MockData.sampleOrders
+            .where((o) => o.status == OrderStatus.placed)
+            .length,
+        'confirmed': MockData.sampleOrders
+            .where((o) => o.status == OrderStatus.confirmed)
+            .length,
+        'preparing': MockData.sampleOrders
+            .where((o) => o.status == OrderStatus.preparing)
+            .length,
+        'ready_for_pickup': MockData.sampleOrders
+            .where((o) => o.status == OrderStatus.readyForPickup)
+            .length,
+        'out_for_delivery': MockData.sampleOrders
+            .where((o) => o.status == OrderStatus.outForDelivery)
+            .length,
         'delivered': completedOrders,
-        'cancelled': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
+        'cancelled': MockData.sampleOrders
+            .where((o) => o.status == OrderStatus.cancelled)
+            .length,
       },
     );
     notifyListeners();
   }
 
-  List<Map<String, dynamic>> _buildOperationalEvents(List<Map<String, dynamic>> orders) {
-    final sorted = [...orders]
-      ..sort((a, b) => (b['created_at'] ?? '').toString().compareTo((a['created_at'] ?? '').toString()));
-    return sorted.take(8).map((row) {
-      final status = (row['status'] ?? 'placed').toString();
+  Future<Map<String, dynamic>> _loadOperationalDetail(
+    Map<String, dynamic> row,
+  ) async {
+    final orderId = (row['id'] ?? '').toString();
+    if (orderId.isEmpty) {
       return {
-        'title': 'Order ${(row['order_number'] ?? row['id'] ?? '').toString()}',
-        'subtitle': '${status.replaceAll('_', ' ')} • ${(row['customer_name'] ?? 'Customer').toString()}',
-        'color': _eventColorForStatus(status),
+        'status_events': <Map<String, dynamic>>[],
+        'route_updates': <Map<String, dynamic>>[],
+        'proof': null,
       };
-    }).toList();
+    }
+    final details = await Future.wait([
+      SupabaseService.getOrderStatusEvents(orderId)
+          .catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getDeliveryRouteUpdates(orderId)
+          .catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getProofOfDelivery(orderId).catchError((_) => null),
+    ]);
+    return {
+      'status_events': List<Map<String, dynamic>>.from(details[0] as List),
+      'route_updates': List<Map<String, dynamic>>.from(details[1] as List),
+      'proof': details[2] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(details[2] as Map)
+          : null,
+    };
+  }
+
+  List<Map<String, dynamic>> _buildOperationalEvents(
+    List<Map<String, dynamic>> orders,
+    List<Map<String, dynamic>> detailResults,
+  ) {
+    final events = <Map<String, dynamic>>[];
+    for (var index = 0; index < orders.length && index < detailResults.length; index++) {
+      final row = orders[index];
+      final detail = detailResults[index];
+      final orderLabel = (row['order_number'] ?? row['id'] ?? '').toString();
+      final customerName = (row['customer_name'] ?? 'Customer').toString();
+      final status = (row['status'] ?? 'placed').toString();
+      events.add({
+        'title': 'Order $orderLabel',
+        'subtitle': '${status.replaceAll('_', ' ')} • $customerName',
+        'color': _eventColorForStatus(status),
+        'timestamp': (row['created_at'] ?? '').toString(),
+        'source': 'order',
+      });
+      for (final event in detail['status_events'] as List<Map<String, dynamic>>) {
+        final nextStatus = (event['next_status'] ?? status).toString();
+        events.add({
+          'title': 'Status update for $orderLabel',
+          'subtitle':
+              '${nextStatus.replaceAll('_', ' ')} • ${(event['notes'] ?? 'Status changed').toString()}',
+          'color': _eventColorForStatus(nextStatus),
+          'timestamp': (event['created_at'] ?? '').toString(),
+          'source': 'status',
+        });
+      }
+      for (final update in (detail['route_updates'] as List<Map<String, dynamic>>)
+          .take(2)) {
+        final eta = (update['eta_minutes'] as num?)?.round();
+        events.add({
+          'title': 'Route ping for $orderLabel',
+          'subtitle': eta == null
+              ? 'Live GPS updated for $customerName'
+              : 'ETA $eta min • live GPS refreshed',
+          'color': const Color(0xFF255E96),
+          'timestamp': (update['captured_at'] ?? '').toString(),
+          'source': 'route',
+        });
+      }
+      final proof = detail['proof'];
+      if (proof is Map<String, dynamic>) {
+        events.add({
+          'title': 'Proof captured for $orderLabel',
+          'subtitle':
+              'Delivered to ${(proof['handed_to_name'] ?? customerName).toString()}',
+          'color': const Color(0xFF176B3A),
+          'timestamp': (proof['delivered_at'] ?? '').toString(),
+          'source': 'proof',
+        });
+      }
+    }
+    events.sort(
+      (a, b) => (b['timestamp'] ?? '').toString().compareTo(
+            (a['timestamp'] ?? '').toString(),
+          ),
+    );
+    return events.take(12).toList();
   }
 
   static Color _eventColorForStatus(String status) {
