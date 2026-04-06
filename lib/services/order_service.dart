@@ -438,7 +438,12 @@ class OrderService extends ChangeNotifier {
     return true;
   }
 
-  bool completeDeliveryWithCode(String orderId, String code) {
+  bool completeDeliveryWithCode(
+    String orderId,
+    String code, {
+    String? handedToName,
+    String? proofNotes,
+  }) {
     final order = getOrder(orderId);
     if (order == null ||
         order.status != OrderStatus.outForDelivery ||
@@ -449,6 +454,17 @@ class OrderService extends ChangeNotifier {
     if (expected == null || expected != code.trim()) {
       return false;
     }
+    _proofOfDeliveryByOrderId[orderId] = {
+      ...?_proofOfDeliveryByOrderId[orderId],
+      'order_id': order.id,
+      'delivery_person_id': order.deliveryPersonId,
+      'handed_to_name': (handedToName == null || handedToName.trim().isEmpty)
+          ? order.customerName
+          : handedToName.trim(),
+      'otp_verified': true,
+      'notes': proofNotes?.trim(),
+      'delivered_at': DateTime.now().toIso8601String(),
+    };
     return updateOrderStatus(orderId, OrderStatus.delivered);
   }
 
@@ -1113,9 +1129,12 @@ class OrderService extends ChangeNotifier {
     final proof = <String, dynamic>{
       'order_id': order.id,
       'delivery_person_id': order.deliveryPersonId,
-      'handed_to_name': order.customerName,
+      'handed_to_name':
+          (_proofOfDeliveryByOrderId[order.id]?['handed_to_name'] ?? order.customerName)
+              .toString(),
       'otp_verified': true,
-      'notes': order.notes,
+      'notes': (_proofOfDeliveryByOrderId[order.id]?['notes'] ?? order.notes)
+          ?.toString(),
       'delivered_at': DateTime.now().toIso8601String(),
     };
     _proofOfDeliveryByOrderId[order.id] = proof;

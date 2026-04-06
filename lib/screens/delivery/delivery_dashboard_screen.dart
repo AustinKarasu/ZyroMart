@@ -138,6 +138,67 @@ class DeliveryDashboardScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3F1),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFFFD8D2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBE342A).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.emergency_outlined,
+                        color: Color(0xFFBE342A),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Emergency help',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Use this when a handoff feels unsafe or you need urgent dispatch support.',
+                            style: TextStyle(
+                              color: AppTheme.textMedium,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Dispatch support alert logged for this rider session.',
+                            ),
+                            backgroundColor: AppTheme.primaryRed,
+                          ),
+                        );
+                      },
+                      child: const Text('Alert'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               const Text(
                 'Pickup and delivery queue',
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),

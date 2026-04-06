@@ -4,6 +4,7 @@ import '../../models/order.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/order_card.dart';
+import 'store_order_detail_screen.dart';
 
 class StoreOrdersScreen extends StatelessWidget {
   const StoreOrdersScreen({super.key});
@@ -99,7 +100,30 @@ class StoreOrdersScreen extends StatelessWidget {
         return OrderCard(
           order: order,
           showActions: true,
+          onAccept: order.status == OrderStatus.placed
+              ? () {
+                  final success =
+                      orderService.updateOrderStatus(order.id, OrderStatus.confirmed);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Order accepted and moved to confirmed.'
+                            : 'Could not accept this order right now.',
+                      ),
+                      backgroundColor:
+                          success ? AppTheme.success : AppTheme.primaryRed,
+                    ),
+                  );
+                }
+              : null,
           onUpdateStatus: () => _showStatusUpdateDialog(context, orderService, order),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => StoreOrderDetailScreen(orderId: order.id),
+            ),
+          ),
         );
       },
     );

@@ -14,6 +14,8 @@ class DeliveryDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final otpController = TextEditingController();
+    final recipientController = TextEditingController();
+    final proofNotesController = TextEditingController();
     return Scaffold(
       appBar: AppBar(title: Text('Delivery #${order.id}')),
       body: Consumer<OrderService>(
@@ -363,6 +365,23 @@ class DeliveryDetailScreen extends StatelessWidget {
                                     prefixIcon: Icon(Icons.pin_outlined),
                                   ),
                                 ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: recipientController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Received by',
+                                    prefixIcon: Icon(Icons.person_outline),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: proofNotesController,
+                                  maxLines: 2,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Delivery notes',
+                                    prefixIcon: Icon(Icons.note_alt_outlined),
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
                                 SizedBox(
                                   width: double.infinity,
@@ -371,6 +390,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                                       final success = orderService.completeDeliveryWithCode(
                                         currentOrder.id,
                                         otpController.text,
+                                        handedToName: recipientController.text,
+                                        proofNotes: proofNotesController.text,
                                       );
                                       Navigator.pop(context, success);
                                     },
