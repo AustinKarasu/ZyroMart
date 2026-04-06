@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../shared/notification_center_screen.dart';
 import 'delivery_dashboard_screen.dart';
 import 'delivery_map_screen.dart';
+import 'delivery_profile_tools_screen.dart';
 
 class DeliveryMainScreen extends StatefulWidget {
   const DeliveryMainScreen({super.key});
@@ -121,7 +122,12 @@ class _DeliveryProfileScreen extends StatelessWidget {
             title: const Text('Earnings'),
             subtitle: Text('Held Rs ${earnings.held.toInt()} • Released Rs ${earnings.released.toInt()}'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DeliveryEarningsScreen(user: user),
+              ),
+            ),
             tileColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -131,7 +137,12 @@ class _DeliveryProfileScreen extends StatelessWidget {
             title: const Text('Delivery history'),
             subtitle: const Text('Completed deliveries remain available for review.'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DeliveryHistoryScreen(user: user),
+              ),
+            ),
             tileColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),

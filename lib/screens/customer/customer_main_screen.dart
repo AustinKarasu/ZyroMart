@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
 import '../../theme/app_theme.dart';
 import '../shared/notification_center_screen.dart';
+import 'customer_account_tools_screen.dart';
 import 'customer_home_screen.dart';
 import 'customer_orders_screen.dart';
 import 'restock_subscriptions_screen.dart';
@@ -187,11 +188,49 @@ class _CustomerProfileScreen extends StatelessWidget {
                 _sectionCard(
                   title: 'Your information',
                   children: [
-                    _navRow(context, Icons.location_on_outlined, 'Address book', user?.address.isNotEmpty == true ? user!.address : 'Manage your saved delivery address', 'Add, update, and choose saved delivery locations.'),
-                    _navRow(context, Icons.favorite_border, 'Your wishlist', 'Save products you want to buy later', 'Wishlist items stay ready for future baskets.'),
-                    _navRow(context, Icons.payment_outlined, 'Payment methods', 'Manage UPI, COD, and billing preferences', 'Saved payment preferences appear here for faster checkout.'),
-                    _navRow(context, Icons.receipt_long_outlined, 'GST details', 'Saved business invoice details', 'Maintain invoice-ready GST data for eligible orders.'),
-                    _navRow(context, Icons.redeem_outlined, 'Promo codes', 'Only verified store and platform coupons appear here', 'Active verified coupons are listed here once issued.'),
+                    _navRow(
+                      context,
+                      Icons.location_on_outlined,
+                      'Address book',
+                      user?.address.isNotEmpty == true ? user!.address : 'Manage your saved delivery address',
+                      'Add, update, and choose saved delivery locations.',
+                      destination: AddressBookScreen(
+                        userId: user?.id ?? 'guest',
+                        initialAddress: user?.address ?? '',
+                      ),
+                    ),
+                    _navRow(
+                      context,
+                      Icons.favorite_border,
+                      'Your wishlist',
+                      'Save products you want to buy later',
+                      'Wishlist items stay ready for future baskets.',
+                      destination: WishlistScreen(userId: user?.id ?? 'guest'),
+                    ),
+                    _navRow(
+                      context,
+                      Icons.payment_outlined,
+                      'Payment methods',
+                      'Manage UPI, COD, and billing preferences',
+                      'Saved payment preferences appear here for faster checkout.',
+                      destination: PaymentMethodsScreen(userId: user?.id ?? 'guest'),
+                    ),
+                    _navRow(
+                      context,
+                      Icons.receipt_long_outlined,
+                      'GST details',
+                      'Saved business invoice details',
+                      'Maintain invoice-ready GST data for eligible orders.',
+                      destination: GstDetailsScreen(userId: user?.id ?? 'guest'),
+                    ),
+                    _navRow(
+                      context,
+                      Icons.redeem_outlined,
+                      'Promo codes',
+                      'Only verified store and platform coupons appear here',
+                      'Active verified coupons are listed here once issued.',
+                      destination: PromoCodesScreen(userId: user?.id ?? 'guest'),
+                    ),
                     _navRow(
                       context,
                       Icons.autorenew_rounded,
@@ -200,8 +239,22 @@ class _CustomerProfileScreen extends StatelessWidget {
                       'Restock subscriptions are account-scoped and sync through the backend.',
                       destination: const RestockSubscriptionsScreen(),
                     ),
-                    _navRow(context, Icons.card_giftcard_outlined, 'Claim gift card', 'Apply available gift card balances', 'Redeem store credit or gift card balances from this section.'),
-                    _navRow(context, Icons.stars_outlined, 'Collected rewards', 'Track loyalty and order rewards', 'Monitor loyalty, gift balances, and earned rewards.'),
+                    _navRow(
+                      context,
+                      Icons.card_giftcard_outlined,
+                      'Claim gift card',
+                      'Apply available gift card balances',
+                      'Redeem store credit or gift card balances from this section.',
+                      destination: GiftCardScreen(userId: user?.id ?? 'guest'),
+                    ),
+                    _navRow(
+                      context,
+                      Icons.stars_outlined,
+                      'Collected rewards',
+                      'Track loyalty and order rewards',
+                      'Monitor loyalty, gift balances, and earned rewards.',
+                      destination: RewardsScreen(userId: user?.id ?? 'guest'),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -230,7 +283,14 @@ class _CustomerProfileScreen extends StatelessWidget {
                       onChanged: preferences.setAutoLogin,
                     ),
                     _navRow(context, Icons.mail_outline, 'Password login', user?.email.isNotEmpty == true ? user!.email : 'No email password configured yet', 'Manage email-based login after your OTP account is verified.'),
-                    _navRow(context, Icons.privacy_tip_outlined, 'Account privacy', 'Control account safety and personal data preferences', 'Privacy and access behavior for this device and account.'),
+                    _navRow(
+                      context,
+                      Icons.privacy_tip_outlined,
+                      'Account privacy',
+                      'Control account safety and personal data preferences',
+                      'Privacy and access behavior for this device and account.',
+                      destination: const PrivacyScreen(),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -251,9 +311,30 @@ class _CustomerProfileScreen extends StatelessWidget {
                       value: preferences.marketingNotifications,
                       onChanged: preferences.setMarketingNotifications,
                     ),
-                    _navRow(context, Icons.help_outline, 'Help and support', 'Chat, call, or report an issue', 'Support options, issue reporting, and order help live here.'),
-                    _navRow(context, Icons.share_outlined, 'Share the app', 'Share ZyroMart with friends and family', 'Invite others using your preferred share method.'),
-                    _navRow(context, Icons.info_outline, 'About ZyroMart', 'App information and version details', 'Version, build details, and company information.'),
+                    _navRow(
+                      context,
+                      Icons.help_outline,
+                      'Help and support',
+                      'Chat, call, or report an issue',
+                      'Support options, issue reporting, and order help live here.',
+                      destination: const SupportScreen(),
+                    ),
+                    _navRow(
+                      context,
+                      Icons.share_outlined,
+                      'Share the app',
+                      'Share ZyroMart with friends and family',
+                      'Invite others using your preferred share method.',
+                      destination: const ShareAppScreen(),
+                    ),
+                    _navRow(
+                      context,
+                      Icons.info_outline,
+                      'About ZyroMart',
+                      'App information and version details',
+                      'Version, build details, and company information.',
+                      destination: const AboutZyroMartScreen(),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
