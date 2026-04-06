@@ -6,19 +6,12 @@ import 'package:latlong2/latlong.dart';
 import '../models/category.dart';
 import '../models/product.dart';
 import '../models/store.dart';
-import '../services/mock_data.dart';
 import '../services/supabase_service.dart';
 
 class CatalogService extends ChangeNotifier {
-  List<Category> _categories = SupabaseService.isInitialized
-      ? <Category>[]
-      : List.of(MockData.categories);
-  List<Product> _products = SupabaseService.isInitialized
-      ? <Product>[]
-      : List.of(MockData.products);
-  List<Store> _stores = SupabaseService.isInitialized
-      ? <Store>[]
-      : List.of(MockData.stores);
+  List<Category> _categories = <Category>[];
+  List<Product> _products = <Product>[];
+  List<Store> _stores = <Store>[];
   final Map<String, List<Product>> _searchCache = {};
   bool _isLoading = false;
 
@@ -91,10 +84,18 @@ class CatalogService extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    if (!SupabaseService.isInitialized) return;
-
     _isLoading = true;
     notifyListeners();
+
+    if (!SupabaseService.isInitialized) {
+      _categories = <Category>[];
+      _products = <Product>[];
+      _stores = <Store>[];
+      _searchCache.clear();
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
 
     try {
       final categoryRows = await SupabaseService.getCategories();
@@ -105,7 +106,7 @@ class CatalogService extends ChangeNotifier {
       _products = productRows.map(_mapProduct).toList();
       _stores = storeRows.map(_mapStore).toList();
     } catch (_) {
-      // Keep the seeded fallback already in memory.
+      // Keep last known live values.
     } finally {
       _searchCache.clear();
       _isLoading = false;
@@ -124,10 +125,16 @@ class CatalogService extends ChangeNotifier {
   }
 
   Product _mapProduct(Map<String, dynamic> row) {
+    final description = _sanitizeDescription(
+      _normalizeText((row['description'] ?? '').toString()),
+    );
+    final unit = _sanitizeUnit(
+      _normalizeText((row['unit'] ?? 'piece').toString()),
+    );
     return Product(
       id: row['id'].toString(),
       name: _normalizeText((row['name'] ?? 'Product').toString()),
-      description: _normalizeText((row['description'] ?? '').toString()),
+      description: description,
       price: ((row['price'] ?? 0) as num).toDouble(),
       originalPrice: row['original_price'] == null
           ? null
@@ -137,7 +144,7 @@ class CatalogService extends ChangeNotifier {
       storeId: (row['store_id'] ?? '').toString(),
       inStock: row['in_stock'] ?? true,
       stockQuantity: (row['stock_quantity'] ?? 0) as int,
-      unit: _normalizeText((row['unit'] ?? 'piece').toString()),
+      unit: unit,
       rating: ((row['rating'] ?? 4.0) as num).toDouble(),
       reviewCount: (row['review_count'] ?? 0) as int,
     );
@@ -175,6 +182,36 @@ class CatalogService extends ChangeNotifier {
     } catch (_) {
       return value;
     }
+  }
+
+  String _sanitizeDescription(String value) {
+    final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.isEmpty || _looksCorrupted(compact)) {
+      return 'Fresh stock available';
+    }
+    return compact;
+  }
+
+  String _sanitizeUnit(String value) {
+    final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.isEmpty) {
+      return 'piece';
+    }
+    if (_looksCorrupted(compact) || compact.length > 28) {
+      return 'piece';
+    }
+    return compact;
+  }
+
+  bool _looksCorrupted(String value) {
+    final lowered = value.toLowerCase();
+    if (lowered.contains('ã') ||
+        lowered.contains('â') ||
+        lowered.contains('å')) {
+      return true;
+    }
+    final nonAsciiChars = RegExp(r'[^\x20-\x7E]').allMatches(value).length;
+    return nonAsciiChars > (value.length * 0.25);
   }
 
   IconData _iconFromName(String name) {

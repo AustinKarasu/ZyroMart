@@ -11,6 +11,7 @@ import 'supabase_service.dart';
 class AuthService extends ChangeNotifier {
   AppUser? _currentUser;
   UserRole? _selectedRole;
+  UserRole? _sessionRoleOverride;
   bool _isLoading = false;
   bool _otpRequested = false;
   bool _initialized = false;
@@ -24,6 +25,7 @@ class AuthService extends ChangeNotifier {
   String? _errorMessage;
   String? _statusMessage;
   bool _isPasswordLogin = false;
+  bool _pendingIsSignUpFlow = false;
   AppPreferencesService? _preferences;
 
   AppUser? get currentUser => _currentUser;
@@ -95,6 +97,7 @@ class AuthService extends ChangeNotifier {
     _pendingStoreName = storeName?.trim();
     _pendingStoreAddress = storeAddress?.trim();
     _pendingStoreLocation = storeLocation;
+    _pendingIsSignUpFlow = isSignUpFlow;
     notifyListeners();
 
     try {
@@ -108,7 +111,7 @@ class AuthService extends ChangeNotifier {
         return false;
       }
       if (isSignUpFlow && (_pendingName == null || _pendingName!.isEmpty)) {
-        _errorMessage = 'Enter your full name.';
+        _errorMessage = 'Enter your full name for signup.';
         return false;
       }
       if (isSignUpFlow && role == UserRole.storeOwner) {
@@ -190,9 +193,15 @@ class AuthService extends ChangeNotifier {
       );
       final existingProfile = await SupabaseService.getMyProfile();
       final existingRole = _roleFromDb(existingProfile?['role']?.toString());
-      final effectiveRole = existingRole ?? _selectedRole!;
+      final selectedRole = _selectedRole!;
+      final effectiveRole = _pendingIsSignUpFlow
+          ? (existingRole ?? selectedRole)
+          : selectedRole;
+      if (!_pendingIsSignUpFlow) {
+        _sessionRoleOverride = selectedRole;
+      }
       await _upsertCurrentProfile(
-        role: effectiveRole,
+        role: existingRole ?? effectiveRole,
         phone: _pendingPhone!,
         email: _pendingEmail,
         name: _pendingName,
@@ -238,6 +247,7 @@ class AuthService extends ChangeNotifier {
     _isLoading = true;
     _clearMessages();
     _selectedRole = role;
+    _sessionRoleOverride = role;
     notifyListeners();
 
     try {
@@ -324,7 +334,19 @@ class AuthService extends ChangeNotifier {
           'Email and password updated. You can now use password login.';
       return true;
     } catch (error) {
-      _errorMessage = 'Could not save password login. ${error.toString()}';
+      final message = error.toString().toLowerCase();
+      if (message.contains('email_exists') ||
+          message.contains('already been registered') ||
+          message.contains('already registered')) {
+        _errorMessage =
+            'This email is already linked with another account. Use a different email or sign in directly with that email.';
+      } else if (message.contains('invalid email')) {
+        _errorMessage = 'Enter a valid email address.';
+      } else if (message.contains('password')) {
+        _errorMessage = 'Password does not meet security requirements.';
+      } else {
+        _errorMessage = 'Could not save password login. Please try again.';
+      }
       return false;
     } finally {
       _isLoading = false;
@@ -408,6 +430,7 @@ class AuthService extends ChangeNotifier {
     }
     _currentUser = null;
     _selectedRole = null;
+    _sessionRoleOverride = null;
     _otpRequested = false;
     _pendingPhone = null;
     _pendingEmail = null;
@@ -435,6 +458,7 @@ class AuthService extends ChangeNotifier {
     final dbRole = (profile?['role'] ?? sessionUser.userMetadata?['role'] ?? '')
         .toString();
     final role =
+        _sessionRoleOverride ??
         _roleFromDb(dbRole.isEmpty ? null : dbRole) ??
         fallbackRole ??
         _inferRoleFromEmail(sessionUser.email ?? fallbackEmail ?? '');
@@ -630,6 +654,11 @@ class AuthService extends ChangeNotifier {
       return isVerification
           ? 'The OTP is invalid or expired. Request a new code and try again.'
           : 'OTP request failed. Please try again.';
+    }
+    if (lowered.contains('email_exists') ||
+        lowered.contains('already been registered') ||
+        lowered.contains('already registered')) {
+      return 'This email is already linked with another account. Use a different email or sign in directly with that email.';
     }
 
     return isVerification

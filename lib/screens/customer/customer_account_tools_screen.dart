@@ -12,6 +12,7 @@ import '../../services/app_preferences_service.dart';
 import '../../services/app_telemetry_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/location_service.dart';
 import '../../services/order_service.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
@@ -94,6 +95,31 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       maxLines: 3,
                       decoration: const InputDecoration(labelText: 'Full address'),
                     ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(this.context);
+                          final resolved = await _resolveCurrentLocationAddress();
+                          if (!mounted) return;
+                          if (resolved == null) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Could not fetch current location. Please enable location permission.'),
+                              ),
+                            );
+                            return;
+                          }
+                          addressController.text = resolved;
+                          if (labelController.text.trim().isEmpty) {
+                            labelController.text = 'Current location';
+                          }
+                        },
+                        icon: const Icon(Icons.my_location_outlined),
+                        label: const Text('Use current location'),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
@@ -172,6 +198,30 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
           .toList();
     });
     await _persist();
+  }
+
+  Future<String?> _resolveCurrentLocationAddress() async {
+    final locationService = context.read<LocationService>();
+    final auth = context.read<AuthService>();
+    await locationService.refreshLocation();
+    final latLng = locationService.currentLocation;
+    if (latLng == null) {
+      return null;
+    }
+    final formatted =
+        'Current location (${latLng.latitude.toStringAsFixed(5)}, ${latLng.longitude.toStringAsFixed(5)})';
+    final user = auth.currentUser;
+    if (user != null) {
+      await auth.updateProfile(
+        name: user.name,
+        address: formatted,
+        phone: user.phone,
+        role: user.role,
+        profileImageUrl: user.profileImageUrl,
+        location: latLng,
+      );
+    }
+    return formatted;
   }
 
   @override
@@ -939,12 +989,34 @@ class _PasswordLoginSettingsScreenState extends State<PasswordLoginSettingsScree
                   password: _passwordController.text,
                 );
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success ? 'Password login saved' : (auth.errorMessage ?? 'Could not save password login'),
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Password login saved')),
+                  );
+                  return;
+                }
+                final errorMessage =
+                    auth.errorMessage ?? 'Could not save password login.';
+                if (errorMessage.toLowerCase().contains('already')) {
+                  showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Email already in use'),
+                      content: const Text(
+                        'This email is already linked with another account. Use a different email for this account, or sign in directly using that existing email.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          child: const Text('OK'),
+                        ),
+                      ],
                     ),
-                  ),
+                  );
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(errorMessage)),
                 );
               },
               child: const Text('Save password login'),
@@ -1116,7 +1188,7 @@ class _WishlistProductTile extends StatelessWidget {
         child: product.imageUrl.isEmpty ? const Icon(Icons.shopping_bag_outlined) : null,
       ),
       title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text('Rs ${product.price.toStringAsFixed(0)} • ${product.unit}'),
+      subtitle: Text('Rs ${product.price.toStringAsFixed(0)} | ${product.unit}'),
       trailing: IconButton(
         onPressed: onToggle,
         icon: Icon(saved ? Icons.favorite : Icons.favorite_border, color: AppTheme.primaryRed),

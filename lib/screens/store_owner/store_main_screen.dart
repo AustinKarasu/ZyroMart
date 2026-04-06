@@ -67,6 +67,7 @@ class _StoreSettingsScreen extends StatelessWidget {
     final auth = context.watch<AuthService>();
     final preferences = context.watch<AppPreferencesService>();
     final user = auth.currentUser;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: user == null || !SupabaseService.isInitialized
@@ -84,6 +85,9 @@ class _StoreSettingsScreen extends StatelessWidget {
                 .toString();
 
         return Scaffold(
+          backgroundColor: isDark
+              ? const Color(0xFF0F1418)
+              : const Color(0xFFF5F5F5),
           appBar: AppBar(title: const Text('Store Settings')),
           body: ListView(
             padding: const EdgeInsets.all(16),
@@ -91,7 +95,7 @@ class _StoreSettingsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF161D22) : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: const [
                     BoxShadow(
@@ -136,7 +140,10 @@ class _StoreSettingsScreen extends StatelessWidget {
                             style: const TextStyle(
                               color: AppTheme.textMedium,
                               fontSize: 13,
+                              height: 1.35,
                             ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -150,6 +157,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 Icons.storefront_outlined,
                 'Store name',
                 storeName,
+                isDark: isDark,
                 onTap: () => _showStoreEditor(
                   context,
                   auth,
@@ -164,6 +172,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 Icons.phone,
                 'Phone',
                 storePhone.isNotEmpty ? storePhone : 'Add store contact number',
+                isDark: isDark,
                 onTap: () => _showStoreEditor(
                   context,
                   auth,
@@ -180,6 +189,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 storeAddress.isNotEmpty
                     ? storeAddress
                     : 'Set the exact store address',
+                isDark: isDark,
                 onTap: () => _showStoreEditor(
                   context,
                   auth,
@@ -194,6 +204,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 Icons.my_location_outlined,
                 'Service radius',
                 'Order visibility follows the configured delivery radius',
+                isDark: isDark,
                 onTap: () => _showRadiusEditor(context, storeId),
               ),
               _buildTapItem(
@@ -202,6 +213,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 'Notification center',
                 'Review order updates, payout alerts, and ops messages',
                 const NotificationCenterScreen(title: 'Store notifications'),
+                isDark: isDark,
               ),
               _buildTapItem(
                 context,
@@ -209,6 +221,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 'Operations preferences',
                 'Pickup timing, substitutions, and stock attention',
                 StoreOperationsPreferencesScreen(userId: user?.id ?? 'guest'),
+                isDark: isDark,
               ),
               const SizedBox(height: 16),
               SwitchListTile.adaptive(
@@ -218,7 +231,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 subtitle: const Text(
                   'Get alerts for new, accepted, and cancelled orders.',
                 ),
-                tileColor: Colors.white,
+                tileColor: isDark ? const Color(0xFF161D22) : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -231,7 +244,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 subtitle: const Text(
                   'Stay signed in on this store device until logout.',
                 ),
-                tileColor: Colors.white,
+                tileColor: isDark ? const Color(0xFF161D22) : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -246,7 +259,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                   color: AppTheme.textLight,
                 ),
                 onTap: auth.logout,
-                tileColor: Colors.white,
+                tileColor: isDark ? const Color(0xFF161D22) : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -258,12 +271,17 @@ class _StoreSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildItem(IconData icon, String label, String value) {
+  Widget _buildItem(
+    IconData icon,
+    String label,
+    String value, {
+    required bool isDark,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF161D22) : Colors.white,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -287,9 +305,13 @@ class _StoreSettingsScreen extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : AppTheme.textDark,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -304,14 +326,15 @@ class _StoreSettingsScreen extends StatelessWidget {
     IconData icon,
     String label,
     String value,
-    Widget destination,
-  ) {
+    Widget destination, {
+    required bool isDark,
+  }) {
     return InkWell(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => destination),
       ),
-      child: _buildItem(icon, label, value),
+      child: _buildItem(icon, label, value, isDark: isDark),
     );
   }
 
@@ -321,8 +344,12 @@ class _StoreSettingsScreen extends StatelessWidget {
     String label,
     String value, {
     required VoidCallback onTap,
+    required bool isDark,
   }) {
-    return InkWell(onTap: onTap, child: _buildItem(icon, label, value));
+    return InkWell(
+      onTap: onTap,
+      child: _buildItem(icon, label, value, isDark: isDark),
+    );
   }
 
   Future<void> _showStoreEditor(

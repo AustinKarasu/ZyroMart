@@ -6,6 +6,7 @@ import '../../models/product.dart';
 import '../../services/app_telemetry_service.dart';
 import '../../services/cart_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_image.dart';
 import '../../widgets/product_card.dart';
@@ -45,6 +46,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cart = context.watch<CartService>();
     final catalog = context.watch<CatalogService>();
+    final orderService = context.watch<OrderService>();
     final freeDeliveryLeft = cart.amountForFreeDelivery;
     final products = catalog.products;
     final categories = catalog.categories;
@@ -56,9 +58,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       limit: 4,
       dietFilters: _dietFilters,
     );
-    final trendingProducts = products.skip(4).take(6).toList();
-    final recommendationProducts = catalog.recommendedProducts(
-      limit: 6,
+    final trendingProducts = _buildTrendingProducts(
+      products: products,
+      orderService: orderService,
+      dietFilters: _dietFilters,
+    );
+    final recommendationProducts = _buildSmartBasketSuggestions(
+      products: products,
+      cart: cart,
+      orderService: orderService,
       dietFilters: _dietFilters,
     );
 
@@ -264,15 +272,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
-                    height: 40,
-                    child: ListView(
+                    height: 42,
+                    child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      children: [
-                        _dietChip('Vegetarian'),
-                        _dietChip('Vegan'),
-                        _dietChip('High-Protein'),
-                        _dietChip('Snacks'),
-                      ],
+                      child: Row(
+                        children: [
+                          _dietChip(context, 'Vegetarian'),
+                          _dietChip(context, 'Vegan'),
+                          _dietChip(context, 'High-Protein'),
+                          _dietChip(context, 'Snacks'),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -311,7 +321,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              _AllCategoriesScreen(categories: categories),
+                        ),
+                      ),
                       child: const Text(
                         'See all',
                         style: TextStyle(
@@ -328,8 +344,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 110,
-                  childAspectRatio: 0.78,
+                  maxCrossAxisExtent: 112,
+                  childAspectRatio: 0.88,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 12,
                 ),
@@ -366,7 +382,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 228,
+                height: 214,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -375,7 +391,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final product = trendingProducts[index];
-                    return _TrendingProductCard(
+                    return _CompactTrendingProductCard(
                       product: product,
                       isDark: isDark,
                     );
@@ -408,7 +424,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 228,
+                height: 214,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -417,7 +433,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final product = recommendationProducts[index];
-                    return _TrendingProductCard(
+                    return _CompactTrendingProductCard(
                       product: product,
                       isDark: isDark,
                     );
@@ -485,13 +501,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Widget _cartBar(BuildContext context, CartService cart) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const CartScreen()),
       ),
       child: Container(
-        margin: const EdgeInsets.all(16),
+        margin: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -549,13 +566,22 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Widget _dietChip(String label) {
+  Widget _dietChip(BuildContext context, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final selected = _dietFilters.contains(label);
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
         selected: selected,
-        label: Text(label),
+        label: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: selected
+                ? (isDark ? const Color(0xFFD6FFE0) : const Color(0xFF116E2A))
+                : (isDark ? Colors.white70 : const Color(0xFF2A3138)),
+          ),
+        ),
         onSelected: (value) {
           setState(() {
             if (value) {
@@ -565,14 +591,188 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             }
           });
         },
-        backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFD9F0DF),
+        showCheckmark: false,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+        backgroundColor: isDark ? const Color(0xFF1B2026) : Colors.white,
+        selectedColor: isDark
+            ? const Color(0xFF204F2D)
+            : const Color(0xFFD9F0DF),
         checkmarkColor: const Color(0xFF1D8C3A),
         side: BorderSide(
-          color: selected ? const Color(0xFF1D8C3A) : const Color(0xFFE4E8EC),
+          color: selected
+              ? const Color(0xFF1D8C3A)
+              : (isDark ? const Color(0xFF2C353F) : const Color(0xFFE4E8EC)),
         ),
       ),
     );
+  }
+
+  List<Product> _buildTrendingProducts({
+    required List<Product> products,
+    required OrderService orderService,
+    required Set<String> dietFilters,
+  }) {
+    final orderedProductCounts = <String, int>{};
+    for (final order in orderService.orders) {
+      for (final item in order.items) {
+        orderedProductCounts.update(
+          item.product.id,
+          (value) => value + item.quantity,
+          ifAbsent: () => item.quantity,
+        );
+      }
+    }
+
+    final candidates =
+        products
+            .where(
+              (product) =>
+                  dietFilters.isEmpty ||
+                  _passesDietFilters(product, dietFilters),
+            )
+            .toList()
+          ..sort((a, b) {
+            final scoreA =
+                (orderedProductCounts[a.id] ?? 0) * 65 +
+                (a.reviewCount * 0.7) +
+                (a.rating * 24);
+            final scoreB =
+                (orderedProductCounts[b.id] ?? 0) * 65 +
+                (b.reviewCount * 0.7) +
+                (b.rating * 24);
+            return scoreB.compareTo(scoreA);
+          });
+    return candidates.take(6).toList();
+  }
+
+  List<Product> _buildSmartBasketSuggestions({
+    required List<Product> products,
+    required CartService cart,
+    required OrderService orderService,
+    required Set<String> dietFilters,
+  }) {
+    final recentOrders = orderService.orders
+        .where(
+          (order) => DateTime.now().difference(order.placedAt).inDays <= 60,
+        )
+        .toList();
+    final productFrequency = <String, int>{};
+    final categoryFrequency = <String, int>{};
+    final hourFrequency = <int, int>{};
+    for (final order in recentOrders) {
+      hourFrequency.update(
+        order.placedAt.hour,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+      for (final item in order.items) {
+        productFrequency.update(
+          item.product.id,
+          (value) => value + item.quantity,
+          ifAbsent: () => item.quantity,
+        );
+        categoryFrequency.update(
+          item.product.categoryId,
+          (value) => value + item.quantity,
+          ifAbsent: () => item.quantity,
+        );
+      }
+    }
+
+    final nowHour = DateTime.now().hour;
+    final hasCurrentWindowDemand =
+        (hourFrequency[nowHour] ?? 0) > 0 ||
+        (hourFrequency[nowHour - 1] ?? 0) > 0 ||
+        (hourFrequency[nowHour + 1] ?? 0) > 0;
+
+    final cartProductIds = cart.items.map((item) => item.product.id).toSet();
+    final candidates =
+        products
+            .where((product) => !cartProductIds.contains(product.id))
+            .where(
+              (product) =>
+                  dietFilters.isEmpty ||
+                  _passesDietFilters(product, dietFilters),
+            )
+            .toList()
+          ..sort((a, b) {
+            final scoreA =
+                (productFrequency[a.id] ?? 0) * 90 +
+                (categoryFrequency[a.categoryId] ?? 0) * 28 +
+                (hasCurrentWindowDemand ? 12 : 0) +
+                (a.rating * 18) +
+                (a.reviewCount * 0.45);
+            final scoreB =
+                (productFrequency[b.id] ?? 0) * 90 +
+                (categoryFrequency[b.categoryId] ?? 0) * 28 +
+                (hasCurrentWindowDemand ? 12 : 0) +
+                (b.rating * 18) +
+                (b.reviewCount * 0.45);
+            return scoreB.compareTo(scoreA);
+          });
+
+    if (candidates.isEmpty) {
+      return context.read<CatalogService>().recommendedProducts(
+        limit: 6,
+        dietFilters: dietFilters,
+      );
+    }
+    return candidates.take(6).toList();
+  }
+
+  bool _passesDietFilters(Product product, Set<String> dietFilters) {
+    if (dietFilters.isEmpty) return true;
+    final text = '${product.name} ${product.description}'.toLowerCase();
+    for (final filter in dietFilters.map((value) => value.toLowerCase())) {
+      if (filter == 'vegetarian') {
+        if (['chicken', 'meat', 'fish', 'egg'].any(text.contains)) {
+          return false;
+        }
+        continue;
+      }
+      if (filter == 'vegan') {
+        if (![
+          'banana',
+          'apple',
+          'spinach',
+          'tomato',
+          'onion',
+          'potato',
+          'lentil',
+          'almond',
+        ].any(text.contains)) {
+          return false;
+        }
+        continue;
+      }
+      if (filter == 'high-protein') {
+        if (![
+          'egg',
+          'milk',
+          'paneer',
+          'chicken',
+          'fish',
+          'nuts',
+          'protein',
+        ].any(text.contains)) {
+          return false;
+        }
+        continue;
+      }
+      if (filter == 'snacks') {
+        if (![
+          'chips',
+          'cookie',
+          'chocolate',
+          'namkeen',
+          'snack',
+        ].any(text.contains)) {
+          return false;
+        }
+        continue;
+      }
+    }
+    return true;
   }
 }
 
@@ -587,7 +787,7 @@ class _HeroCommerceBanner extends StatelessWidget {
     final leadImage = products.isNotEmpty ? products.first.imageUrl : '';
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
         gradient: const LinearGradient(
@@ -626,30 +826,30 @@ class _HeroCommerceBanner extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 const Text(
                   'Groceries curated for tonight',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 28,
+                    fontSize: 22,
                     height: 1.05,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   'Smart baskets, premium produce, household essentials, and snack-ready deals in one scroll.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.92),
-                    fontSize: 13.5,
+                    fontSize: 12.5,
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
+                    horizontal: 12,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF114E22),
@@ -666,10 +866,10 @@ class _HeroCommerceBanner extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 12),
           Container(
-            width: 118,
-            height: 158,
+            width: 98,
+            height: 132,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.22),
               borderRadius: BorderRadius.circular(28),
@@ -785,7 +985,7 @@ class _CategoryTile extends StatelessWidget {
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1C1F24) : Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -801,8 +1001,8 @@ class _CategoryTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 58,
-              height: 58,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: category.color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(18),
@@ -810,20 +1010,20 @@ class _CategoryTile extends StatelessWidget {
               child: category.imageUrl.isNotEmpty
                   ? AppImage(
                       imageUrl: category.imageUrl,
-                      width: 58,
-                      height: 58,
+                      width: 52,
+                      height: 52,
                       borderRadius: BorderRadius.circular(18),
                     )
                   : Icon(category.icon, color: category.color, size: 28),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               category.name,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11.5,
+                fontSize: 12,
                 height: 1.18,
                 fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white : AppTheme.textDark,
@@ -836,6 +1036,7 @@ class _CategoryTile extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _TrendingProductCard extends StatelessWidget {
   const _TrendingProductCard({required this.product, required this.isDark});
 
@@ -852,7 +1053,7 @@ class _TrendingProductCard extends StatelessWidget {
         ),
       ),
       child: Container(
-        width: 174,
+        width: 162,
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1C1F24) : Colors.white,
           borderRadius: BorderRadius.circular(26),
@@ -895,6 +1096,152 @@ class _TrendingProductCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Rs ${product.price.toInt()} • ${product.unit}',
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : AppTheme.textMedium,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _AllProductsScreen extends StatelessWidget {
+  const _AllProductsScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final products = context.watch<CatalogService>().products;
+    return Scaffold(
+      appBar: AppBar(title: const Text('All products')),
+      body: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.68,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final product = products[index];
+          return ProductCard(
+            product: product,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProductDetailScreen(product: product),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AllCategoriesScreen extends StatelessWidget {
+  const _AllCategoriesScreen({required this.categories});
+
+  final List<Category> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      appBar: AppBar(title: const Text('All categories')),
+      backgroundColor: isDark
+          ? const Color(0xFF0F1418)
+          : const Color(0xFFF6F7F2),
+      body: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 120,
+          childAspectRatio: 0.9,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+        ),
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          return _CategoryTile(category: category, isDark: isDark);
+        },
+      ),
+    );
+  }
+}
+
+class _CompactTrendingProductCard extends StatelessWidget {
+  const _CompactTrendingProductCard({
+    required this.product,
+    required this.isDark,
+  });
+
+  final Product product;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(product: product),
+        ),
+      ),
+      child: Container(
+        width: 162,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1F24) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x12000000),
+              blurRadius: 16,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                child: AppImage(
+                  imageUrl: product.imageUrl,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : AppTheme.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Rs ${product.price.toInt()} | ${product.unit}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isDark ? Colors.white70 : AppTheme.textMedium,
                       fontWeight: FontWeight.w600,

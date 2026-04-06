@@ -59,7 +59,7 @@ class _CustomerProfileScreen extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 58, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 54, 20, 20),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -80,9 +80,9 @@ class _CustomerProfileScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 CircleAvatar(
-                  radius: 54,
+                  radius: 42,
                   backgroundColor: const Color(0xFF9A6A19),
                   backgroundImage: (user?.profileImageUrl?.isNotEmpty ?? false)
                       ? NetworkImage(user!.profileImageUrl!)
@@ -91,41 +91,63 @@ class _CustomerProfileScreen extends StatelessWidget {
                       ? null
                       : Text(
                           (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
-                          style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800),
+                          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800),
                         ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
                 Text(
                   user?.name ?? 'Your account',
-                  style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900),
+                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   user?.phone ?? '',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 18),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 15),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(22),
                     gradient: const LinearGradient(colors: [Color(0xFF6B3700), Color(0xFF965F08)]),
                   ),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Faster sign-in setup', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-                            SizedBox(height: 6),
-                            Text('Add your email and password after OTP verification for easier future logins.', style: TextStyle(color: Colors.white70, height: 1.4)),
+                            const Text(
+                              'Faster sign-in setup',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Add email and password after OTP for faster access.',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                height: 1.25,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 10),
                       FilledButton(
                         onPressed: () => _showPasswordSetup(context, auth),
-                        style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppTheme.primaryRed),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppTheme.primaryRed,
+                          minimumSize: const Size(92, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
                         child: const Text('Manage'),
                       ),
                     ],
@@ -138,12 +160,32 @@ class _CustomerProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    Expanded(child: _statCard(Icons.receipt_long, 'Your orders', 'Track active and completed orders')),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    SizedBox(
+                      width: (MediaQuery.of(context).size.width - 44) / 2,
                       child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CustomerOrdersScreen(),
+                          ),
+                        ),
+                        child: _statCard(
+                          context,
+                          Icons.receipt_long,
+                          'Your orders',
+                          'Track active and completed orders',
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: (MediaQuery.of(context).size.width - 44) / 2,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -153,14 +195,31 @@ class _CustomerProfileScreen extends StatelessWidget {
                           ),
                         ),
                         child: _statCard(
+                          context,
                           Icons.notifications_none_rounded,
                           'Notifications',
-                          'Order updates, promos, and delivery events',
+                          'Order updates and delivery events',
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(child: _statCard(Icons.support_agent, 'Need help?', 'Support, refunds, and order help')),
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width - 32,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SupportScreen(),
+                          ),
+                        ),
+                        child: _statCard(
+                          context,
+                          Icons.support_agent,
+                          'Need help?',
+                          'Support, refunds, and order help',
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -397,16 +456,43 @@ class _CustomerProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _statCard(IconData icon, String title, String subtitle) {
+  Widget _statCard(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF23232B), borderRadius: BorderRadius.circular(22)),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF23232B) : const Color(0xFF1F2430),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: Colors.white, size: 30),
-        const SizedBox(height: 14),
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+        Icon(icon, color: Colors.white, size: 24),
+        const SizedBox(height: 10),
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.35)),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 11.5,
+            height: 1.3,
+          ),
+        ),
       ]),
     );
   }
@@ -555,8 +641,37 @@ class _CustomerProfileScreen extends StatelessWidget {
                         );
                         if (!context.mounted) return;
                         Navigator.pop(context);
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Password login saved'),
+                            ),
+                          );
+                          return;
+                        }
+                        final errorMessage =
+                            auth.errorMessage ?? 'Could not save password login.';
+                        if (errorMessage.toLowerCase().contains('already')) {
+                          showDialog<void>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Email already in use'),
+                              content: const Text(
+                                'This email is already linked with another account. Use a different email here or sign in directly with that email.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(dialogContext).pop(),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                          return;
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(success ? 'Password login saved' : (auth.errorMessage ?? 'Could not save password'))),
+                          SnackBar(content: Text(errorMessage)),
                         );
                       },
                       child: const Text('Save credentials'),

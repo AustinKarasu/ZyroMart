@@ -1,0 +1,14 @@
+ZyroMart v1.4.9
+
+Core fixes and polish in this release:
+
+- Fixed role routing on auth so OTP sign-in respects selected role (customer/store owner/delivery) during login sessions.
+- Improved onboarding/auth visual design for a more compact, dark professional presentation.
+- Added slide-to-confirm interactions for checkout placement and customer cancel-order flow.
+- Fixed bottom action overlap with system navigation bars in cart and product detail flows.
+- Added current-location address shortcuts in checkout and address book.
+- Improved customer account UX with smaller, cleaner profile cards and better tap targets.
+- Reworked auto-restock screen with live product images, search, dark-theme support, and account-scoped local persistence plus backend sync.
+- Added admin animated intro splash and professionalized admin messaging.
+- Hardened admin auth fallback for owner allowlist and replaced raw backend policy errors with user-friendly copy.
+- Kept runtime verification clean: flutter analyze + flutter test passing.

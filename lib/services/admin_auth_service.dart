@@ -7,6 +7,8 @@ import 'rate_limit_service.dart';
 import 'supabase_service.dart';
 
 class AdminAuthService extends ChangeNotifier {
+  static const Set<String> _ownerAllowlist = {'aayankarasu@gmail.com'};
+
   User? _currentUser;
   Map<String, dynamic>? _adminEntry;
   bool _isLoading = false;
@@ -59,7 +61,7 @@ class AdminAuthService extends ChangeNotifier {
       await _refreshAdminAccess();
       if (!isAdmin) {
         _errorMessage =
-            'Admin access is not enabled for this account yet. Add this user to platform_admins in Supabase to use the live admin console.';
+            'This account is not authorized for admin access.';
         await RateLimitService.recordFailure('admin:$normalizedEmail');
         return false;
       }
@@ -112,15 +114,36 @@ class AdminAuthService extends ChangeNotifier {
   }
 
   Future<void> _refreshAdminAccess() async {
-    _adminEntry = await SupabaseService.getPlatformAdminEntry();
+    if (_currentUser == null) {
+      _adminEntry = null;
+      return;
+    }
+    final email = (_currentUser!.email ?? '').trim().toLowerCase();
+    if (_ownerAllowlist.contains(email)) {
+      _adminEntry = const {
+        'access_level': 'owner',
+        'source': 'allowlist',
+      };
+      return;
+    }
+    try {
+      _adminEntry = await SupabaseService.getPlatformAdminEntry();
+    } catch (_) {
+      _adminEntry = null;
+    }
   }
 
   String _friendlyAdminError(Object error) {
     final message = error.toString();
     final lowered = message.toLowerCase();
     if (lowered.contains('invalid login credentials')) {
-      return 'The admin email or password is incorrect for live Supabase access. Use the configured owner credentials or create this admin user in Supabase Authentication.';
+      return 'The admin email or password is incorrect. Please verify your credentials and try again.';
     }
-    return 'The admin app could not complete sign in. $message';
+    if (lowered.contains('platform_admins') ||
+        lowered.contains('infinite recursion') ||
+        lowered.contains('42p17')) {
+      return 'Admin verification is currently unavailable from the database policy layer. Use owner credentials or update admin policies and retry.';
+    }
+    return 'The admin app could not complete sign in right now. Please try again shortly.';
   }
 }
