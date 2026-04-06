@@ -9,6 +9,7 @@ import '../models/order.dart';
 import '../models/store.dart';
 import '../models/user.dart';
 import 'mock_data.dart';
+import 'supabase_service.dart';
 
 class OrderService extends ChangeNotifier {
   static const double _platformCommissionRate = 0.05;
@@ -29,6 +30,9 @@ class OrderService extends ChangeNotifier {
   final Map<String, bool> _deliveryPartnerPromptedByOrderId = {};
   final Map<String, bool> _customerPromptedByOrderId = {};
   final Map<String, String> _completionCodes = {};
+  final Map<String, List<Map<String, dynamic>>> _statusEventsByOrderId = {};
+  final Map<String, List<Map<String, dynamic>>> _inventoryReservationsByOrderId = {};
+  final Map<String, Map<String, dynamic>> _proofOfDeliveryByOrderId = {};
   AppUser? _viewer;
 
   OrderService() {
@@ -265,6 +269,13 @@ class OrderService extends ChangeNotifier {
     _orders.insert(0, order);
     _completionCodes[order.id] = verificationCode;
     _initializeLedgerForOrder(order);
+    _reserveInventory(order);
+    _recordStatusEvent(
+      order: order,
+      previousStatus: null,
+      nextStatus: OrderStatus.placed,
+      notes: 'Order created and forwarded to the store.',
+    );
     _pushOrderNotifications(order);
     notifyListeners();
     return order;
@@ -282,11 +293,19 @@ class OrderService extends ChangeNotifier {
       return false;
     }
 
-    if (!_isValidTransition(order.status, status)) {
+    final previousStatus = order.status;
+
+    if (!_isValidTransition(previousStatus, status)) {
       return false;
     }
 
     order.status = status;
+    _recordStatusEvent(
+      order: order,
+      previousStatus: previousStatus,
+      nextStatus: status,
+      notes: _statusEventNote(status),
+    );
     if (status == OrderStatus.outForDelivery) {
       final deliveryPartner = _viewer?.role == UserRole.delivery
           ? _viewer!
@@ -311,6 +330,8 @@ class OrderService extends ChangeNotifier {
     }
 
     if (status == OrderStatus.delivered) {
+      _captureProofOfDelivery(order);
+      _consumeInventory(order.id);
       _releaseSettlement(order);
       _createNotification(
         recipientUserId: order.customerId,
@@ -331,6 +352,7 @@ class OrderService extends ChangeNotifier {
     }
 
     if (status == OrderStatus.cancelled) {
+      _releaseInventory(order.id);
       _clearHeldSettlement(order);
     }
 
@@ -436,7 +458,15 @@ class OrderService extends ChangeNotifier {
       return false;
     }
 
+    final previousStatus = order.status;
     order.status = OrderStatus.cancelled;
+    _recordStatusEvent(
+      order: order,
+      previousStatus: previousStatus,
+      nextStatus: OrderStatus.cancelled,
+      notes: 'Cancelled by customer inside the grace period.',
+    );
+    _releaseInventory(order.id);
     _clearHeldSettlement(order);
     _createNotification(
       recipientUserId: order.customerId,
@@ -629,6 +659,138 @@ class OrderService extends ChangeNotifier {
   String _generateDeliveryCode() {
     final value = DateTime.now().microsecondsSinceEpoch % 9000;
     return (1000 + value).toString();
+  }
+
+  List<Map<String, dynamic>> statusEventsForOrder(String orderId) {
+    final events = _statusEventsByOrderId[orderId] ?? const [];
+    return List.unmodifiable(events);
+  }
+
+  List<Map<String, dynamic>> inventoryReservationsForOrder(String orderId) {
+    final reservations = _inventoryReservationsByOrderId[orderId] ?? const [];
+    return List.unmodifiable(reservations);
+  }
+
+  Map<String, dynamic>? proofOfDeliveryForOrder(String orderId) =>
+      _proofOfDeliveryByOrderId[orderId];
+
+  void _recordStatusEvent({
+    required Order order,
+    required OrderStatus? previousStatus,
+    required OrderStatus nextStatus,
+    required String notes,
+  }) {
+    final event = <String, dynamic>{
+      'id': 'EVT${DateTime.now().microsecondsSinceEpoch}',
+      'order_id': order.id,
+      'actor_user_id': _viewer?.id,
+      'actor_role': _viewer == null ? 'system' : _actorRole(_viewer!.role),
+      'previous_status': previousStatus?.name,
+      'next_status': nextStatus.name,
+      'notes': notes,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    final bucket = _statusEventsByOrderId.putIfAbsent(order.id, () => []);
+    bucket.insert(0, event);
+    if (SupabaseService.isInitialized) {
+      SupabaseService.insertOrderStatusEvent(event).catchError((_) {});
+    }
+  }
+
+  void _reserveInventory(Order order) {
+    final reservations = order.items
+        .map(
+          (item) => <String, dynamic>{
+            'id': 'RSV${DateTime.now().microsecondsSinceEpoch}${item.product.id}',
+            'order_id': order.id,
+            'product_id': item.product.id,
+            'store_id': order.storeId,
+            'reserved_quantity': item.quantity,
+            'reservation_status': 'reserved',
+            'expires_at': DateTime.now().add(const Duration(hours: 24)).toIso8601String(),
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+        )
+        .toList();
+    _inventoryReservationsByOrderId[order.id] = reservations;
+    if (SupabaseService.isInitialized) {
+      SupabaseService.reserveInventory(reservations).catchError((_) {});
+    }
+  }
+
+  void _releaseInventory(String orderId) {
+    final reservations = _inventoryReservationsByOrderId[orderId];
+    if (reservations == null) return;
+    for (final reservation in reservations) {
+      reservation['reservation_status'] = 'released';
+      reservation['released_at'] = DateTime.now().toIso8601String();
+    }
+    if (SupabaseService.isInitialized) {
+      SupabaseService.updateInventoryReservationStatus(
+        orderId: orderId,
+        status: 'released',
+      ).catchError((_) {});
+    }
+  }
+
+  void _consumeInventory(String orderId) {
+    final reservations = _inventoryReservationsByOrderId[orderId];
+    if (reservations == null) return;
+    for (final reservation in reservations) {
+      reservation['reservation_status'] = 'consumed';
+    }
+    if (SupabaseService.isInitialized) {
+      SupabaseService.updateInventoryReservationStatus(
+        orderId: orderId,
+        status: 'consumed',
+      ).catchError((_) {});
+    }
+  }
+
+  void _captureProofOfDelivery(Order order) {
+    final proof = <String, dynamic>{
+      'order_id': order.id,
+      'delivery_person_id': order.deliveryPersonId,
+      'handed_to_name': order.customerName,
+      'otp_verified': true,
+      'notes': order.notes,
+      'delivered_at': DateTime.now().toIso8601String(),
+    };
+    _proofOfDeliveryByOrderId[order.id] = proof;
+    if (SupabaseService.isInitialized) {
+      SupabaseService.saveProofOfDelivery(proof).catchError((_) {});
+    }
+  }
+
+  String _actorRole(UserRole role) {
+    switch (role) {
+      case UserRole.customer:
+        return 'customer';
+      case UserRole.storeOwner:
+        return 'store_owner';
+      case UserRole.delivery:
+        return 'delivery';
+    }
+  }
+
+  String _statusEventNote(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.placed:
+        return 'Order placed successfully.';
+      case OrderStatus.confirmed:
+        return 'Store confirmed the order.';
+      case OrderStatus.preparing:
+        return 'Items are being packed and prepared.';
+      case OrderStatus.readyForPickup:
+        return 'Order is ready for the delivery partner pickup.';
+      case OrderStatus.outForDelivery:
+        return 'Delivery partner collected the order and is en route.';
+      case OrderStatus.delivered:
+        return 'Delivery completed after OTP verification.';
+      case OrderStatus.cancelled:
+        return 'Order was cancelled.';
+    }
   }
 
 }

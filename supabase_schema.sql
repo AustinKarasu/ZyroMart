@@ -430,8 +430,27 @@ CREATE POLICY "Assigned delivery update tracking" ON delivery_tracking FOR UPDAT
 
 -- ─── Realtime ──────────────────────────────────────────────
 
-ALTER PUBLICATION supabase_realtime ADD TABLE orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE delivery_tracking;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'orders'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'delivery_tracking'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE delivery_tracking;
+  END IF;
+END $$;
 
 -- Backend foundation: admin, payouts, ratings, notifications, radius, recommendations
 
@@ -576,6 +595,113 @@ CREATE TABLE IF NOT EXISTS platform_daily_metrics (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS product_catalog_metadata (
+  product_id UUID PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+  brand_name TEXT,
+  localized_name_hi TEXT,
+  localized_description_hi TEXT,
+  tags TEXT[] DEFAULT ARRAY[]::TEXT[],
+  diet_labels TEXT[] DEFAULT ARRAY[]::TEXT[],
+  barcode_value TEXT UNIQUE,
+  replacement_group TEXT,
+  shelf_life_days INTEGER CHECK (shelf_life_days IS NULL OR shelf_life_days >= 0),
+  is_perishable BOOLEAN DEFAULT FALSE,
+  temperature_min_c DOUBLE PRECISION,
+  temperature_max_c DOUBLE PRECISION,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS search_keywords (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  locale_code TEXT NOT NULL DEFAULT 'en-IN',
+  keyword TEXT NOT NULL,
+  keyword_source TEXT NOT NULL DEFAULT 'manual'
+    CHECK (keyword_source IN ('name', 'category', 'tag', 'brand', 'manual')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (product_id, locale_code, keyword)
+);
+
+CREATE TABLE IF NOT EXISTS inventory_reservations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  reserved_quantity INTEGER NOT NULL CHECK (reserved_quantity > 0),
+  reservation_status TEXT NOT NULL DEFAULT 'reserved'
+    CHECK (reservation_status IN ('reserved', 'released', 'consumed', 'substituted')),
+  expires_at TIMESTAMPTZ,
+  released_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS order_status_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  actor_user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  actor_role TEXT NOT NULL DEFAULT 'system'
+    CHECK (actor_role IN ('customer', 'store_owner', 'delivery', 'admin', 'system')),
+  previous_status TEXT,
+  next_status TEXT NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS delivery_route_updates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  delivery_person_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+  longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+  accuracy_meters DOUBLE PRECISION,
+  speed_kmph DOUBLE PRECISION,
+  heading_degrees DOUBLE PRECISION,
+  eta_minutes INTEGER CHECK (eta_minutes IS NULL OR eta_minutes >= 0),
+  captured_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS proof_of_delivery (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+  delivery_person_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  photo_url TEXT,
+  signature_name TEXT,
+  signature_vector JSONB,
+  handed_to_name TEXT,
+  otp_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  notes TEXT,
+  delivered_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notification_devices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL CHECK (platform IN ('android', 'ios', 'web')),
+  device_token TEXT NOT NULL UNIQUE,
+  locale_code TEXT NOT NULL DEFAULT 'en-IN',
+  timezone_name TEXT,
+  app_variant TEXT NOT NULL DEFAULT 'storefront'
+    CHECK (app_variant IN ('storefront', 'admin')),
+  push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  last_seen_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_restock_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  cadence TEXT NOT NULL CHECK (cadence IN ('daily', 'weekly', 'monthly')),
+  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  next_run_at TIMESTAMPTZ NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, product_id, cadence)
+);
+
 CREATE INDEX IF NOT EXISTS idx_payout_accounts_user ON payout_accounts(user_id);
 CREATE INDEX IF NOT EXISTS idx_earnings_ledger_order ON earnings_ledger(order_id);
 CREATE INDEX IF NOT EXISTS idx_earnings_ledger_beneficiary ON earnings_ledger(beneficiary_user_id, settlement_state);
@@ -584,6 +710,13 @@ CREATE INDEX IF NOT EXISTS idx_delivery_feedback_delivery ON delivery_feedback(d
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_activity_events_user ON user_activity_events(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_product_recommendations_user ON product_recommendations(user_id, score DESC);
+CREATE INDEX IF NOT EXISTS idx_search_keywords_lookup ON search_keywords(locale_code, keyword);
+CREATE INDEX IF NOT EXISTS idx_inventory_reservations_order ON inventory_reservations(order_id, reservation_status);
+CREATE INDEX IF NOT EXISTS idx_inventory_reservations_product ON inventory_reservations(product_id, store_id, reservation_status);
+CREATE INDEX IF NOT EXISTS idx_order_status_events_order ON order_status_events(order_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_delivery_route_updates_order ON delivery_route_updates(order_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notification_devices_user ON notification_devices(user_id, push_enabled);
+CREATE INDEX IF NOT EXISTS idx_user_restock_subscriptions_user ON user_restock_subscriptions(user_id, is_active);
 
 DROP TRIGGER IF EXISTS set_payout_accounts_updated_at ON payout_accounts;
 CREATE TRIGGER set_payout_accounts_updated_at
@@ -610,6 +743,26 @@ CREATE TRIGGER set_platform_daily_metrics_updated_at
 BEFORE UPDATE ON platform_daily_metrics
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_product_catalog_metadata_updated_at ON product_catalog_metadata;
+CREATE TRIGGER set_product_catalog_metadata_updated_at
+BEFORE UPDATE ON product_catalog_metadata
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_inventory_reservations_updated_at ON inventory_reservations;
+CREATE TRIGGER set_inventory_reservations_updated_at
+BEFORE UPDATE ON inventory_reservations
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_notification_devices_updated_at ON notification_devices;
+CREATE TRIGGER set_notification_devices_updated_at
+BEFORE UPDATE ON notification_devices
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_user_restock_subscriptions_updated_at ON user_restock_subscriptions;
+CREATE TRIGGER set_user_restock_subscriptions_updated_at
+BEFORE UPDATE ON user_restock_subscriptions
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 ALTER TABLE platform_admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payout_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE earnings_ledger ENABLE ROW LEVEL SECURITY;
@@ -621,6 +774,14 @@ ALTER TABLE store_service_areas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_activity_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_recommendations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_daily_metrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_catalog_metadata ENABLE ROW LEVEL SECURITY;
+ALTER TABLE search_keywords ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory_reservations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_status_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_route_updates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proof_of_delivery ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_restock_subscriptions ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE platform_admins FORCE ROW LEVEL SECURITY;
 ALTER TABLE payout_accounts FORCE ROW LEVEL SECURITY;
@@ -633,6 +794,14 @@ ALTER TABLE store_service_areas FORCE ROW LEVEL SECURITY;
 ALTER TABLE user_activity_events FORCE ROW LEVEL SECURITY;
 ALTER TABLE product_recommendations FORCE ROW LEVEL SECURITY;
 ALTER TABLE platform_daily_metrics FORCE ROW LEVEL SECURITY;
+ALTER TABLE product_catalog_metadata FORCE ROW LEVEL SECURITY;
+ALTER TABLE search_keywords FORCE ROW LEVEL SECURITY;
+ALTER TABLE inventory_reservations FORCE ROW LEVEL SECURITY;
+ALTER TABLE order_status_events FORCE ROW LEVEL SECURITY;
+ALTER TABLE delivery_route_updates FORCE ROW LEVEL SECURITY;
+ALTER TABLE proof_of_delivery FORCE ROW LEVEL SECURITY;
+ALTER TABLE notification_devices FORCE ROW LEVEL SECURITY;
+ALTER TABLE user_restock_subscriptions FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins read platform admins" ON platform_admins;
 DROP POLICY IF EXISTS "Users manage own payout accounts" ON payout_accounts;
@@ -655,6 +824,21 @@ DROP POLICY IF EXISTS "Users read own recommendations" ON product_recommendation
 DROP POLICY IF EXISTS "Admins manage recommendations" ON product_recommendations;
 DROP POLICY IF EXISTS "Admins read daily metrics" ON platform_daily_metrics;
 DROP POLICY IF EXISTS "Admins manage daily metrics" ON platform_daily_metrics;
+DROP POLICY IF EXISTS "Public read product metadata" ON product_catalog_metadata;
+DROP POLICY IF EXISTS "Owners manage product metadata" ON product_catalog_metadata;
+DROP POLICY IF EXISTS "Public read search keywords" ON search_keywords;
+DROP POLICY IF EXISTS "Owners manage search keywords" ON search_keywords;
+DROP POLICY IF EXISTS "Users read related inventory reservations" ON inventory_reservations;
+DROP POLICY IF EXISTS "Owners manage inventory reservations" ON inventory_reservations;
+DROP POLICY IF EXISTS "Delivery read assigned inventory reservations" ON inventory_reservations;
+DROP POLICY IF EXISTS "Users read related order status events" ON order_status_events;
+DROP POLICY IF EXISTS "Authorized insert order status events" ON order_status_events;
+DROP POLICY IF EXISTS "Users read related route updates" ON delivery_route_updates;
+DROP POLICY IF EXISTS "Delivery manage own route updates" ON delivery_route_updates;
+DROP POLICY IF EXISTS "Users read related proof of delivery" ON proof_of_delivery;
+DROP POLICY IF EXISTS "Delivery insert proof of delivery" ON proof_of_delivery;
+DROP POLICY IF EXISTS "Users manage own notification devices" ON notification_devices;
+DROP POLICY IF EXISTS "Users manage own restock subscriptions" ON user_restock_subscriptions;
 
 CREATE POLICY "Admins read platform admins" ON platform_admins FOR SELECT
   USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
@@ -760,3 +944,205 @@ CREATE POLICY "Admins read daily metrics" ON platform_daily_metrics FOR SELECT
 CREATE POLICY "Admins manage daily metrics" ON platform_daily_metrics FOR ALL
   USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+
+CREATE POLICY "Public read product metadata" ON product_catalog_metadata FOR SELECT
+  USING (true);
+
+CREATE POLICY "Owners manage product metadata" ON product_catalog_metadata FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM products
+      JOIN stores ON stores.id = products.store_id
+      WHERE products.id = product_catalog_metadata.product_id
+        AND stores.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM products
+      JOIN stores ON stores.id = products.store_id
+      WHERE products.id = product_catalog_metadata.product_id
+        AND stores.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Public read search keywords" ON search_keywords FOR SELECT
+  USING (true);
+
+CREATE POLICY "Owners manage search keywords" ON search_keywords FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM products
+      JOIN stores ON stores.id = products.store_id
+      WHERE products.id = search_keywords.product_id
+        AND stores.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM products
+      JOIN stores ON stores.id = products.store_id
+      WHERE products.id = search_keywords.product_id
+        AND stores.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users read related inventory reservations" ON inventory_reservations FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM orders
+      JOIN stores ON stores.id = orders.store_id
+      WHERE orders.id = inventory_reservations.order_id
+        AND (
+          orders.customer_id = auth.uid()
+          OR stores.owner_id = auth.uid()
+          OR orders.delivery_person_id = auth.uid()
+        )
+    )
+  );
+
+CREATE POLICY "Owners manage inventory reservations" ON inventory_reservations FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM stores
+      WHERE stores.id = inventory_reservations.store_id
+        AND stores.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM stores
+      WHERE stores.id = inventory_reservations.store_id
+        AND stores.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Delivery read assigned inventory reservations" ON inventory_reservations FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM orders
+      WHERE orders.id = inventory_reservations.order_id
+        AND orders.delivery_person_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users read related order status events" ON order_status_events FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM orders
+      JOIN stores ON stores.id = orders.store_id
+      WHERE orders.id = order_status_events.order_id
+        AND (
+          orders.customer_id = auth.uid()
+          OR stores.owner_id = auth.uid()
+          OR orders.delivery_person_id = auth.uid()
+          OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+        )
+    )
+  );
+
+CREATE POLICY "Authorized insert order status events" ON order_status_events FOR INSERT
+  WITH CHECK (
+    auth.uid() = actor_user_id
+    OR actor_role = 'system'
+    OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+  );
+
+CREATE POLICY "Users read related route updates" ON delivery_route_updates FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM orders
+      JOIN stores ON stores.id = orders.store_id
+      WHERE orders.id = delivery_route_updates.order_id
+        AND (
+          orders.customer_id = auth.uid()
+          OR stores.owner_id = auth.uid()
+          OR orders.delivery_person_id = auth.uid()
+        )
+    )
+  );
+
+CREATE POLICY "Delivery manage own route updates" ON delivery_route_updates FOR ALL
+  USING (auth.uid() = delivery_person_id)
+  WITH CHECK (auth.uid() = delivery_person_id);
+
+CREATE POLICY "Users read related proof of delivery" ON proof_of_delivery FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM orders
+      JOIN stores ON stores.id = orders.store_id
+      WHERE orders.id = proof_of_delivery.order_id
+        AND (
+          orders.customer_id = auth.uid()
+          OR stores.owner_id = auth.uid()
+          OR orders.delivery_person_id = auth.uid()
+          OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+        )
+    )
+  );
+
+CREATE POLICY "Delivery insert proof of delivery" ON proof_of_delivery FOR INSERT
+  WITH CHECK (auth.uid() = delivery_person_id);
+
+CREATE POLICY "Users manage own notification devices" ON notification_devices FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users manage own restock subscriptions" ON user_restock_subscriptions FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'order_status_events'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE order_status_events;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'delivery_route_updates'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE delivery_route_updates;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'proof_of_delivery'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE proof_of_delivery;
+  END IF;
+END $$;

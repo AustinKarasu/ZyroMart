@@ -11,12 +11,55 @@ class CatalogService extends ChangeNotifier {
   List<Category> _categories = List.of(MockData.categories);
   List<Product> _products = List.of(MockData.products);
   List<Store> _stores = List.of(MockData.stores);
+  final Map<String, List<Product>> _searchCache = {};
   bool _isLoading = false;
 
   List<Category> get categories => List.unmodifiable(_categories);
   List<Product> get products => List.unmodifiable(_products);
   List<Store> get stores => List.unmodifiable(_stores);
   bool get isLoading => _isLoading;
+
+  List<Product> smartSearch(
+    String query, {
+    String localeCode = 'en-IN',
+    Set<String> dietFilters = const {},
+  }) {
+    final normalized = query.trim().toLowerCase();
+    final cacheKey = '$localeCode|$normalized|${dietFilters.join(",")}';
+    if (_searchCache.containsKey(cacheKey)) {
+      return List.unmodifiable(_searchCache[cacheKey]!);
+    }
+
+    var matches = _products.where((product) {
+      final text = [
+        product.name,
+        product.description,
+        product.unit,
+        _categoryName(product.categoryId),
+        _storeName(product.storeId),
+      ].join(' ').toLowerCase();
+      final queryMatch = normalized.isEmpty || text.contains(normalized);
+      final dietMatch = dietFilters.isEmpty || _matchesDietFilter(product, dietFilters);
+      return queryMatch && dietMatch;
+    }).toList();
+
+    matches.sort((a, b) {
+      final exactA = a.name.toLowerCase() == normalized ? 1 : 0;
+      final exactB = b.name.toLowerCase() == normalized ? 1 : 0;
+      if (exactA != exactB) {
+        return exactB.compareTo(exactA);
+      }
+      final startsA = a.name.toLowerCase().startsWith(normalized) ? 1 : 0;
+      final startsB = b.name.toLowerCase().startsWith(normalized) ? 1 : 0;
+      if (startsA != startsB) {
+        return startsB.compareTo(startsA);
+      }
+      return b.reviewCount.compareTo(a.reviewCount);
+    });
+
+    _searchCache[cacheKey] = matches;
+    return List.unmodifiable(matches);
+  }
 
   Future<void> load() async {
     if (!SupabaseService.isInitialized) return;
@@ -41,6 +84,7 @@ class CatalogService extends ChangeNotifier {
     } catch (_) {
       // Keep the seeded fallback already in memory.
     } finally {
+      _searchCache.clear();
       _isLoading = false;
       notifyListeners();
     }
@@ -131,5 +175,57 @@ class CatalogService extends ChangeNotifier {
     final cleaned = hex.replaceAll('#', '');
     final value = cleaned.length == 6 ? 'FF$cleaned' : cleaned;
     return Color(int.tryParse(value, radix: 16) ?? 0xFFB71C1C);
+  }
+
+  String _categoryName(String categoryId) {
+    final match = _categories.where((category) => category.id == categoryId);
+    return match.isEmpty ? '' : match.first.name;
+  }
+
+  String _storeName(String storeId) {
+    final match = _stores.where((store) => store.id == storeId);
+    return match.isEmpty ? '' : match.first.name;
+  }
+
+  bool _matchesDietFilter(Product product, Set<String> dietFilters) {
+    final description = product.description.toLowerCase();
+    final name = product.name.toLowerCase();
+    final text = '$name $description';
+    final vegetarianSignals = ['milk', 'paneer', 'bread', 'tea', 'juice', 'chips', 'cake'];
+    final nonVegSignals = ['chicken', 'salmon', 'egg', 'meat', 'fish'];
+    final veganSignals = ['banana', 'apple', 'spinach', 'tomato', 'onion', 'potato', 'nuts'];
+
+    for (final filter in dietFilters.map((item) => item.toLowerCase())) {
+      if (filter == 'vegetarian') {
+        if (nonVegSignals.any(text.contains)) return false;
+        continue;
+      }
+      if (filter == 'vegan') {
+        if (!veganSignals.any(text.contains)) return false;
+        continue;
+      }
+      if (filter == 'high-protein') {
+        if (!['egg', 'milk', 'paneer', 'chicken', 'salmon', 'nuts']
+            .any(text.contains)) {
+          return false;
+        }
+        continue;
+      }
+      if (filter == 'snacks') {
+        if (!['chips', 'cookie', 'chocolate', 'namkeen', 'cake']
+            .any(text.contains)) {
+          return false;
+        }
+        continue;
+      }
+      if (!text.contains(filter)) {
+        return false;
+      }
+    }
+
+    if (dietFilters.map((item) => item.toLowerCase()).contains('vegetarian')) {
+      return vegetarianSignals.any(text.contains) || !nonVegSignals.any(text.contains);
+    }
+    return true;
   }
 }
