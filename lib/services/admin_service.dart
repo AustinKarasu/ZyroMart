@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/order.dart';
+import 'mock_data.dart';
 import 'supabase_service.dart';
 
 class AdminDashboardSnapshot {
@@ -64,9 +66,7 @@ class AdminService extends ChangeNotifier {
       final products = List<Map<String, dynamic>>.from(results[1] as List);
       final stores = List<Map<String, dynamic>>.from(results[2] as List);
       final profiles = List<Map<String, dynamic>>.from(results[3] as List);
-      final platformLedger = List<Map<String, dynamic>>.from(
-        results[4] as List,
-      );
+      final platformLedger = List<Map<String, dynamic>>.from(results[4] as List);
       final metrics = List<Map<String, dynamic>>.from(results[5] as List);
       final usageEvents = List<Map<String, dynamic>>.from(results[6] as List);
       final crashReports = List<Map<String, dynamic>>.from(results[7] as List);
@@ -91,12 +91,10 @@ class AdminService extends ChangeNotifier {
         totalOrders: orders.length,
         totalProducts: products.length,
         totalStores: stores.length,
-        totalCustomers: profiles
-            .where((row) => row['role'] == 'customer')
-            .length,
-        totalDeliveryPartners: profiles
-            .where((row) => row['role'] == 'delivery')
-            .length,
+        totalCustomers:
+            profiles.where((row) => row['role'] == 'customer').length,
+        totalDeliveryPartners:
+            profiles.where((row) => row['role'] == 'delivery').length,
         pendingPlatformBalance: pending,
         paidPlatformBalance: paid,
         latestMetrics: latest,
@@ -125,7 +123,8 @@ class AdminService extends ChangeNotifier {
                 (detail['route_updates'] as List<Map<String, dynamic>>).length,
           ),
           'active_customers': latest?['active_customers'] ?? 0,
-          'active_delivery_partners': latest?['active_delivery_partners'] ?? 0,
+          'active_delivery_partners':
+              latest?['active_delivery_partners'] ?? 0,
           'top_feature': _topFeature(usageEvents),
           'crashes_24h': _recentCrashCount(crashReports),
         },
@@ -140,50 +139,6 @@ class AdminService extends ChangeNotifier {
   }
 
   void loadLocalDashboard() {
-    _errorMessage =
-        'Live admin metrics are unavailable until Supabase is reachable for this session.';
-    _snapshot = AdminDashboardSnapshot(
-      totalOrders: 0,
-      totalProducts: 0,
-      totalStores: 0,
-      totalCustomers: 0,
-      totalDeliveryPartners: 0,
-      pendingPlatformBalance: 0,
-      paidPlatformBalance: 0,
-      latestMetrics: const {
-        'gross_merchandise_value': 0,
-        'platform_commission_earned': 0,
-        'delivery_payout_due': 0,
-        'store_payout_due': 0,
-        'completed_orders': 0,
-        'cancelled_orders': 0,
-        'pending_orders': 0,
-      },
-      metricsHistory: const [],
-      recentOperationalEvents: const [],
-      liveSignals: const {
-        'pending_orders': 0,
-        'proof_of_delivery_ready': 0,
-        'active_route_pings': 0,
-        'active_customers': 0,
-        'active_delivery_partners': 0,
-        'top_feature': 'n/a',
-        'crashes_24h': 0,
-      },
-      orderStatusCounts: const {
-        'placed': 0,
-        'confirmed': 0,
-        'preparing': 0,
-        'ready_for_pickup': 0,
-        'out_for_delivery': 0,
-        'delivered': 0,
-        'cancelled': 0,
-      },
-    );
-    notifyListeners();
-    return;
-
-    /*
     _errorMessage =
         'Running in local owner mode. Live Supabase admin access is not available for this session.';
     final completedOrders = MockData.sampleOrders
@@ -279,7 +234,6 @@ class AdminService extends ChangeNotifier {
       },
     );
     notifyListeners();
-    */
   }
 
   Future<Map<String, dynamic>> _loadOperationalDetail(
@@ -294,12 +248,10 @@ class AdminService extends ChangeNotifier {
       };
     }
     final details = await Future.wait([
-      SupabaseService.getOrderStatusEvents(
-        orderId,
-      ).catchError((_) => <Map<String, dynamic>>[]),
-      SupabaseService.getDeliveryRouteUpdates(
-        orderId,
-      ).catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getOrderStatusEvents(orderId)
+          .catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getDeliveryRouteUpdates(orderId)
+          .catchError((_) => <Map<String, dynamic>>[]),
       SupabaseService.getProofOfDelivery(orderId).catchError((_) => null),
     ]);
     return {
@@ -318,11 +270,7 @@ class AdminService extends ChangeNotifier {
     List<Map<String, dynamic>> crashReports,
   ) {
     final events = <Map<String, dynamic>>[];
-    for (
-      var index = 0;
-      index < orders.length && index < detailResults.length;
-      index++
-    ) {
+    for (var index = 0; index < orders.length && index < detailResults.length; index++) {
       final row = orders[index];
       final detail = detailResults[index];
       final orderLabel = (row['order_number'] ?? row['id'] ?? '').toString();
@@ -335,8 +283,7 @@ class AdminService extends ChangeNotifier {
         'timestamp': (row['created_at'] ?? '').toString(),
         'source': 'order',
       });
-      for (final event
-          in detail['status_events'] as List<Map<String, dynamic>>) {
+      for (final event in detail['status_events'] as List<Map<String, dynamic>>) {
         final nextStatus = (event['next_status'] ?? status).toString();
         events.add({
           'title': 'Status update for $orderLabel',
@@ -347,8 +294,8 @@ class AdminService extends ChangeNotifier {
           'source': 'status',
         });
       }
-      for (final update
-          in (detail['route_updates'] as List<Map<String, dynamic>>).take(2)) {
+      for (final update in (detail['route_updates'] as List<Map<String, dynamic>>)
+          .take(2)) {
         final eta = (update['eta_minutes'] as num?)?.round();
         events.add({
           'title': 'Route ping for $orderLabel',
@@ -392,26 +339,12 @@ class AdminService extends ChangeNotifier {
         'source': 'crash',
       });
     }
-    for (final event in events) {
-      final subtitle = (event['subtitle'] ?? '').toString();
-      if (subtitle.isNotEmpty) {
-        event['subtitle'] = _normalizeUiText(subtitle);
-      }
-      final title = (event['title'] ?? '').toString();
-      if (title.isNotEmpty) {
-        event['title'] = _normalizeUiText(title);
-      }
-    }
     events.sort(
       (a, b) => (b['timestamp'] ?? '').toString().compareTo(
-        (a['timestamp'] ?? '').toString(),
-      ),
+            (a['timestamp'] ?? '').toString(),
+          ),
     );
     return events.take(12).toList();
-  }
-
-  String _normalizeUiText(String input) {
-    return input.replaceAll('â€¢', '|').replaceAll('Ã', '').replaceAll('Â', '');
   }
 
   static Color _eventColorForStatus(String status) {
@@ -465,9 +398,8 @@ class AdminService extends ChangeNotifier {
   int _recentCrashCount(List<Map<String, dynamic>> crashReports) {
     final cutoff = DateTime.now().subtract(const Duration(hours: 24));
     return crashReports.where((crash) {
-      final createdAt = DateTime.tryParse(
-        (crash['created_at'] ?? '').toString(),
-      );
+      final createdAt =
+          DateTime.tryParse((crash['created_at'] ?? '').toString());
       return createdAt != null && createdAt.isAfter(cutoff);
     }).length;
   }

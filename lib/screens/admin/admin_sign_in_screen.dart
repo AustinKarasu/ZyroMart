@@ -98,7 +98,7 @@ class _AdminSignInScreenState extends State<AdminSignInScreen> {
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'Secure operations access for verified admins. Sign in to review platform performance, incidents, and live operational health.',
+                          'Owner-only access with email and password. This admin app stays separate from customer, store, and delivery flows.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.5,

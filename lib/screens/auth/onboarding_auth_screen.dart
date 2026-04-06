@@ -62,7 +62,7 @@ class _IntroExperience extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0D1117), Color(0xFF171E28), Color(0xFF202A36)],
+            colors: [Color(0xFF180B0A), Color(0xFF7A1712), Color(0xFFF26D21)],
           ),
         ),
         child: SafeArea(
@@ -78,7 +78,7 @@ class _IntroExperience extends StatelessWidget {
                     final card = _IntroHighlights(highlights: highlights);
 
                     return Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(28),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(32),
@@ -99,7 +99,7 @@ class _IntroExperience extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(child: hero),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 24),
                                 Expanded(child: card),
                               ],
                             ),
@@ -127,9 +127,9 @@ class _IntroHero extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.10),
+            color: Colors.white.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(999),
           ),
           child: const Text(
@@ -137,31 +137,30 @@ class _IntroHero extends StatelessWidget {
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
-              fontSize: 11.5,
-              letterSpacing: 0.8,
+              letterSpacing: 1.2,
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 22),
         const Text(
           'Groceries, operations, and delivery in one professional stack.',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 30,
+            fontSize: 42,
             fontWeight: FontWeight.w900,
-            height: 1.1,
+            height: 1.05,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Text(
-          'Fast access to customer, store, and delivery workflows with secure OTP and password login.',
+          'A real entry experience with OTP signup, password sign-in, persistent roles, and operational dashboards built for actual daily use.',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.84),
-            fontSize: 14,
-            height: 1.45,
+            fontSize: 16,
+            height: 1.6,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 28),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -195,7 +194,7 @@ class _IntroHighlights extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F7FA),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
@@ -213,10 +212,10 @@ class _IntroHighlights extends StatelessWidget {
           ...highlights.map(
             (item) => Container(
               margin: const EdgeInsets.only(bottom: 14),
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                color: const Color(0xFFF8F4EF),
+                borderRadius: BorderRadius.circular(22),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,13 +241,12 @@ class _IntroHighlights extends StatelessWidget {
                             color: AppTheme.textDark,
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
                           item.$3,
                           style: const TextStyle(
                             color: AppTheme.textMedium,
-                            height: 1.35,
-                            fontSize: 13,
+                            height: 1.45,
                           ),
                         ),
                       ],
@@ -699,34 +697,10 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
       }
     } else {
       final success = await auth.verifyOtp(_otpController.text);
-      if (!success && context.mounted) {
-        final error = auth.errorMessage;
-        if (error != null &&
-            error.toLowerCase().contains(
-              'already linked with another account',
-            )) {
-          showDialog<void>(
-            context: context,
-            builder: (dialogContext) => AlertDialog(
-              title: const Text('Email already in use'),
-              content: const Text(
-                'This email is already associated with another account. Use a different email for signup, or sign in with that existing email.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-          return;
-        }
-        if (error == null) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Could not verify OTP')),
-          );
-        }
+      if (!success && context.mounted && auth.errorMessage == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not verify OTP')),
+        );
       }
     }
   }
@@ -851,8 +825,8 @@ class _RoleGrid extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: 160,
-            padding: const EdgeInsets.all(14),
+            width: 180,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: selected ? const Color(0xFF211311) : Colors.white,
               borderRadius: BorderRadius.circular(22),
@@ -875,7 +849,6 @@ class _RoleGrid extends StatelessWidget {
                   style: TextStyle(
                     color: selected ? Colors.white : AppTheme.textDark,
                     fontWeight: FontWeight.w800,
-                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -883,7 +856,7 @@ class _RoleGrid extends StatelessWidget {
                   entry.$4,
                   style: TextStyle(
                     color: selected ? Colors.white70 : AppTheme.textMedium,
-                    fontSize: 11.5,
+                    fontSize: 12,
                   ),
                 ),
               ],

@@ -13,31 +13,24 @@ class ProductDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pageBackground = isDark
-        ? const Color(0xFF0F1418)
-        : const Color(0xFFF6F7F2);
-    final cardBackground = isDark ? const Color(0xFF161D22) : Colors.white;
     return Scaffold(
-      backgroundColor: pageBackground,
+      backgroundColor: const Color(0xFFF6F7F2),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             expandedHeight: 360,
-            backgroundColor: isDark ? const Color(0xFF12191E) : Colors.white,
+            backgroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
                 children: [
                   DecoratedBox(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: isDark
-                            ? const [Color(0xFF1A222A), Color(0xFF12191E)]
-                            : const [Color(0xFFF7F4E8), Colors.white],
+                        colors: [Color(0xFFF7F4E8), Colors.white],
                       ),
                     ),
                     child: AppImage(
@@ -50,25 +43,18 @@ class ProductDetailScreen extends StatelessWidget {
                     left: 16,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xCC1B242D)
-                            : Colors.white.withValues(alpha: 0.88),
+                        color: Colors.white.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.schedule, size: 16),
                           const SizedBox(width: 6),
-                          Text(
-                            '24hr',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? Colors.white : AppTheme.textDark,
-                            ),
+                          const Text(
+                            '13 min',
+                            style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ],
                       ),
@@ -87,7 +73,7 @@ class ProductDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      color: cardBackground,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(28),
                     ),
                     child: Column(
@@ -109,9 +95,7 @@ class ProductDetailScreen extends StatelessWidget {
                             if (product.discount > 0)
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
+                                    horizontal: 10, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEAF8EC),
                                   borderRadius: BorderRadius.circular(16),
@@ -131,9 +115,7 @@ class ProductDetailScreen extends StatelessWidget {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
+                                  horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1D8C3A),
                                 borderRadius: BorderRadius.circular(14),
@@ -148,21 +130,16 @@ class ProductDetailScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.star,
-                                    size: 15,
-                                    color: Colors.white,
-                                  ),
+                                  const Icon(Icons.star,
+                                      size: 15, color: Colors.white),
                                 ],
                               ),
                             ),
                             const SizedBox(width: 10),
                             Text(
                               '${product.reviewCount} ratings',
-                              style: TextStyle(
-                                color: isDark
-                                    ? Colors.white70
-                                    : AppTheme.textMedium,
+                              style: const TextStyle(
+                                color: AppTheme.textMedium,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -198,10 +175,8 @@ class ProductDetailScreen extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           'Sold per ${product.unit}',
-                          style: TextStyle(
-                            color: isDark
-                                ? Colors.white70
-                                : AppTheme.textMedium,
+                          style: const TextStyle(
+                            color: AppTheme.textMedium,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -209,25 +184,18 @@ class ProductDetailScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF1B2E23)
-                                : const Color(0xFFF5F9EE),
+                            color: const Color(0xFFF5F9EE),
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: Row(
+                          child: const Row(
                             children: [
-                              const Icon(
-                                Icons.bolt_rounded,
-                                color: Color(0xFF1D8C3A),
-                              ),
-                              const SizedBox(width: 10),
+                              Icon(Icons.bolt_rounded, color: Color(0xFF1D8C3A)),
+                              SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   'Fast-delivery catalog item. Most orders for this product are fulfilled in the current quick-commerce window.',
                                   style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white70
-                                        : AppTheme.textMedium,
+                                    color: AppTheme.textMedium,
                                     height: 1.35,
                                   ),
                                 ),
@@ -242,7 +210,7 @@ class ProductDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      color: cardBackground,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(28),
                     ),
                     child: Column(
@@ -250,18 +218,14 @@ class ProductDetailScreen extends StatelessWidget {
                       children: [
                         const Text(
                           'About this item',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                          ),
+                          style:
+                              TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
                         ),
                         const SizedBox(height: 10),
                         Text(
                           product.description,
-                          style: TextStyle(
-                            color: isDark
-                                ? Colors.white70
-                                : AppTheme.textMedium,
+                          style: const TextStyle(
+                            color: AppTheme.textMedium,
                             height: 1.5,
                           ),
                         ),
@@ -306,7 +270,7 @@ class ProductDetailScreen extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF12191E) : Colors.white,
+              color: Colors.white,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
@@ -315,97 +279,87 @@ class ProductDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
-            child: SafeArea(
-              top: false,
-              child: qty > 0
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 56,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: const Color(0xFF1D8C3A),
-                              ),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.remove,
-                                    color: Color(0xFF1D8C3A),
-                                  ),
-                                  onPressed: () =>
-                                      cart.decrementQuantity(product.id),
-                                ),
-                                Text(
-                                  '$qty',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.add,
-                                    color: Color(0xFF1D8C3A),
-                                  ),
-                                  onPressed: () =>
-                                      cart.incrementQuantity(product.id),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: SizedBox(
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1D8C3A),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                              child: Text(
-                                'Rs ${(product.price * qty).toInt()} in cart',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : SizedBox(
-                      height: 56,
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: product.inStock
-                            ? () => cart.addItem(product)
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1D8C3A),
-                          shape: RoundedRectangleBorder(
+            child: qty > 0
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF1D8C3A)),
                             borderRadius: BorderRadius.circular(18),
                           ),
-                        ),
-                        child: const Text(
-                          'Add to cart',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove,
+                                    color: Color(0xFF1D8C3A)),
+                                onPressed: () =>
+                                    cart.decrementQuantity(product.id),
+                              ),
+                              Text(
+                                '$qty',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add,
+                                    color: Color(0xFF1D8C3A)),
+                                onPressed: () =>
+                                    cart.incrementQuantity(product.id),
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1D8C3A),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            child: Text(
+                              'Rs ${(product.price * qty).toInt()} in cart',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : SizedBox(
+                    height: 56,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed:
+                          product.inStock ? () => cart.addItem(product) : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1D8C3A),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Text(
+                        'Add to cart',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-            ),
+                  ),
           );
         },
       ),

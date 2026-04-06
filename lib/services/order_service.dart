@@ -11,6 +11,7 @@ import '../models/product.dart';
 import '../models/store.dart';
 import '../models/user.dart';
 import 'local_state_service.dart';
+import 'mock_data.dart';
 import 'supabase_service.dart';
 
 class OrderService extends ChangeNotifier {
@@ -19,8 +20,12 @@ class OrderService extends ChangeNotifier {
 
   final Distance _distance = const Distance();
   final List<Order> _orders = [];
-  List<Store> _storeCatalog = <Store>[];
-  final List<AppUser> _deliveryRoster = <AppUser>[];
+  List<Store> _storeCatalog = SupabaseService.isInitialized
+      ? <Store>[]
+      : List.of(MockData.stores);
+  final List<AppUser> _deliveryRoster = SupabaseService.isInitialized
+      ? <AppUser>[]
+      : List.of(MockData.deliveryPersons);
   final Map<String, DeliveryFeedback> _feedbackByOrderId = {};
   final List<AppNotification> _notifications = [];
   final Map<String, double> _heldStoreEarnings = {};
@@ -45,6 +50,9 @@ class OrderService extends ChangeNotifier {
   String _scope = 'guest';
 
   OrderService() {
+    if (!SupabaseService.isInitialized) {
+      _orders.addAll(MockData.sampleOrders);
+    }
     for (final store in _storeCatalog) {
       _serviceRadiusByStoreId[store.id] = _defaultServiceRadiusKm;
     }

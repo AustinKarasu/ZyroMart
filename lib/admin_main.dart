@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'screens/admin/admin_intro_screen.dart';
 import 'screens/admin/admin_auth_gate.dart';
 import 'services/app_telemetry_service.dart';
 import 'services/admin_auth_service.dart';
@@ -53,7 +52,7 @@ class ZyroMartAdminApp extends StatelessWidget {
         title: 'ZyroMart Admin',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
-        home: const AdminIntroScreen(next: AdminAuthGate()),
+        home: const AdminAuthGate(),
       ),
     );
   }

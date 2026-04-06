@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/slide_to_confirm.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -231,14 +230,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
-              child: SlideToConfirm(
-                label: 'Slide to cancel order',
-                confirmLabel: 'Cancelling...',
-                icon: Icons.keyboard_double_arrow_right_rounded,
-                backgroundColor: AppTheme.primaryRed,
-                onConfirmed: () async {
+              child: OutlinedButton.icon(
+                onPressed: () {
                   final cancelled = orderService.cancelOrder(order.id);
-                  if (!mounted) return cancelled;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -248,8 +242,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       ),
                     ),
                   );
-                  return cancelled;
                 },
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Cancel order'),
               ),
             ),
           ],

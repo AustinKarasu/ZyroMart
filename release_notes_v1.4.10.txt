@@ -1,0 +1,9 @@
+ZyroMart v1.4.10
+
+Stability hotfix release focused on regressions seen after v1.4.7.
+
+- Restored known-good customer, checkout, cart, account-tools, and store-owner settings flows from the v1.4.7 baseline.
+- Kept role-aware auth routing fixes so selected OTP role is respected during sign-in sessions.
+- Kept improved auth error handling for cleaner messages on duplicate email and OTP failures.
+- Restored previous admin console behavior and messaging to avoid operational regressions.
+- Re-ran project checks and rebuilt release APK artifacts for storefront and admin variants.
