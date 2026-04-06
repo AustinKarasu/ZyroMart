@@ -31,6 +31,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cart = context.watch<CartService>();
     final catalog = context.watch<CatalogService>();
     final freeDeliveryLeft = cart.amountForFreeDelivery;
@@ -47,13 +48,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final trendingProducts = products.skip(4).take(6).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7F2),
+      backgroundColor: isDark ? const Color(0xFF111315) : const Color(0xFFF6F7F2),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             stretch: true,
-            backgroundColor: const Color(0xFFF7F4E8),
+            backgroundColor: isDark ? const Color(0xFF171A1E) : const Color(0xFFF7F4E8),
             expandedHeight: 212,
             toolbarHeight: 84,
             elevation: 0,
@@ -74,21 +75,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
+                Expanded(                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Delivery under 24hr',
                         style: TextStyle(
-                          color: Color(0xFF111111),
+                          color: isDark ? Colors.white : const Color(0xFF111111),
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      Text(
-                        freeDeliveryLeft == 0
+                      Text(                        freeDeliveryLeft == 0
                             ? 'Free delivery unlocked on this cart'
                             : 'Add Rs ${freeDeliveryLeft.toInt()} more for free delivery',
                         style: const TextStyle(
@@ -137,8 +136,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
-                          child: Text(
-                            '${cart.itemCount}',
+                          child: Text(                            '${cart.itemCount}',
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -154,11 +152,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             flexibleSpace: FlexibleSpaceBar(
               stretchModes: const [StretchMode.zoomBackground],
               background: DecoratedBox(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFF7F4E8), Color(0xFFF6F7F2)],
+                    colors: isDark
+                        ? const [Color(0xFF171A1E), Color(0xFF111315)]
+                        : const [Color(0xFFF7F4E8), Color(0xFFF6F7F2)],
                   ),
                 ),
                 child: Stack(
@@ -246,10 +246,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 14),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Shop by category',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : AppTheme.textDark,
+                        ),
                       ),
                     ),
                     TextButton(
@@ -289,10 +293,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 28, 16, 14),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Trending this evening',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : AppTheme.textDark,
+                        ),
                       ),
                     ),
                     if (catalog.isLoading)
@@ -326,14 +334,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      _searchQuery.isEmpty ? 'Bestsellers for your basket' : 'Search results',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                  Expanded(                    child: Text(                      _searchQuery.isEmpty ? 'Bestsellers for your basket' : 'Search results',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : AppTheme.textDark,
+                      ),
                     ),
                   ),
-                  Text(
-                    '${filteredProducts.length} items',
+                  Text(                    '${filteredProducts.length} items',
                     style: const TextStyle(
                       color: AppTheme.textMedium,
                       fontWeight: FontWeight.w700,
@@ -405,15 +414,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${cart.itemCount} items',
+                Text(                  '${cart.itemCount} items',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  'Checkout total Rs ${cart.grandTotal.toInt()}',
+                Text(                  'Checkout total Rs ${cart.grandTotal.toInt()}',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.86),
                     fontSize: 12,
@@ -423,8 +430,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             const Row(
               children: [
-                Text(
-                  'View Cart',
+                Text(                  'View Cart',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -470,8 +476,7 @@ class _HeroCommerceBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
+          Expanded(            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
@@ -480,8 +485,7 @@ class _HeroCommerceBanner extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Text(
-                    'Freshly restocked',
+                  child: const Text(                    'Freshly restocked',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -489,8 +493,7 @@ class _HeroCommerceBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Groceries curated for tonight',
+                const Text(                  'Groceries curated for tonight',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -499,8 +502,7 @@ class _HeroCommerceBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  'Smart baskets, premium produce, household essentials, and snack-ready deals in one scroll.',
+                Text(                  'Smart baskets, premium produce, household essentials, and snack-ready deals in one scroll.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.92),
                     fontSize: 13.5,
@@ -514,8 +516,7 @@ class _HeroCommerceBanner extends StatelessWidget {
                     color: const Color(0xFF114E22),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text(
-                    'Open 24 hours',
+                  child: const Text(                    'Open 24 hours',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -582,16 +583,14 @@ class _PromoRail extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    offer.$1,
+                  Text(                    offer.$1,
                     style: const TextStyle(
                       color: Color(0xFF156F2E),
                       fontWeight: FontWeight.w900,
                       fontSize: 17,
                     ),
                   ),
-                  Text(
-                    offer.$2,
+                  Text(                    offer.$2,
                     style: const TextStyle(
                       color: AppTheme.textDark,
                       fontWeight: FontWeight.w600,
@@ -654,8 +653,7 @@ class _CategoryTile extends StatelessWidget {
                   : Icon(category.icon, color: category.color, size: 28),
             ),
             const SizedBox(height: 10),
-            Text(
-              category.name,
+            Text(              category.name,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -701,8 +699,7 @@ class _TrendingProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: ClipRRect(
+            Expanded(              child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
                 child: AppImage(
                   imageUrl: product.imageUrl,
@@ -716,15 +713,13 @@ class _TrendingProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    product.name,
+                  Text(                    product.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Rs ${product.price.toInt()} • ${product.unit}',
+                  Text(                    'Rs ${product.price.toInt()} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ ${product.unit}',
                     style: const TextStyle(
                       color: AppTheme.textMedium,
                       fontWeight: FontWeight.w600,

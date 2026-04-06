@@ -40,6 +40,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final location = context.watch<LocationService>();
     final auth = context.watch<AuthService>();
 
+    if (location.hasUsableLocation &&
+        auth.currentUser != null &&
+        auth.currentUser!.location != location.currentLocation) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        auth.updateProfile(
+          name: auth.currentUser!.name,
+          address: _addressController.text.trim().isEmpty
+              ? auth.currentUser!.address
+              : _addressController.text.trim(),
+          phone: auth.currentUser!.phone,
+          role: auth.currentUser!.role,
+          profileImageUrl: auth.currentUser!.profileImageUrl,
+          location: location.currentLocation,
+        );
+      });
+    }
+
     if (_addressController.text.isEmpty &&
         (auth.currentUser?.address.isNotEmpty ?? false)) {
       _addressController.text = auth.currentUser!.address;

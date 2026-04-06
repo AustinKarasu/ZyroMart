@@ -28,6 +28,7 @@ class OrderService extends ChangeNotifier {
   final Map<String, bool> _settlementReleasedByOrderId = {};
   final Map<String, bool> _deliveryPartnerPromptedByOrderId = {};
   final Map<String, bool> _customerPromptedByOrderId = {};
+  final Map<String, String> _completionCodes = {};
   AppUser? _viewer;
 
   OrderService() {
@@ -36,6 +37,7 @@ class OrderService extends ChangeNotifier {
       _serviceRadiusByStoreId[store.id] = _defaultServiceRadiusKm;
     }
     for (final order in _orders) {
+      _completionCodes[order.id] = order.deliveryVerificationCode;
       _initializeLedgerForOrder(order);
       if (order.status == OrderStatus.delivered) {
         _releaseSettlement(order);
@@ -233,6 +235,7 @@ class OrderService extends ChangeNotifier {
     final customer = _viewer ?? MockData.defaultCustomer;
     final availableStores = storesServingLocation(customerLocation);
     final store = availableStores.isNotEmpty ? availableStores.first : MockData.stores.first;
+    final verificationCode = _generateDeliveryCode();
     final order = Order(
       id: 'ORD${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
       items: items
@@ -257,12 +260,20 @@ class OrderService extends ChangeNotifier {
       handlingFee: handlingFee,
       deliveryTip: deliveryTip,
       couponDiscount: couponDiscount,
+      deliveryVerificationCode: verificationCode,
     );
     _orders.insert(0, order);
+    _completionCodes[order.id] = verificationCode;
     _initializeLedgerForOrder(order);
     _pushOrderNotifications(order);
     notifyListeners();
     return order;
+  }
+
+  String? deliveryCodeForCustomer(String orderId) {
+    final order = getOrder(orderId);
+    if (order == null || _viewer?.id != order.customerId) return null;
+    return _completionCodes[orderId];
   }
 
   bool updateOrderStatus(String orderId, OrderStatus status) {
@@ -288,6 +299,13 @@ class OrderService extends ChangeNotifier {
         category: 'order',
         title: 'Your order is on the way',
         body: '${deliveryPartner.name} is now delivering order ${order.id}.',
+        orderId: order.id,
+      );
+      _createNotification(
+        recipientUserId: deliveryPartner.id,
+        category: 'order',
+        title: 'Proceed to customer',
+        body: 'Collect OTP from ${order.customerName} to complete order ${order.id}.',
         orderId: order.id,
       );
     }
@@ -316,8 +334,24 @@ class OrderService extends ChangeNotifier {
       _clearHeldSettlement(order);
     }
 
+    _notifyStatusChange(order);
+
     notifyListeners();
     return true;
+  }
+
+  bool completeDeliveryWithCode(String orderId, String code) {
+    final order = getOrder(orderId);
+    if (order == null ||
+        order.status != OrderStatus.outForDelivery ||
+        order.deliveryPersonId != _viewer?.id) {
+      return false;
+    }
+    final expected = _completionCodes[orderId];
+    if (expected == null || expected != code.trim()) {
+      return false;
+    }
+    return updateOrderStatus(orderId, OrderStatus.delivered);
   }
 
   bool submitDeliveryFeedback({
@@ -514,6 +548,25 @@ class OrderService extends ChangeNotifier {
     );
   }
 
+  void _notifyStatusChange(Order order) {
+    _createNotification(
+      recipientUserId: order.customerId,
+      category: 'order',
+      title: order.statusLabel,
+      body: 'Order ${order.id} is now ${order.statusLabel.toLowerCase()}.',
+      orderId: order.id,
+    );
+
+    final store = _storeForOrder(order);
+    _createNotification(
+      recipientUserId: store.ownerId,
+      category: 'order',
+      title: 'Order ${order.statusLabel}',
+      body: 'Order ${order.id} changed to ${order.statusLabel.toLowerCase()}.',
+      orderId: order.id,
+    );
+  }
+
   void _createNotification({
     required String recipientUserId,
     required String category,
@@ -571,6 +624,11 @@ class OrderService extends ChangeNotifier {
   double _storeShare(Order order) {
     final share = order.grandTotal - _platformShare(order) - _deliveryShare(order);
     return share < 0 ? 0 : share;
+  }
+
+  String _generateDeliveryCode() {
+    final value = DateTime.now().microsecondsSinceEpoch % 9000;
+    return (1000 + value).toString();
   }
 
 }

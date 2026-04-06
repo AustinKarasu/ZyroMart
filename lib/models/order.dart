@@ -36,6 +36,7 @@ class Order {
   LatLng? deliveryPersonLocation;
   final String? notes;
   final String paymentMethod;
+  final String deliveryVerificationCode;
 
   Order({
     required this.id,
@@ -62,6 +63,7 @@ class Order {
     this.deliveryPersonLocation,
     this.notes,
     this.paymentMethod = 'cod',
+    required this.deliveryVerificationCode,
   });
 
   double get grandTotal =>

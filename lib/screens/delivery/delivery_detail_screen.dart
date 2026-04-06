@@ -12,6 +12,7 @@ class DeliveryDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final otpController = TextEditingController();
     return Scaffold(
       appBar: AppBar(title: Text('Delivery #${order.id}')),
       body: Consumer<OrderService>(
@@ -243,24 +244,94 @@ class DeliveryDetailScreen extends StatelessWidget {
             child: SizedBox(
               height: 50,
               child: ElevatedButton(
-                onPressed: () {
-                  final nextStatus = currentOrder.status == OrderStatus.readyForPickup
-                      ? OrderStatus.outForDelivery
-                      : OrderStatus.delivered;
-                  orderService.updateOrderStatus(currentOrder.id, nextStatus);
-                  if (nextStatus == OrderStatus.delivered) {
-                    Navigator.pop(context);
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        nextStatus == OrderStatus.outForDelivery
-                            ? 'Order picked up! Navigate to customer.'
-                            : 'Order delivered successfully!',
+                onPressed: () async {
+                  if (currentOrder.status == OrderStatus.readyForPickup) {
+                    orderService.updateOrderStatus(
+                      currentOrder.id,
+                      OrderStatus.outForDelivery,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Order picked up. Collect the customer OTP at handoff to complete delivery.',
+                        ),
+                        backgroundColor: AppTheme.success,
                       ),
-                      backgroundColor: AppTheme.success,
+                    );
+                    return;
+                  }
+
+                  final verified = await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (context) => Padding(
+                      padding: EdgeInsets.only(
+                        left: 20,
+                        right: 20,
+                        top: 20,
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Verify customer OTP',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Ask the customer for the 4-digit delivery code shown in their order tracking screen.',
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: otpController,
+                            keyboardType: TextInputType.number,
+                            maxLength: 4,
+                            decoration: const InputDecoration(
+                              labelText: 'Delivery OTP',
+                              prefixIcon: Icon(Icons.pin_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                final success = orderService.completeDeliveryWithCode(
+                                  currentOrder.id,
+                                  otpController.text,
+                                );
+                                Navigator.pop(context, success);
+                              },
+                              child: const Text('Verify and complete'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
+                  if (verified == true) {
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Order delivered successfully.'),
+                          backgroundColor: AppTheme.success,
+                        ),
+                      );
+                    }
+                  } else if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Incorrect delivery OTP.'),
+                        backgroundColor: AppTheme.primaryRed,
+                      ),
+                    );
+                  }
                 },
                 child: Text(
                   currentOrder.status == OrderStatus.readyForPickup

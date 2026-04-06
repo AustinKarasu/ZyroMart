@@ -53,6 +53,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     children: [
                       _buildStatusPanel(context, orderService, order),
                       const SizedBox(height: 14),
+                      if (order.status == OrderStatus.outForDelivery)
+                        _buildDeliveryOtpCard(orderService, order),
+                      if (order.status == OrderStatus.outForDelivery)
+                        const SizedBox(height: 14),
                       if (order.deliveryPersonName != null)
                         _buildPartnerCard(order, orderService),
                       if (order.deliveryPersonName != null)
@@ -345,6 +349,53 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryOtpCard(OrderService orderService, Order order) {
+    final code = orderService.deliveryCodeForCustomer(order.id);
+    if (code == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Delivery OTP',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Share this 4-digit code with the delivery partner only when your order arrives.',
+            style: TextStyle(color: AppTheme.textMedium, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F7FA),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Text(
+              code,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 28,
+                letterSpacing: 10,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],

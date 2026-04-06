@@ -15,14 +15,6 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminService>().loadDashboard();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final adminAuth = context.watch<AdminAuthService>();
     final admin = context.watch<AdminService>();

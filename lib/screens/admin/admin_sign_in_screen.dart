@@ -12,12 +12,8 @@ class AdminSignInScreen extends StatefulWidget {
 }
 
 class _AdminSignInScreenState extends State<AdminSignInScreen> {
-  final _emailController = TextEditingController(
-    text: AdminAuthService.defaultAdminEmail,
-  );
-  final _passwordController = TextEditingController(
-    text: AdminAuthService.defaultAdminPassword,
-  );
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -102,7 +98,7 @@ class _AdminSignInScreenState extends State<AdminSignInScreen> {
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'Owner-only access with email and password. The configured owner credentials are preloaded for faster sign in.',
+                          'Owner-only access with email and password. This admin app stays separate from customer, store, and delivery flows.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.5,

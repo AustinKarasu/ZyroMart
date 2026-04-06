@@ -168,6 +168,7 @@ class MockData {
         customerLocation: const LatLng(28.5900, 77.3050),
         storeLocation: const LatLng(28.5850, 77.3100),
         deliveryPersonLocation: const LatLng(28.5870, 77.3080),
+        deliveryVerificationCode: '4821',
       ),
       Order(
         id: 'ORD002',
@@ -187,6 +188,7 @@ class MockData {
         estimatedDelivery: now.add(const Duration(hours: 23)),
         customerLocation: const LatLng(28.5900, 77.3050),
         storeLocation: const LatLng(28.5850, 77.3100),
+        deliveryVerificationCode: '2754',
       ),
       Order(
         id: 'ORD003',
@@ -209,6 +211,7 @@ class MockData {
         estimatedDelivery: now.subtract(const Duration(hours: 1)),
         customerLocation: const LatLng(28.5900, 77.3050),
         storeLocation: const LatLng(28.5850, 77.3100),
+        deliveryVerificationCode: '9163',
       ),
     ];
   }

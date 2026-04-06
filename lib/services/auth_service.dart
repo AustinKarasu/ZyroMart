@@ -253,6 +253,7 @@ class AuthService extends ChangeNotifier {
     required String phone,
     required UserRole role,
     String? profileImageUrl,
+    LatLng? location,
   }) async {
     if (_currentUser == null) return false;
 
@@ -268,12 +269,14 @@ class AuthService extends ChangeNotifier {
         name: name.trim(),
         address: address.trim(),
         profileImageUrl: profileImageUrl,
+        location: location,
       );
       await _hydrateCurrentUser(
         fallbackRole: role,
         fallbackName: name.trim(),
         fallbackPhone: _normalizePhone(phone) ?? _currentUser!.phone,
         fallbackEmail: _currentUser!.email,
+        fallbackLocation: location,
       );
       _statusMessage = 'Profile saved';
       return true;
@@ -307,6 +310,7 @@ class AuthService extends ChangeNotifier {
     String? fallbackName,
     String? fallbackPhone,
     String? fallbackEmail,
+    LatLng? fallbackLocation,
   }) async {
     final sessionUser = SupabaseService.currentUser;
     if (sessionUser == null) return;
@@ -338,9 +342,9 @@ class AuthService extends ChangeNotifier {
       role: role,
       address: (profile?['address'] ?? '').toString(),
       location: LatLng(
-        ((profile?['latitude'] ?? _fallbackLocation(role).latitude) as num)
+        ((profile?['latitude'] ?? fallbackLocation?.latitude ?? _fallbackLocation(role).latitude) as num)
             .toDouble(),
-        ((profile?['longitude'] ?? _fallbackLocation(role).longitude) as num)
+        ((profile?['longitude'] ?? fallbackLocation?.longitude ?? _fallbackLocation(role).longitude) as num)
             .toDouble(),
       ),
       profileImageUrl: profile?['profile_image_url']?.toString(),
@@ -361,6 +365,7 @@ class AuthService extends ChangeNotifier {
     String? name,
     String? address,
     String? profileImageUrl,
+    LatLng? location,
   }) async {
     final sessionUser = SupabaseService.currentUser;
     if (sessionUser == null) return;
@@ -376,8 +381,8 @@ class AuthService extends ChangeNotifier {
       'role': _roleToDb(role),
       'address': address ?? _currentUser?.address ?? '',
       'profile_image_url': profileImageUrl ?? _currentUser?.profileImageUrl,
-      'latitude': _currentUser?.location.latitude ?? fallback.latitude,
-      'longitude': _currentUser?.location.longitude ?? fallback.longitude,
+      'latitude': location?.latitude ?? _currentUser?.location.latitude ?? fallback.latitude,
+      'longitude': location?.longitude ?? _currentUser?.location.longitude ?? fallback.longitude,
       'is_online': _currentUser?.isOnline ?? true,
     });
   }
