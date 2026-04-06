@@ -1,0 +1,11 @@
+ZyroMart v1.4.11
+
+Built from v1.4.7 stable baseline for all app experiences.
+
+- Kept v1.4.7 behavior baseline for customer, store owner, delivery, and admin flows.
+- Fixed OTP role routing so sign-in respects the selected role in-session.
+- Improved OTP/account-link error handling for email-already-used scenarios.
+- Improved signup name validation message clarity.
+- Rebuilt release APKs for:
+  - zyromart.apk (customer + store owner + delivery)
+  - admin-app.apk (admin console)
