@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/admin_auth_service.dart';
 import '../../services/admin_service.dart';
+import '../../services/operator_preferences_service.dart';
 import '../../theme/app_theme.dart';
 import 'admin_operations_screens.dart';
 import 'admin_preferences_screen.dart';
@@ -29,7 +30,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
-      body: RefreshIndicator(
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: OperatorPreferencesService.load(
+          appVariant: 'admin',
+          userId: 'singleton',
+        ),
+        builder: (context, preferenceSnapshot) {
+          final preferences = preferenceSnapshot.data ?? const <String, dynamic>{};
+          return RefreshIndicator(
         onRefresh: () => context.read<AdminService>().loadDashboard(),
         child: ListView(
           padding: EdgeInsets.zero,
@@ -180,13 +188,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 24),
                     _MetricsPanel(snapshot: snapshot, currency: currency),
                     const SizedBox(height: 24),
-                    _LiveSignalsPanel(snapshot: snapshot),
+                    if (preferences['focus_live_signals'] as bool? ?? true)
+                      _LiveSignalsPanel(snapshot: snapshot),
+                    if (preferences['focus_live_signals'] as bool? ?? true)
+                      const SizedBox(height: 24),
+                    _StatusBreakdownPanel(
+                      snapshot: snapshot,
+                      highlightCancelled:
+                          preferences['highlight_cancelled'] as bool? ?? true,
+                    ),
                     const SizedBox(height: 24),
-                    _StatusBreakdownPanel(snapshot: snapshot),
+                    _OperationsPanel(
+                      snapshot: snapshot,
+                      defaultFocus:
+                          (preferences['default_ops_focus'] ?? 'out_for_delivery').toString(),
+                    ),
                     const SizedBox(height: 24),
-                    _OperationsPanel(snapshot: snapshot),
-                    const SizedBox(height: 24),
-                    _AdminRunbookPanel(snapshot: snapshot),
+                    _AdminRunbookPanel(
+                      snapshot: snapshot,
+                      emphasizeCancelled:
+                          preferences['highlight_cancelled'] as bool? ?? true,
+                      emphasizePayoutDrift:
+                          preferences['highlight_payout_drift'] as bool? ?? true,
+                    ),
                     const SizedBox(height: 24),
                     Row(
                       children: [
@@ -272,6 +296,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
+      );
+        },
       ),
     );
   }
@@ -324,9 +350,15 @@ class _ActionLaunchCard extends StatelessWidget {
 }
 
 class _AdminRunbookPanel extends StatelessWidget {
-  const _AdminRunbookPanel({required this.snapshot});
+  const _AdminRunbookPanel({
+    required this.snapshot,
+    required this.emphasizeCancelled,
+    required this.emphasizePayoutDrift,
+  });
 
   final AdminDashboardSnapshot? snapshot;
+  final bool emphasizeCancelled;
+  final bool emphasizePayoutDrift;
 
   @override
   Widget build(BuildContext context) {
@@ -368,10 +400,20 @@ class _AdminRunbookPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _focusRow(
-            color: const Color(0xFFBE342A),
+            color: emphasizeCancelled
+                ? const Color(0xFFBE342A)
+                : const Color(0xFF6F7F8E),
             title: 'Cancellation watch',
             subtitle: '$cancelled orders cancelled today. Review trends if this keeps climbing.',
           ),
+          if (emphasizePayoutDrift) ...[
+            const SizedBox(height: 10),
+            _focusRow(
+              color: const Color(0xFF7A4AC7),
+              title: 'Payout drift watch',
+              subtitle: 'Keep an eye on held vs released platform balances when order completion or proof-of-delivery lags.',
+            ),
+          ],
         ],
       ),
     );
@@ -414,9 +456,13 @@ class _AdminRunbookPanel extends StatelessWidget {
 }
 
 class _StatusBreakdownPanel extends StatelessWidget {
-  const _StatusBreakdownPanel({required this.snapshot});
+  const _StatusBreakdownPanel({
+    required this.snapshot,
+    required this.highlightCancelled,
+  });
 
   final AdminDashboardSnapshot? snapshot;
+  final bool highlightCancelled;
 
   @override
   Widget build(BuildContext context) {
@@ -459,17 +505,21 @@ class _StatusBreakdownPanel extends StatelessWidget {
                   Expanded(
                     child: Text(
                       entry.value,
-                      style: const TextStyle(
-                        color: AppTheme.textMedium,
+                      style: TextStyle(
+                        color: entry.key == 'cancelled' && highlightCancelled
+                            ? const Color(0xFFBE342A)
+                            : AppTheme.textMedium,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   Text(
                     '${counts[entry.key] ?? 0}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF101927),
+                      color: entry.key == 'cancelled' && highlightCancelled
+                          ? const Color(0xFFBE342A)
+                          : const Color(0xFF101927),
                     ),
                   ),
                 ],
@@ -542,13 +592,26 @@ class _LiveSignalsPanel extends StatelessWidget {
 }
 
 class _OperationsPanel extends StatelessWidget {
-  const _OperationsPanel({required this.snapshot});
+  const _OperationsPanel({
+    required this.snapshot,
+    required this.defaultFocus,
+  });
 
   final AdminDashboardSnapshot? snapshot;
+  final String defaultFocus;
 
   @override
   Widget build(BuildContext context) {
-    final events = snapshot?.recentOperationalEvents ?? const [];
+    final events = [...(snapshot?.recentOperationalEvents ?? const [])];
+    final normalizedFocus = defaultFocus.replaceAll('_', ' ').toLowerCase();
+    events.sort((a, b) {
+      final aMatches =
+          (a['subtitle'] ?? '').toString().toLowerCase().contains(normalizedFocus);
+      final bMatches =
+          (b['subtitle'] ?? '').toString().toLowerCase().contains(normalizedFocus);
+      if (aMatches == bMatches) return 0;
+      return aMatches ? -1 : 1;
+    });
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(

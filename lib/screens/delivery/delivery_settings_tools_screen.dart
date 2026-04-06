@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../services/supabase_service.dart';
+import '../../services/operator_preferences_service.dart';
 import '../../theme/app_theme.dart';
 
 class DeliveryOperationsPreferencesScreen extends StatefulWidget {
@@ -33,7 +30,10 @@ class _DeliveryOperationsPreferencesScreenState extends State<DeliveryOperations
   }
 
   Future<void> _load() async {
-    final remote = await _DeliveryPreferencesRepository.load('delivery', widget.userId);
+    final remote = await OperatorPreferencesService.load(
+      appVariant: 'delivery',
+      userId: widget.userId,
+    );
     if (remote.isNotEmpty) {
       _shareLiveLocation = remote['share_live_location'] as bool? ?? true;
       _proofChecklist = remote['proof_checklist'] as bool? ?? true;
@@ -46,10 +46,10 @@ class _DeliveryOperationsPreferencesScreenState extends State<DeliveryOperations
   }
 
   Future<void> _persist() async {
-    await _DeliveryPreferencesRepository.save(
-      'delivery',
-      widget.userId,
-      {
+    await OperatorPreferencesService.save(
+      appVariant: 'delivery',
+      userId: widget.userId,
+      settings: {
         'share_live_location': _shareLiveLocation,
         'proof_checklist': _proofChecklist,
         'emergency_shortcut': _emergencyShortcut,
@@ -169,34 +169,5 @@ class _DeliveryCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _DeliveryPreferencesRepository {
-  static String _localKey(String userId, String appVariant) => 'operator::$appVariant::$userId';
-
-  static Future<Map<String, dynamic>> load(String appVariant, String userId) async {
-    if (SupabaseService.isInitialized) {
-      final remote = await SupabaseService.getOperatorPreferences(appVariant: appVariant);
-      final settings = remote?['settings'];
-      if (settings is Map && settings.isNotEmpty) {
-        return Map<String, dynamic>.from(settings);
-      }
-    }
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_localKey(userId, appVariant));
-    if (raw == null) return const {};
-    return Map<String, dynamic>.from(jsonDecode(raw) as Map<String, dynamic>);
-  }
-
-  static Future<void> save(String appVariant, String userId, Map<String, dynamic> settings) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_localKey(userId, appVariant), jsonEncode(settings));
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertOperatorPreferences(
-        appVariant: appVariant,
-        settings: settings,
-      );
-    }
   }
 }

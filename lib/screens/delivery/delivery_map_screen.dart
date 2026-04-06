@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:provider/provider.dart';
 import '../../models/order.dart';
+import '../../services/auth_service.dart';
 import '../../services/location_service.dart';
+import '../../services/operator_preferences_service.dart';
 import '../../services/order_service.dart';
 import '../../services/mock_data.dart';
 import '../../theme/app_theme.dart';
@@ -15,7 +17,14 @@ class DeliveryMapScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Delivery Map')),
-      body: Consumer<OrderService>(
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: OperatorPreferencesService.load(
+          appVariant: 'delivery',
+          userId: context.read<AuthService>().currentUser?.id ?? 'guest',
+        ),
+        builder: (context, preferenceSnapshot) {
+          final preferences = preferenceSnapshot.data ?? const <String, dynamic>{};
+          return Consumer<OrderService>(
         builder: (context, orderService, _) {
           final location = context.watch<LocationService>();
           final activeOrders = orderService.orders
@@ -23,6 +32,17 @@ class DeliveryMapScreen extends StatelessWidget {
                   o.status == OrderStatus.readyForPickup ||
                   o.status == OrderStatus.outForDelivery)
               .toList();
+          final shareLiveLocation =
+              preferences['share_live_location'] as bool? ?? true;
+          final proofChecklist =
+              preferences['proof_checklist'] as bool? ?? true;
+          final emergencyShortcut =
+              preferences['emergency_shortcut'] as bool? ?? true;
+          final preferredMapMode =
+              (preferences['preferred_map_mode'] ?? 'balanced').toString();
+          final handoffTemplate = (preferences['handoff_template'] ??
+                  'Delivered to customer after OTP verification.')
+              .toString();
 
           final markers = <Marker>[];
 
@@ -98,15 +118,25 @@ class DeliveryMapScreen extends StatelessWidget {
           final polylines = <Polyline>[];
           for (final order in activeOrders) {
             if (order.deliveryPersonLocation != null) {
+              final polylineColor = switch (preferredMapMode) {
+                'fastest' => AppTheme.primaryRed,
+                'safer' => AppTheme.info,
+                _ => AppTheme.primaryRed.withValues(alpha: 0.6),
+              };
+              final polylinePattern = switch (preferredMapMode) {
+                'fastest' => StrokePattern.solid(),
+                'safer' => StrokePattern.dashed(segments: [6, 5]),
+                _ => StrokePattern.dotted(),
+              };
               polylines.add(Polyline(
                 points: [
                   order.storeLocation,
                   order.deliveryPersonLocation!,
                   order.customerLocation,
                 ],
-                color: AppTheme.primaryRed.withValues(alpha: 0.6),
+                color: polylineColor,
                 strokeWidth: 3,
-                pattern: const StrokePattern.dotted(),
+                pattern: polylinePattern,
               ));
             }
           }
@@ -196,10 +226,47 @@ class DeliveryMapScreen extends StatelessWidget {
                             fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       const SizedBox(height: 8),
+                      if (proofChecklist)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F9FC),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Handoff note: $handoffTemplate',
+                            style: const TextStyle(
+                              color: AppTheme.textMedium,
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      if (emergencyShortcut)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Emergency help shortcut is enabled for active routes.'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.emergency_share_outlined),
+                              label: const Text('Emergency help ready'),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 2),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: activeOrders.isEmpty
+                          onPressed: !shareLiveLocation || activeOrders.isEmpty
                               ? null
                               : () async {
                                   await location.refreshLocation();
@@ -227,16 +294,20 @@ class DeliveryMapScreen extends StatelessWidget {
                                   }
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text(
-                                          'Live location synced for active deliveries.',
+                                          'Live location synced for active deliveries using $preferredMapMode route mode.',
                                         ),
                                       ),
                                     );
                                   }
                                 },
                           icon: const Icon(Icons.my_location_rounded),
-                          label: const Text('Sync my live position'),
+                          label: Text(
+                            shareLiveLocation
+                                ? 'Sync my live position'
+                                : 'Live location disabled',
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -283,6 +354,8 @@ class DeliveryMapScreen extends StatelessWidget {
               ),
             ],
           );
+        },
+      );
         },
       ),
     );

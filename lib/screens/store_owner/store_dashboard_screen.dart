@@ -5,6 +5,7 @@ import '../../models/order.dart';
 import '../../models/user.dart';
 import '../../services/auth_service.dart';
 import '../../services/mock_data.dart';
+import '../../services/operator_preferences_service.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 import 'store_operations_tools_screen.dart';
@@ -38,7 +39,14 @@ class StoreDashboardScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: Consumer<OrderService>(
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: OperatorPreferencesService.load(
+          appVariant: 'store_owner',
+          userId: store.ownerId,
+        ),
+        builder: (context, preferencesSnapshot) {
+          final storePreferences = preferencesSnapshot.data ?? const <String, dynamic>{};
+          return Consumer<OrderService>(
         builder: (context, orderService, _) {
           final earnings = orderService.earningsFor(
             UserRole.storeOwner,
@@ -58,6 +66,13 @@ class StoreDashboardScreen extends StatelessWidget {
               orderService.activeReservationCountForStore(store.id);
           final outForDelivery =
               orderService.outForDeliveryCountForStore(store.id);
+          final substitutionsEnabled =
+              storePreferences['substitutions_enabled'] as bool? ?? true;
+          final pickupAlerts = storePreferences['pickup_alerts'] as bool? ?? true;
+          final inventoryWarnings =
+              storePreferences['inventory_warnings'] as bool? ?? true;
+          final prepBuffer = storePreferences['prep_buffer_minutes'] as int? ?? 8;
+          final packingLead = storePreferences['packing_lead_minutes'] as int? ?? 4;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -102,6 +117,33 @@ class StoreDashboardScreen extends StatelessWidget {
                       Icons.account_balance_outlined,
                       const Color(0xFF255E96),
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _buildPreferenceChip(
+                    'Substitutions ${substitutionsEnabled ? 'on' : 'off'}',
+                    substitutionsEnabled ? AppTheme.success : AppTheme.textMedium,
+                  ),
+                  _buildPreferenceChip(
+                    'Pickup alerts ${pickupAlerts ? 'on' : 'off'}',
+                    pickupAlerts ? AppTheme.info : AppTheme.textMedium,
+                  ),
+                  _buildPreferenceChip(
+                    'Inventory warnings ${inventoryWarnings ? 'on' : 'off'}',
+                    inventoryWarnings ? AppTheme.warning : AppTheme.textMedium,
+                  ),
+                  _buildPreferenceChip(
+                    'Prep $prepBuffer min',
+                    AppTheme.primaryRed,
+                  ),
+                  _buildPreferenceChip(
+                    'Packing $packingLead min',
+                    const Color(0xFF7A4AC7),
                   ),
                 ],
               ),
@@ -197,7 +239,7 @@ class StoreDashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '$outForDelivery orders are already on the road and $activeReservations inventory reservations are currently locked for confirmed demand.',
+                      '$outForDelivery orders are already on the road, $activeReservations inventory reservations are currently locked for confirmed demand, and your configured handoff window is ${prepBuffer + packingLead} minutes before rider pickup.',
                       style: const TextStyle(
                         color: AppTheme.textMedium,
                         height: 1.45,
@@ -337,6 +379,8 @@ class StoreDashboardScreen extends StatelessWidget {
             ],
           );
         },
+      );
+        },
       ),
     );
   }
@@ -369,6 +413,20 @@ class StoreDashboardScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(color: AppTheme.textMedium)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPreferenceChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w700),
       ),
     );
   }

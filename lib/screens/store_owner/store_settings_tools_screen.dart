@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../services/supabase_service.dart';
+import '../../services/operator_preferences_service.dart';
 import '../../theme/app_theme.dart';
 
 class StoreOperationsPreferencesScreen extends StatefulWidget {
@@ -33,7 +30,10 @@ class _StoreOperationsPreferencesScreenState extends State<StoreOperationsPrefer
   }
 
   Future<void> _load() async {
-    final remote = await _OperatorPreferencesRepository.load('store_owner', widget.userId);
+    final remote = await OperatorPreferencesService.load(
+      appVariant: 'store_owner',
+      userId: widget.userId,
+    );
     if (remote.isNotEmpty) {
       _substitutionsEnabled = remote['substitutions_enabled'] as bool? ?? true;
       _pickupAlerts = remote['pickup_alerts'] as bool? ?? true;
@@ -46,10 +46,10 @@ class _StoreOperationsPreferencesScreenState extends State<StoreOperationsPrefer
   }
 
   Future<void> _persist() async {
-    await _OperatorPreferencesRepository.save(
-      'store_owner',
-      widget.userId,
-      {
+    await OperatorPreferencesService.save(
+      appVariant: 'store_owner',
+      userId: widget.userId,
+      settings: {
         'substitutions_enabled': _substitutionsEnabled,
         'pickup_alerts': _pickupAlerts,
         'inventory_warnings': _inventoryWarnings,
@@ -203,34 +203,5 @@ class _SliderTile extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _OperatorPreferencesRepository {
-  static String _localKey(String userId, String appVariant) => 'operator::$appVariant::$userId';
-
-  static Future<Map<String, dynamic>> load(String appVariant, String userId) async {
-    if (SupabaseService.isInitialized) {
-      final remote = await SupabaseService.getOperatorPreferences(appVariant: appVariant);
-      final settings = remote?['settings'];
-      if (settings is Map && settings.isNotEmpty) {
-        return Map<String, dynamic>.from(settings);
-      }
-    }
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_localKey(userId, appVariant));
-    if (raw == null) return const {};
-    return Map<String, dynamic>.from(jsonDecode(raw) as Map<String, dynamic>);
-  }
-
-  static Future<void> save(String appVariant, String userId, Map<String, dynamic> settings) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_localKey(userId, appVariant), jsonEncode(settings));
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertOperatorPreferences(
-        appVariant: appVariant,
-        settings: settings,
-      );
-    }
   }
 }

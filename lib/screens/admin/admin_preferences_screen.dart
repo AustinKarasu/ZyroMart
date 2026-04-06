@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../services/supabase_service.dart';
+import '../../services/operator_preferences_service.dart';
 import '../../theme/app_theme.dart';
 
 class AdminPreferencesScreen extends StatefulWidget {
@@ -28,7 +25,10 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
   }
 
   Future<void> _load() async {
-    final settings = await _AdminPreferencesRepository.load('admin');
+    final settings = await OperatorPreferencesService.load(
+      appVariant: 'admin',
+      userId: 'singleton',
+    );
     if (settings.isNotEmpty) {
       _highlightCancelled = settings['highlight_cancelled'] as bool? ?? true;
       _highlightPayoutDrift = settings['highlight_payout_drift'] as bool? ?? true;
@@ -41,9 +41,10 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
   }
 
   Future<void> _persist() async {
-    await _AdminPreferencesRepository.save(
-      'admin',
-      {
+    await OperatorPreferencesService.save(
+      appVariant: 'admin',
+      userId: 'singleton',
+      settings: {
         'highlight_cancelled': _highlightCancelled,
         'highlight_payout_drift': _highlightPayoutDrift,
         'focus_live_signals': _focusLiveSignals,
@@ -175,34 +176,5 @@ class _AdminCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _AdminPreferencesRepository {
-  static const _localKey = 'operator::admin::singleton';
-
-  static Future<Map<String, dynamic>> load(String appVariant) async {
-    if (SupabaseService.isInitialized) {
-      final remote = await SupabaseService.getOperatorPreferences(appVariant: appVariant);
-      final settings = remote?['settings'];
-      if (settings is Map && settings.isNotEmpty) {
-        return Map<String, dynamic>.from(settings);
-      }
-    }
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_localKey);
-    if (raw == null) return const {};
-    return Map<String, dynamic>.from(jsonDecode(raw) as Map<String, dynamic>);
-  }
-
-  static Future<void> save(String appVariant, Map<String, dynamic> settings) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_localKey, jsonEncode(settings));
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertOperatorPreferences(
-        appVariant: appVariant,
-        settings: settings,
-      );
-    }
   }
 }
