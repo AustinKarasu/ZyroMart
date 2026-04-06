@@ -80,8 +80,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_off_outlined,
-                        color: AppTheme.warning),
+                    const Icon(
+                      Icons.location_off_outlined,
+                      color: AppTheme.warning,
+                    ),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
@@ -108,8 +110,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     controller: _addressController,
                     maxLines: 2,
                     decoration: const InputDecoration(
-                      prefixIcon:
-                          Icon(Icons.location_on_outlined, color: AppTheme.primaryRed),
+                      prefixIcon: Icon(
+                        Icons.location_on_outlined,
+                        color: AppTheme.primaryRed,
+                      ),
                       hintText: 'Enter delivery address',
                     ),
                   ),
@@ -150,14 +154,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     height: 54,
                     child: OutlinedButton(
                       onPressed: () {
-                        final message = cart.applyCoupon(_couponController.text);
+                        final message = cart.applyCoupon(
+                          _couponController.text,
+                        );
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
                               message ?? 'Coupon applied successfully',
                             ),
-                            backgroundColor:
-                                message == null ? AppTheme.success : AppTheme.primaryRed,
+                            backgroundColor: message == null
+                                ? AppTheme.success
+                                : AppTheme.primaryRed,
                           ),
                         );
                       },
@@ -227,7 +234,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text('${item.product.name} x${item.quantity}'),
+                            child: Text(
+                              '${item.product.name} x${item.quantity}',
+                            ),
                           ),
                           Text(
                             'Rs ${item.totalPrice.toInt()}',
@@ -300,7 +309,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   )
                 : Text(
-                    'Place order â€¢ Rs ${cart.grandTotal.toInt()}',
+                    'Place order - Rs ${cart.grandTotal.toInt()}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -390,7 +399,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: selected ? const Color(0xFF1D8C3A) : AppTheme.textMedium),
+            Icon(
+              icon,
+              color: selected ? const Color(0xFF1D8C3A) : AppTheme.textMedium,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -400,7 +412,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: selected ? const Color(0xFF1D8C3A) : AppTheme.textDark,
+                      color: selected
+                          ? const Color(0xFF1D8C3A)
+                          : AppTheme.textDark,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -422,8 +436,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _billRow(String label, String value,
-      {bool isBold = false, Color? valueColor}) {
+  Widget _billRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? valueColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -458,9 +476,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final navigator = Navigator.of(context);
 
     if (cart.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your cart is empty')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Your cart is empty')));
       return;
     }
 
@@ -477,8 +495,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (customerPhone.isEmpty || customerPhone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('A verified phone number is required before placing an order'),
+          content: Text(
+            'A verified phone number is required before placing an order',
+          ),
         ),
       );
       return;
@@ -516,7 +535,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       deliveryFee: cart.deliveryFee,
       deliveryAddress: address,
       customerLocation:
-          location.currentLocation ?? auth.currentUser?.location ?? const LatLng(28.6139, 77.2090),
+          location.currentLocation ??
+          auth.currentUser?.location ??
+          const LatLng(28.6139, 77.2090),
       platformFee: cart.platformFee,
       handlingFee: cart.handlingFee,
       deliveryTip: cart.deliveryTip,
@@ -529,11 +550,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (!mounted) return;
 
     navigator.pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => OrderTrackingScreen(orderId: order.id),
-      ),
+      MaterialPageRoute(builder: (_) => OrderTrackingScreen(orderId: order.id)),
       (route) => route.isFirst,
     );
   }
 }
-

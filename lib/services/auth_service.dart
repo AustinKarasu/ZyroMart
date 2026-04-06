@@ -19,6 +19,9 @@ class AuthService extends ChangeNotifier {
   String? _pendingEmail;
   String? _pendingName;
   String? _pendingPassword;
+  String? _pendingStoreName;
+  String? _pendingStoreAddress;
+  LatLng? _pendingStoreLocation;
   String? _errorMessage;
   String? _statusMessage;
   bool _isPasswordLogin = false;
@@ -78,6 +81,9 @@ class AuthService extends ChangeNotifier {
     String? password,
     required String name,
     required UserRole role,
+    String? storeName,
+    String? storeAddress,
+    LatLng? storeLocation,
   }) async {
     _isLoading = true;
     _clearMessages();
@@ -86,6 +92,9 @@ class AuthService extends ChangeNotifier {
     _pendingEmail = email?.trim().toLowerCase();
     _pendingName = name.trim();
     _pendingPassword = password;
+    _pendingStoreName = storeName?.trim();
+    _pendingStoreAddress = storeAddress?.trim();
+    _pendingStoreLocation = storeLocation;
     notifyListeners();
 
     try {
@@ -101,13 +110,24 @@ class AuthService extends ChangeNotifier {
         _errorMessage = 'Name is too long.';
         return false;
       }
+      if (role == UserRole.storeOwner) {
+        if ((_pendingStoreName ?? '').isEmpty) {
+          _errorMessage = 'Store name is required for store owner signup.';
+          return false;
+        }
+        if ((_pendingStoreAddress ?? '').isEmpty) {
+          _errorMessage = 'Store location is required for store owner signup.';
+          return false;
+        }
+      }
       if (_pendingEmail != null &&
           !InputSecurityService.isValidEmail(_pendingEmail!)) {
         _errorMessage = 'Enter a valid email address.';
         return false;
       }
-      final decision =
-          await RateLimitService.beforeAttempt('otp:${_pendingPhone!}');
+      final decision = await RateLimitService.beforeAttempt(
+        'otp:${_pendingPhone!}',
+      );
       if (!decision.allowed) {
         _errorMessage =
             'Too many OTP attempts. Try again in ${RateLimitService.formatRetry(decision.retryAfter!)}.';
@@ -170,18 +190,22 @@ class AuthService extends ChangeNotifier {
         phone: _pendingPhone!,
         email: _pendingEmail,
         name: _pendingName,
+        address: _selectedRole == UserRole.storeOwner
+            ? _pendingStoreAddress
+            : null,
+        location: _selectedRole == UserRole.storeOwner
+            ? _pendingStoreLocation
+            : null,
       );
       if ((_pendingEmail?.isNotEmpty ?? false) &&
           (_pendingPassword?.isNotEmpty ?? false)) {
         await SupabaseService.updateAccount(
           email: _pendingEmail!,
           password: _pendingPassword!,
-          data: {
-            'name': _pendingName,
-            'role': _roleToDb(_selectedRole!),
-          },
+          data: {'name': _pendingName, 'role': _roleToDb(_selectedRole!)},
         );
       }
+      await _upsertOwnerStoreIfNeeded();
       await _hydrateCurrentUser(
         fallbackRole: _selectedRole,
         fallbackName: _pendingName,
@@ -211,13 +235,18 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canUseSupabaseAuth) {
+        _errorMessage = 'Supabase auth is not configured.';
+        return false;
+      }
       final normalizedEmail = InputSecurityService.sanitizeEmail(email);
       if (!InputSecurityService.isValidEmail(normalizedEmail)) {
         _errorMessage = 'Enter a valid email address.';
         return false;
       }
-      final decision =
-          await RateLimitService.beforeAttempt('password:$normalizedEmail');
+      final decision = await RateLimitService.beforeAttempt(
+        'password:$normalizedEmail',
+      );
       if (!decision.allowed) {
         _errorMessage =
             'Too many sign-in attempts. Try again in ${RateLimitService.formatRetry(decision.retryAfter!)}.';
@@ -297,7 +326,8 @@ class AuthService extends ChangeNotifier {
         fallbackPhone: _currentUser?.phone,
         fallbackEmail: normalizedEmail,
       );
-      _statusMessage = 'Email and password updated. You can now use password login.';
+      _statusMessage =
+          'Email and password updated. You can now use password login.';
       return true;
     } catch (error) {
       _errorMessage = 'Could not save password login. ${error.toString()}';
@@ -389,6 +419,9 @@ class AuthService extends ChangeNotifier {
     _pendingEmail = null;
     _pendingName = null;
     _pendingPassword = null;
+    _pendingStoreName = null;
+    _pendingStoreAddress = null;
+    _pendingStoreLocation = null;
     _clearMessages();
     await _preferences?.setUserScope(null);
     notifyListeners();
@@ -405,35 +438,48 @@ class AuthService extends ChangeNotifier {
     if (sessionUser == null) return;
 
     final profile = await SupabaseService.getMyProfile();
-    final dbRole =
-        (profile?['role'] ?? sessionUser.userMetadata?['role'] ?? '').toString();
-    final role = _roleFromDb(dbRole.isEmpty ? null : dbRole) ??
+    final dbRole = (profile?['role'] ?? sessionUser.userMetadata?['role'] ?? '')
+        .toString();
+    final role =
+        _roleFromDb(dbRole.isEmpty ? null : dbRole) ??
         fallbackRole ??
         _inferRoleFromEmail(sessionUser.email ?? fallbackEmail ?? '');
 
     final phone =
-        (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? MockData.defaultCustomer.phone).toString();
-    final email = (profile?['email'] ??
-            sessionUser.email ??
-            fallbackEmail ??
-            _fallbackEmailForPhone(phone))
-        .toString();
+        (profile?['phone'] ??
+                sessionUser.phone ??
+                fallbackPhone ??
+                MockData.defaultCustomer.phone)
+            .toString();
+    final email =
+        (profile?['email'] ??
+                sessionUser.email ??
+                fallbackEmail ??
+                _fallbackEmailForPhone(phone))
+            .toString();
 
     _currentUser = AppUser(
       id: sessionUser.id,
-      name: (profile?['name'] ??
-              sessionUser.userMetadata?['name'] ??
-              fallbackName ??
-              'ZyroMart User')
-          .toString(),
+      name:
+          (profile?['name'] ??
+                  sessionUser.userMetadata?['name'] ??
+                  fallbackName ??
+                  'ZyroMart User')
+              .toString(),
       email: email,
       phone: phone,
       role: role,
       address: (profile?['address'] ?? '').toString(),
       location: LatLng(
-        ((profile?['latitude'] ?? fallbackLocation?.latitude ?? _fallbackLocation(role).latitude) as num)
+        ((profile?['latitude'] ??
+                    fallbackLocation?.latitude ??
+                    _fallbackLocation(role).latitude)
+                as num)
             .toDouble(),
-        ((profile?['longitude'] ?? fallbackLocation?.longitude ?? _fallbackLocation(role).longitude) as num)
+        ((profile?['longitude'] ??
+                    fallbackLocation?.longitude ??
+                    _fallbackLocation(role).longitude)
+                as num)
             .toDouble(),
       ),
       profileImageUrl: profile?['profile_image_url']?.toString(),
@@ -464,11 +510,12 @@ class AuthService extends ChangeNotifier {
     await SupabaseService.upsertProfile({
       'id': sessionUser.id,
       'name': InputSecurityService.sanitizePlainText(
-        (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
+        (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User')
+            .toString(),
         maxLength: InputSecurityService.nameMaxLength,
       ),
-      'email':
-          (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone)).toString(),
+      'email': (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone))
+          .toString(),
       'phone': phone,
       'role': _roleToDb(role),
       'address': InputSecurityService.sanitizePlainText(
@@ -477,10 +524,41 @@ class AuthService extends ChangeNotifier {
         allowNewLines: true,
       ),
       'profile_image_url': profileImageUrl ?? _currentUser?.profileImageUrl,
-      'latitude': location?.latitude ?? _currentUser?.location.latitude ?? fallback.latitude,
-      'longitude': location?.longitude ?? _currentUser?.location.longitude ?? fallback.longitude,
+      'latitude':
+          location?.latitude ??
+          _currentUser?.location.latitude ??
+          fallback.latitude,
+      'longitude':
+          location?.longitude ??
+          _currentUser?.location.longitude ??
+          fallback.longitude,
       'is_online': isOnline ?? _currentUser?.isOnline ?? true,
     });
+  }
+
+  Future<void> _upsertOwnerStoreIfNeeded() async {
+    if (_selectedRole != UserRole.storeOwner) return;
+    final sessionUser = SupabaseService.currentUser;
+    if (sessionUser == null) return;
+    final storeName = (_pendingStoreName ?? '').trim();
+    final storeAddress = (_pendingStoreAddress ?? '').trim();
+    if (storeName.isEmpty || storeAddress.isEmpty) return;
+    final fallback =
+        _pendingStoreLocation ??
+        _currentUser?.location ??
+        _fallbackLocation(UserRole.storeOwner);
+    await SupabaseService.upsertOwnerStore(
+      ownerId: sessionUser.id,
+      name: InputSecurityService.sanitizePlainText(storeName, maxLength: 90),
+      address: InputSecurityService.sanitizePlainText(
+        storeAddress,
+        maxLength: InputSecurityService.addressMaxLength,
+        allowNewLines: true,
+      ),
+      latitude: fallback.latitude,
+      longitude: fallback.longitude,
+      phone: _pendingPhone,
+    );
   }
 
   LatLng _fallbackLocation(UserRole role) {

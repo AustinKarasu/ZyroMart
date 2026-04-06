@@ -29,10 +29,7 @@ class AdminAuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signIn({required String email, required String password}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -40,12 +37,18 @@ class AdminAuthService extends ChangeNotifier {
     final normalizedEmail = InputSecurityService.sanitizeEmail(email);
 
     try {
+      if (!SupabaseService.isInitialized) {
+        _errorMessage =
+            'Admin backend is not initialized in this build. Reinstall the latest app with valid Supabase configuration.';
+        return false;
+      }
       if (!InputSecurityService.isValidEmail(normalizedEmail)) {
         _errorMessage = 'Enter a valid admin email address.';
         return false;
       }
-      final decision =
-          await RateLimitService.beforeAttempt('admin:$normalizedEmail');
+      final decision = await RateLimitService.beforeAttempt(
+        'admin:$normalizedEmail',
+      );
       if (!decision.allowed) {
         _errorMessage =
             'Too many admin sign-in attempts. Try again in ${RateLimitService.formatRetry(decision.retryAfter!)}.';

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/user.dart';
 import '../../services/auth_service.dart';
+import '../../services/location_service.dart';
 import '../../theme/app_theme.dart';
 
 class OnboardingAuthScreen extends StatefulWidget {
@@ -41,17 +42,17 @@ class _IntroExperience extends StatelessWidget {
       (
         Icons.schedule,
         '24-hour delivery promise',
-        'Round-the-clock storefront, fulfillment, and account access built for real use.'
+        'Round-the-clock storefront, fulfillment, and account access built for real use.',
       ),
       (
         Icons.verified_user_outlined,
         'Verified access only',
-        'Phone verification for signup and strict role-based sign-in for customer, store owner, and delivery.'
+        'Phone verification for signup and strict role-based sign-in for customer, store owner, and delivery.',
       ),
       (
         Icons.storefront_outlined,
         'One platform, separate operations',
-        'Customer, store, delivery, and admin experiences stay connected while keeping clean boundaries.'
+        'Customer, store, delivery, and admin experiences stay connected while keeping clean boundaries.',
       ),
     ];
 
@@ -88,7 +89,11 @@ class _IntroExperience extends StatelessWidget {
                       child: compact
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [hero, const SizedBox(height: 24), card],
+                              children: [
+                                hero,
+                                const SizedBox(height: 24),
+                                card,
+                              ],
                             )
                           : Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +165,10 @@ class _IntroHero extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            ElevatedButton(onPressed: onContinue, child: const Text('Get Started')),
+            ElevatedButton(
+              onPressed: onContinue,
+              child: const Text('Get Started'),
+            ),
             OutlinedButton(
               onPressed: onContinue,
               style: OutlinedButton.styleFrom(
@@ -270,6 +278,8 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _storeNameController = TextEditingController();
+  final _storeAddressController = TextEditingController();
   UserRole _selectedRole = UserRole.customer;
   bool _isSignUp = false;
 
@@ -281,6 +291,8 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
     _otpController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _storeNameController.dispose();
+    _storeAddressController.dispose();
     super.dispose();
   }
 
@@ -358,7 +370,8 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                           const SizedBox(height: 20),
                           _AuthModeSwitch(
                             isSignUp: _isSignUp,
-                            onChanged: (value) => setState(() => _isSignUp = value),
+                            onChanged: (value) =>
+                                setState(() => _isSignUp = value),
                           ),
                           const SizedBox(height: 18),
                           _RoleGrid(
@@ -412,7 +425,9 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _isSignUp ? 'Create your account' : 'Sign in to continue',
+                              _isSignUp
+                                  ? 'Create your account'
+                                  : 'Sign in to continue',
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w900,
@@ -424,8 +439,8 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                               _isSignUp
                                   ? 'Email is required for signup. We verify the phone number first and attach the password immediately after OTP verification.'
                                   : auth.isPasswordLogin
-                                      ? 'Use your email and password. The selected role must match the role saved in your account.'
-                                      : 'Phone OTP sign in does not require an email field.',
+                                  ? 'Use your email and password. The selected role must match the role saved in your account.'
+                                  : 'Phone OTP sign in does not require an email field.',
                               style: const TextStyle(
                                 color: AppTheme.textMedium,
                                 height: 1.45,
@@ -442,6 +457,29 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                 ),
                               ),
                               const SizedBox(height: 14),
+                              if (_selectedRole == UserRole.storeOwner) ...[
+                                TextField(
+                                  controller: _storeNameController,
+                                  textCapitalization: TextCapitalization.words,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Store Name',
+                                    prefixIcon: Icon(Icons.storefront_outlined),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                TextField(
+                                  controller: _storeAddressController,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Store Location',
+                                    prefixIcon: Icon(
+                                      Icons.location_on_outlined,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                              ],
                             ],
                             if (_isSignUp || !auth.isPasswordLogin)
                               TextField(
@@ -618,14 +656,38 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
           );
           return;
         }
+        if (_selectedRole == UserRole.storeOwner &&
+            _storeNameController.text.trim().isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Store name is required')),
+          );
+          return;
+        }
+        if (_selectedRole == UserRole.storeOwner &&
+            _storeAddressController.text.trim().isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Store location is required')),
+          );
+          return;
+        }
       }
 
+      final liveLocation = context.read<LocationService>().currentLocation;
       final success = await auth.requestOtp(
         phone: _phoneController.text,
         email: _isSignUp ? _emailController.text : null,
         password: _isSignUp ? _passwordController.text : null,
         name: _nameController.text,
         role: _selectedRole,
+        storeName: _isSignUp && _selectedRole == UserRole.storeOwner
+            ? _storeNameController.text
+            : null,
+        storeAddress: _isSignUp && _selectedRole == UserRole.storeOwner
+            ? _storeAddressController.text
+            : null,
+        storeLocation: _isSignUp && _selectedRole == UserRole.storeOwner
+            ? liveLocation
+            : null,
       );
       if (success && context.mounted) {
         messenger.showSnackBar(
@@ -732,9 +794,24 @@ class _RoleGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roles = <(UserRole, String, IconData, String)>[
-      (UserRole.customer, 'Customer', Icons.shopping_bag_outlined, 'Personal shopping'),
-      (UserRole.storeOwner, 'Store Owner', Icons.store_mall_directory_outlined, 'Catalog and operations'),
-      (UserRole.delivery, 'Delivery Agent', Icons.two_wheeler_outlined, 'Trips and fulfillment'),
+      (
+        UserRole.customer,
+        'Customer',
+        Icons.shopping_bag_outlined,
+        'Personal shopping',
+      ),
+      (
+        UserRole.storeOwner,
+        'Store Owner',
+        Icons.store_mall_directory_outlined,
+        'Catalog and operations',
+      ),
+      (
+        UserRole.delivery,
+        'Delivery Agent',
+        Icons.two_wheeler_outlined,
+        'Trips and fulfillment',
+      ),
     ];
 
     return Wrap(
@@ -753,13 +830,18 @@ class _RoleGrid extends StatelessWidget {
               color: selected ? const Color(0xFF211311) : Colors.white,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: selected ? const Color(0xFF211311) : const Color(0xFFE8DED5),
+                color: selected
+                    ? const Color(0xFF211311)
+                    : const Color(0xFFE8DED5),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(entry.$3, color: selected ? Colors.white : AppTheme.primaryRed),
+                Icon(
+                  entry.$3,
+                  color: selected ? Colors.white : AppTheme.primaryRed,
+                ),
                 const SizedBox(height: 14),
                 Text(
                   entry.$2,

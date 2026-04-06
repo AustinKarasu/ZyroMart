@@ -20,6 +20,7 @@ class OrderService extends ChangeNotifier {
 
   final Distance _distance = const Distance();
   final List<Order> _orders = [];
+  List<Store> _storeCatalog = List.of(MockData.stores);
   final Map<String, DeliveryFeedback> _feedbackByOrderId = {};
   final List<AppNotification> _notifications = [];
   final Map<String, double> _heldStoreEarnings = {};
@@ -34,7 +35,8 @@ class OrderService extends ChangeNotifier {
   final Map<String, bool> _customerPromptedByOrderId = {};
   final Map<String, String> _completionCodes = {};
   final Map<String, List<Map<String, dynamic>>> _statusEventsByOrderId = {};
-  final Map<String, List<Map<String, dynamic>>> _inventoryReservationsByOrderId = {};
+  final Map<String, List<Map<String, dynamic>>>
+  _inventoryReservationsByOrderId = {};
   final Map<String, List<Map<String, dynamic>>> _routeUpdatesByOrderId = {};
   final Map<String, Map<String, dynamic>> _proofOfDeliveryByOrderId = {};
   RealtimeChannel? _notificationChannel;
@@ -44,7 +46,7 @@ class OrderService extends ChangeNotifier {
 
   OrderService() {
     _orders.addAll(MockData.sampleOrders);
-    for (final store in MockData.stores) {
+    for (final store in _storeCatalog) {
       _serviceRadiusByStoreId[store.id] = _defaultServiceRadiusKm;
     }
     for (final order in _orders) {
@@ -55,6 +57,7 @@ class OrderService extends ChangeNotifier {
       }
     }
     _restoreLocalState();
+    _refreshStoreCatalog();
   }
 
   void bindUser(AppUser? user) {
@@ -71,6 +74,7 @@ class OrderService extends ChangeNotifier {
     _viewer = user;
     _scope = nextScope;
     _restoreLocalState();
+    _refreshStoreCatalog();
     if (_viewer != null) {
       _syncRemoteNotifications();
       _syncRemoteOrders();
@@ -82,10 +86,13 @@ class OrderService extends ChangeNotifier {
   List<Order> get allOrders => List.unmodifiable(_orders);
   List<AppNotification> get notifications {
     if (_viewer == null) return const [];
-    final visible = _notifications
-        .where((notification) => notification.recipientUserId == _viewer!.id)
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final visible =
+        _notifications
+            .where(
+              (notification) => notification.recipientUserId == _viewer!.id,
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return List.unmodifiable(visible);
   }
 
@@ -93,34 +100,43 @@ class OrderService extends ChangeNotifier {
       notifications.where((notification) => !notification.isRead).length;
 
   List<Order> get activeOrders => _visibleOrders
-      .where((order) =>
-          order.status != OrderStatus.delivered &&
-          order.status != OrderStatus.cancelled)
+      .where(
+        (order) =>
+            order.status != OrderStatus.delivered &&
+            order.status != OrderStatus.cancelled,
+      )
       .toList();
 
   List<Order> get pastOrders => _visibleOrders
-      .where((order) =>
-          order.status == OrderStatus.delivered ||
-          order.status == OrderStatus.cancelled)
+      .where(
+        (order) =>
+            order.status == OrderStatus.delivered ||
+            order.status == OrderStatus.cancelled,
+      )
       .toList();
 
   List<Order> get pendingDeliveryOrders => _visibleOrders
-      .where((order) =>
-          order.status == OrderStatus.readyForPickup ||
-          order.status == OrderStatus.outForDelivery)
+      .where(
+        (order) =>
+            order.status == OrderStatus.readyForPickup ||
+            order.status == OrderStatus.outForDelivery,
+      )
       .toList();
 
-  List<Order> get storeOrders =>
-      _visibleOrders.where((order) => order.status != OrderStatus.cancelled).toList();
+  List<Order> get storeOrders => _visibleOrders
+      .where((order) => order.status != OrderStatus.cancelled)
+      .toList();
 
   bool canCustomerCancel(Order order) {
     if (_viewer?.role != UserRole.customer || _viewer?.id != order.customerId) {
       return false;
     }
-    if (order.status != OrderStatus.placed && order.status != OrderStatus.confirmed) {
+    if (order.status != OrderStatus.placed &&
+        order.status != OrderStatus.confirmed) {
       return false;
     }
-    return DateTime.now().difference(order.placedAt) <= const Duration(minutes: 5);
+    return DateTime.now().difference(order.placedAt) <=
+        const Duration(minutes: 5);
   }
 
   Order? getOrder(String id) {
@@ -128,7 +144,8 @@ class OrderService extends ChangeNotifier {
     return matches.isEmpty ? null : matches.first;
   }
 
-  DeliveryFeedback? feedbackForOrder(String orderId) => _feedbackByOrderId[orderId];
+  DeliveryFeedback? feedbackForOrder(String orderId) =>
+      _feedbackByOrderId[orderId];
 
   bool shouldPromptCustomerForRating(String orderId) {
     if (_viewer?.role != UserRole.customer) return false;
@@ -171,9 +188,11 @@ class OrderService extends ChangeNotifier {
         );
       case UserRole.storeOwner:
         final completed = _orders
-            .where((order) =>
-                order.status == OrderStatus.delivered &&
-                _storeForOrder(order).ownerId == id)
+            .where(
+              (order) =>
+                  order.status == OrderStatus.delivered &&
+                  _storeForOrder(order).ownerId == id,
+            )
             .length;
         final held = _heldStoreEarnings[id] ?? 0;
         final released = _releasedStoreEarnings[id] ?? 0;
@@ -185,9 +204,11 @@ class OrderService extends ChangeNotifier {
         );
       case UserRole.delivery:
         final completed = _orders
-            .where((order) =>
-                order.status == OrderStatus.delivered &&
-                order.deliveryPersonId == id)
+            .where(
+              (order) =>
+                  order.status == OrderStatus.delivered &&
+                  order.deliveryPersonId == id,
+            )
             .length;
         final held = _heldDeliveryEarnings[id] ?? 0;
         final released = _releasedDeliveryEarnings[id] ?? 0;
@@ -207,15 +228,19 @@ class OrderService extends ChangeNotifier {
       _releasedPlatformEarnings.values.fold(0, (sum, value) => sum + value);
 
   Map<String, dynamic> get adminSnapshot {
-    final completedOrders =
-        _orders.where((order) => order.status == OrderStatus.delivered).length;
-    final cancelledOrders =
-        _orders.where((order) => order.status == OrderStatus.cancelled).length;
+    final completedOrders = _orders
+        .where((order) => order.status == OrderStatus.delivered)
+        .length;
+    final cancelledOrders = _orders
+        .where((order) => order.status == OrderStatus.cancelled)
+        .length;
     final avgRating = _feedbackByOrderId.isEmpty
         ? 0.0
-        : _feedbackByOrderId.values
-                .fold<int>(0, (sum, feedback) => sum + feedback.rating) /
-            _feedbackByOrderId.length;
+        : _feedbackByOrderId.values.fold<int>(
+                0,
+                (sum, feedback) => sum + feedback.rating,
+              ) /
+              _feedbackByOrderId.length;
 
     return {
       'totalOrders': _orders.length,
@@ -230,14 +255,18 @@ class OrderService extends ChangeNotifier {
         0,
         (sum, bucket) => sum + bucket.length,
       ),
-      'activeReservationCount': _inventoryReservationsByOrderId.values.fold<int>(
-        0,
-        (sum, bucket) =>
-            sum +
-            bucket
-                .where((reservation) => reservation['reservation_status'] == 'reserved')
-                .length,
-      ),
+      'activeReservationCount': _inventoryReservationsByOrderId.values
+          .fold<int>(
+            0,
+            (sum, bucket) =>
+                sum +
+                bucket
+                    .where(
+                      (reservation) =>
+                          reservation['reservation_status'] == 'reserved',
+                    )
+                    .length,
+          ),
       'routeUpdateCount': _routeUpdatesByOrderId.values.fold<int>(
         0,
         (sum, bucket) => sum + bucket.length,
@@ -247,10 +276,14 @@ class OrderService extends ChangeNotifier {
   }
 
   List<Store> storesServingLocation(LatLng customerLocation) {
-    return MockData.stores.where((store) {
-      final radiusKm = _serviceRadiusByStoreId[store.id] ?? _defaultServiceRadiusKm;
-      final distanceKm =
-          _distance.as(LengthUnit.Kilometer, store.location, customerLocation);
+    return _storeCatalog.where((store) {
+      final radiusKm =
+          _serviceRadiusByStoreId[store.id] ?? _defaultServiceRadiusKm;
+      final distanceKm = _distance.as(
+        LengthUnit.Kilometer,
+        store.location,
+        customerLocation,
+      );
       return distanceKm <= radiusKm;
     }).toList();
   }
@@ -274,14 +307,18 @@ class OrderService extends ChangeNotifier {
   int activeReservationCountForStore(String storeId) {
     return _inventoryReservationsByOrderId.values
         .expand((bucket) => bucket)
-        .where((reservation) =>
-            reservation['store_id'] == storeId &&
-            reservation['reservation_status'] == 'reserved')
+        .where(
+          (reservation) =>
+              reservation['store_id'] == storeId &&
+              reservation['reservation_status'] == 'reserved',
+        )
         .length;
   }
 
   double averageOrderValueForStore(String storeId) {
-    final storeOrders = _orders.where((order) => order.storeId == storeId).toList();
+    final storeOrders = _orders
+        .where((order) => order.storeId == storeId)
+        .toList();
     if (storeOrders.isEmpty) {
       return 0;
     }
@@ -294,8 +331,11 @@ class OrderService extends ChangeNotifier {
 
   int outForDeliveryCountForStore(String storeId) {
     return _orders
-        .where((order) =>
-            order.storeId == storeId && order.status == OrderStatus.outForDelivery)
+        .where(
+          (order) =>
+              order.storeId == storeId &&
+              order.status == OrderStatus.outForDelivery,
+        )
         .length;
   }
 
@@ -339,12 +379,16 @@ class OrderService extends ChangeNotifier {
   }) {
     final customer = _viewer ?? MockData.defaultCustomer;
     final availableStores = storesServingLocation(customerLocation);
-    final store = availableStores.isNotEmpty ? availableStores.first : MockData.stores.first;
+    final store = availableStores.isNotEmpty
+        ? availableStores.first
+        : MockData.stores.first;
     final verificationCode = _generateDeliveryCode();
     var order = Order(
       id: 'ORD${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
       items: items
-          .map((item) => CartItem(product: item.product, quantity: item.quantity))
+          .map(
+            (item) => CartItem(product: item.product, quantity: item.quantity),
+          )
           .toList(),
       totalAmount: totalAmount,
       deliveryFee: deliveryFee,
@@ -442,7 +486,8 @@ class OrderService extends ChangeNotifier {
         recipientUserId: deliveryPartner.id,
         category: 'order',
         title: 'Proceed to customer',
-        body: 'Collect OTP from ${order.customerName} to complete order ${order.id}.',
+        body:
+            'Collect OTP from ${order.customerName} to complete order ${order.id}.',
         orderId: order.id,
       );
     }
@@ -455,7 +500,8 @@ class OrderService extends ChangeNotifier {
         recipientUserId: order.customerId,
         category: 'order',
         title: 'Order delivered',
-        body: 'Rate ${order.deliveryPersonName ?? 'your delivery partner'} and review the delivery experience.',
+        body:
+            'Rate ${order.deliveryPersonName ?? 'your delivery partner'} and review the delivery experience.',
         orderId: order.id,
       );
       if (order.deliveryPersonId != null) {
@@ -463,7 +509,8 @@ class OrderService extends ChangeNotifier {
           recipientUserId: order.deliveryPersonId!,
           category: 'earning',
           title: 'Delivery earnings released',
-          body: 'Your payout for order ${order.id} is now ready for settlement.',
+          body:
+              'Your payout for order ${order.id} is now ready for settlement.',
           orderId: order.id,
         );
       }
@@ -543,7 +590,9 @@ class OrderService extends ChangeNotifier {
     final bucket = _routeUpdatesByOrderId.putIfAbsent(orderId, () => []);
     bucket.insert(0, payload);
     if (SupabaseService.isInitialized) {
-      await SupabaseService.insertDeliveryRouteUpdate(payload).catchError((_) {});
+      await SupabaseService.insertDeliveryRouteUpdate(
+        payload,
+      ).catchError((_) {});
     }
     _persistLocalState();
     notifyListeners();
@@ -613,14 +662,18 @@ class OrderService extends ChangeNotifier {
         final storeId = (area['store_id'] ?? '').toString();
         if (storeId.isNotEmpty) {
           _serviceRadiusByStoreId[storeId] =
-              ((area['radius_km'] ?? _defaultServiceRadiusKm) as num).toDouble();
+              ((area['radius_km'] ?? _defaultServiceRadiusKm) as num)
+                  .toDouble();
         }
       }
       if (rows.isEmpty) {
         notifyListeners();
         return;
       }
-      final remoteOrders = rows.map(_mapRemoteOrder).whereType<Order>().toList();
+      final remoteOrders = rows
+          .map(_mapRemoteOrder)
+          .whereType<Order>()
+          .toList();
       if (remoteOrders.isNotEmpty) {
         _orders
           ..clear()
@@ -639,17 +692,26 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _loadRemoteOrderDetails(Order order) async {
     final results = await Future.wait([
-      SupabaseService.getOrderStatusEvents(order.id).catchError((_) => <Map<String, dynamic>>[]),
-      SupabaseService.getInventoryReservations(order.id).catchError((_) => <Map<String, dynamic>>[]),
-      SupabaseService.getDeliveryRouteUpdates(order.id).catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getOrderStatusEvents(
+        order.id,
+      ).catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getInventoryReservations(
+        order.id,
+      ).catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getDeliveryRouteUpdates(
+        order.id,
+      ).catchError((_) => <Map<String, dynamic>>[]),
       SupabaseService.getProofOfDelivery(order.id).catchError((_) => null),
     ]);
-    _statusEventsByOrderId[order.id] =
-        List<Map<String, dynamic>>.from(results[0] as List);
-    _inventoryReservationsByOrderId[order.id] =
-        List<Map<String, dynamic>>.from(results[1] as List);
-    _routeUpdatesByOrderId[order.id] =
-        List<Map<String, dynamic>>.from(results[2] as List);
+    _statusEventsByOrderId[order.id] = List<Map<String, dynamic>>.from(
+      results[0] as List,
+    );
+    _inventoryReservationsByOrderId[order.id] = List<Map<String, dynamic>>.from(
+      results[1] as List,
+    );
+    _routeUpdatesByOrderId[order.id] = List<Map<String, dynamic>>.from(
+      results[2] as List,
+    );
     final proof = results[3];
     if (proof is Map<String, dynamic>) {
       _proofOfDeliveryByOrderId[order.id] = proof;
@@ -680,11 +742,12 @@ class OrderService extends ChangeNotifier {
       deliveryPersonId: row['delivery_person_id']?.toString(),
       deliveryPersonName: row['delivery_person_name']?.toString(),
       deliveryAddress: (row['delivery_address'] ?? '').toString(),
-      placedAt: DateTime.tryParse((row['created_at'] ?? '').toString()) ??
+      placedAt:
+          DateTime.tryParse((row['created_at'] ?? '').toString()) ??
           DateTime.now(),
       estimatedDelivery:
           DateTime.tryParse((row['estimated_delivery'] ?? '').toString()) ??
-              DateTime.now().add(const Duration(hours: 24)),
+          DateTime.now().add(const Duration(hours: 24)),
       customerLocation: LatLng(
         ((row['customer_latitude'] ?? 0) as num).toDouble(),
         ((row['customer_longitude'] ?? 0) as num).toDouble(),
@@ -696,7 +759,8 @@ class OrderService extends ChangeNotifier {
       ),
       notes: row['notes']?.toString(),
       paymentMethod: (row['payment_method'] ?? 'cod').toString(),
-      deliveryVerificationCode: _completionCodes[orderId] ?? _generateDeliveryCode(),
+      deliveryVerificationCode:
+          _completionCodes[orderId] ?? _generateDeliveryCode(),
     );
   }
 
@@ -710,7 +774,8 @@ class OrderService extends ChangeNotifier {
         final productMap = Map<String, dynamic>.from(rawProduct);
         product = Product(
           id: (productMap['id'] ?? row['product_id'] ?? '').toString(),
-          name: (productMap['name'] ?? row['product_name'] ?? 'Product').toString(),
+          name: (productMap['name'] ?? row['product_name'] ?? 'Product')
+              .toString(),
           description: (productMap['description'] ?? '').toString(),
           price: ((productMap['price'] ?? row['product_price'] ?? 0) as num)
               .toDouble(),
@@ -798,7 +863,9 @@ class OrderService extends ChangeNotifier {
   }
 
   void markNotificationRead(String notificationId) {
-    final notification = _notifications.where((item) => item.id == notificationId);
+    final notification = _notifications.where(
+      (item) => item.id == notificationId,
+    );
     if (notification.isEmpty) return;
     notification.first.isRead = true;
     if (SupabaseService.isInitialized) {
@@ -814,7 +881,9 @@ class OrderService extends ChangeNotifier {
 
     switch (_viewer!.role) {
       case UserRole.customer:
-        return _orders.where((order) => order.customerId == _viewer!.id).toList();
+        return _orders
+            .where((order) => order.customerId == _viewer!.id)
+            .toList();
       case UserRole.storeOwner:
         return _orders
             .where((order) => _storeForOrder(order).ownerId == _viewer!.id)
@@ -834,7 +903,10 @@ class OrderService extends ChangeNotifier {
     const transitions = {
       OrderStatus.placed: [OrderStatus.confirmed, OrderStatus.cancelled],
       OrderStatus.confirmed: [OrderStatus.preparing, OrderStatus.cancelled],
-      OrderStatus.preparing: [OrderStatus.readyForPickup, OrderStatus.cancelled],
+      OrderStatus.preparing: [
+        OrderStatus.readyForPickup,
+        OrderStatus.cancelled,
+      ],
       OrderStatus.readyForPickup: [OrderStatus.outForDelivery],
       OrderStatus.outForDelivery: [OrderStatus.delivered],
     };
@@ -917,7 +989,10 @@ class OrderService extends ChangeNotifier {
         (_releasedPlatformEarnings[order.id] ?? 0) + platformHeld;
 
     _heldStoreEarnings[store.ownerId] =
-        ((_heldStoreEarnings[store.ownerId] ?? 0) - storeShare).clamp(0, double.infinity);
+        ((_heldStoreEarnings[store.ownerId] ?? 0) - storeShare).clamp(
+          0,
+          double.infinity,
+        );
     _releasedStoreEarnings[store.ownerId] =
         (_releasedStoreEarnings[store.ownerId] ?? 0) + storeShare;
 
@@ -939,10 +1014,14 @@ class OrderService extends ChangeNotifier {
 
     _heldPlatformEarnings.remove(order.id);
     _heldStoreEarnings[store.ownerId] =
-        ((_heldStoreEarnings[store.ownerId] ?? 0) - storeShare).clamp(0, double.infinity);
+        ((_heldStoreEarnings[store.ownerId] ?? 0) - storeShare).clamp(
+          0,
+          double.infinity,
+        );
     if (order.deliveryPersonId != null) {
       _heldDeliveryEarnings[order.deliveryPersonId!] =
-          ((_heldDeliveryEarnings[order.deliveryPersonId!] ?? 0) - deliveryShare)
+          ((_heldDeliveryEarnings[order.deliveryPersonId!] ?? 0) -
+                  deliveryShare)
               .clamp(0, double.infinity);
     }
     _settlementReleasedByOrderId[order.id] = false;
@@ -1017,20 +1096,63 @@ class OrderService extends ChangeNotifier {
     }
   }
 
+  Future<void> _refreshStoreCatalog() async {
+    if (!SupabaseService.isInitialized) return;
+    final rows = await SupabaseService.getStores().catchError(
+      (_) => <Map<String, dynamic>>[],
+    );
+    if (rows.isEmpty) return;
+    _storeCatalog = rows.map(_mapStore).toList();
+    for (final store in _storeCatalog) {
+      _serviceRadiusByStoreId.putIfAbsent(
+        store.id,
+        () => _defaultServiceRadiusKm,
+      );
+    }
+    notifyListeners();
+  }
+
+  Store _mapStore(Map<String, dynamic> row) {
+    return Store(
+      id: row['id'].toString(),
+      name: (row['name'] ?? 'Store').toString(),
+      address: (row['address'] ?? '').toString(),
+      location: LatLng(
+        ((row['latitude'] ?? 0) as num).toDouble(),
+        ((row['longitude'] ?? 0) as num).toDouble(),
+      ),
+      rating: ((row['rating'] ?? 4.5) as num).toDouble(),
+      imageUrl: (row['image_url'] ?? '').toString(),
+      isOpen: row['is_open'] ?? true,
+      ownerId: (row['owner_id'] ?? '').toString(),
+      phone: (row['phone'] ?? '').toString(),
+      openTime: (row['open_time'] ?? '08:00 AM').toString(),
+      closeTime: (row['close_time'] ?? '10:00 PM').toString(),
+      totalOrders: (row['total_orders'] ?? 0) as int,
+      totalRevenue: ((row['total_revenue'] ?? 0) as num).toDouble(),
+    );
+  }
+
   AppUser _assignDeliveryPartner(Order order) {
     final nearest = [...MockData.deliveryPersons]
       ..sort((a, b) {
-        final distanceA =
-            _distance.as(LengthUnit.Kilometer, a.location, order.storeLocation);
-        final distanceB =
-            _distance.as(LengthUnit.Kilometer, b.location, order.storeLocation);
+        final distanceA = _distance.as(
+          LengthUnit.Kilometer,
+          a.location,
+          order.storeLocation,
+        );
+        final distanceB = _distance.as(
+          LengthUnit.Kilometer,
+          b.location,
+          order.storeLocation,
+        );
         return distanceA.compareTo(distanceB);
       });
     return nearest.first;
   }
 
   Store _storeForOrder(Order order) {
-    return MockData.stores.firstWhere(
+    return _storeCatalog.firstWhere(
       (store) => store.id == order.storeId,
       orElse: () => MockData.stores.first,
     );
@@ -1051,7 +1173,8 @@ class OrderService extends ChangeNotifier {
   }
 
   double _storeShare(Order order) {
-    final share = order.grandTotal - _platformShare(order) - _deliveryShare(order);
+    final share =
+        order.grandTotal - _platformShare(order) - _deliveryShare(order);
     return share < 0 ? 0 : share;
   }
 
@@ -1067,7 +1190,9 @@ class OrderService extends ChangeNotifier {
       platform: 'android',
       appVariant: 'storefront',
     ).catchError((_) {});
-    final rows = await SupabaseService.getNotifications().catchError((_) => <Map<String, dynamic>>[]);
+    final rows = await SupabaseService.getNotifications().catchError(
+      (_) => <Map<String, dynamic>>[],
+    );
     for (final row in rows) {
       _mergeNotification(AppNotification.fromMap(row));
     }
@@ -1081,7 +1206,9 @@ class OrderService extends ChangeNotifier {
   }
 
   void _mergeNotification(AppNotification notification) {
-    final index = _notifications.indexWhere((item) => item.id == notification.id);
+    final index = _notifications.indexWhere(
+      (item) => item.id == notification.id,
+    );
     if (index >= 0) {
       _notifications[index] = notification;
       return;
@@ -1165,10 +1292,8 @@ class OrderService extends ChangeNotifier {
   Map<String, Map<String, dynamic>> _decodeMapOfMaps(Object? raw) {
     if (raw is! Map) return {};
     return raw.map(
-      (key, value) => MapEntry(
-        key.toString(),
-        Map<String, dynamic>.from(value as Map),
-      ),
+      (key, value) =>
+          MapEntry(key.toString(), Map<String, dynamic>.from(value as Map)),
     );
   }
 
@@ -1200,13 +1325,16 @@ class OrderService extends ChangeNotifier {
     final reservations = order.items
         .map(
           (item) => <String, dynamic>{
-            'id': 'RSV${DateTime.now().microsecondsSinceEpoch}${item.product.id}',
+            'id':
+                'RSV${DateTime.now().microsecondsSinceEpoch}${item.product.id}',
             'order_id': order.id,
             'product_id': item.product.id,
             'store_id': order.storeId,
             'reserved_quantity': item.quantity,
             'reservation_status': 'reserved',
-            'expires_at': DateTime.now().add(const Duration(hours: 24)).toIso8601String(),
+            'expires_at': DateTime.now()
+                .add(const Duration(hours: 24))
+                .toIso8601String(),
             'created_at': DateTime.now().toIso8601String(),
             'updated_at': DateTime.now().toIso8601String(),
           },
@@ -1255,7 +1383,8 @@ class OrderService extends ChangeNotifier {
       'order_id': order.id,
       'delivery_person_id': order.deliveryPersonId,
       'handed_to_name':
-          (_proofOfDeliveryByOrderId[order.id]?['handed_to_name'] ?? order.customerName)
+          (_proofOfDeliveryByOrderId[order.id]?['handed_to_name'] ??
+                  order.customerName)
               .toString(),
       'otp_verified': true,
       'notes': (_proofOfDeliveryByOrderId[order.id]?['notes'] ?? order.notes)
@@ -1298,5 +1427,4 @@ class OrderService extends ChangeNotifier {
         return 'Order was cancelled.';
     }
   }
-
 }

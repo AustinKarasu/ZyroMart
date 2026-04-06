@@ -110,8 +110,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
             ),
-            child: const Icon(Icons.delivery_dining,
-                color: Colors.white, size: 24),
+            child: const Icon(
+              Icons.delivery_dining,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
         ),
       );
@@ -127,22 +130,23 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.zyromart.app',
         ),
-        if (order.status == OrderStatus.outForDelivery &&
-            order.deliveryPersonLocation != null)
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: [
-                  order.storeLocation,
-                  order.deliveryPersonLocation!,
-                  order.customerLocation,
-                ],
-                color: AppTheme.primaryRed.withValues(alpha: 0.7),
-                strokeWidth: 4,
-                pattern: const StrokePattern.dotted(),
-              ),
-            ],
-          ),
+        PolylineLayer(
+          polylines: [
+            Polyline(
+              points:
+                  order.status == OrderStatus.outForDelivery &&
+                      order.deliveryPersonLocation != null
+                  ? [
+                      order.storeLocation,
+                      order.deliveryPersonLocation!,
+                      order.customerLocation,
+                    ]
+                  : [order.storeLocation, order.customerLocation],
+              color: AppTheme.primaryRed,
+              strokeWidth: 4,
+            ),
+          ],
+        ),
         MarkerLayer(markers: markers),
       ],
     );
@@ -208,8 +212,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             child: LinearProgressIndicator(
               value: order.statusProgress,
               backgroundColor: const Color(0xFFEAEAEA),
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(_statusColor(order.status)),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                _statusColor(order.status),
+              ),
               minHeight: 7,
             ),
           ),
@@ -500,10 +505,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             proof == null
                 ? 'Delivery proof will be stored after OTP verification is completed.'
                 : 'OTP verified and handed to ${(proof['handed_to_name'] ?? order.customerName).toString()}.',
-            style: const TextStyle(
-              color: AppTheme.textMedium,
-              height: 1.35,
-            ),
+            style: const TextStyle(color: AppTheme.textMedium, height: 1.35),
           ),
         ],
       ),
@@ -566,7 +568,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   Future<void> _showRatingSheet(
-      BuildContext context, OrderService orderService, Order order) async {
+    BuildContext context,
+    OrderService orderService,
+    Order order,
+  ) async {
     final feedbackController = TextEditingController();
     var rating = 5;
 
@@ -604,7 +609,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     children: List.generate(
                       5,
                       (index) => IconButton(
-                        onPressed: () => setModalState(() => rating = index + 1),
+                        onPressed: () =>
+                            setModalState(() => rating = index + 1),
                         icon: Icon(
                           index < rating ? Icons.star : Icons.star_border,
                           color: const Color(0xFFFFB627),
@@ -702,4 +708,3 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     }
   }
 }
-

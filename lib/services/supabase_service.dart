@@ -4,6 +4,14 @@ import '../config/supabase_config.dart';
 class SupabaseService {
   static SupabaseClient get client => Supabase.instance.client;
 
+  static void _ensureInitialized() {
+    if (!isInitialized) {
+      throw StateError(
+        'Supabase is not initialized. Verify SUPABASE_URL and SUPABASE_ANON_KEY.',
+      );
+    }
+  }
+
   static Future<void> initialize() async {
     final url = SupabaseConfig.supabaseUrl;
     final anonKey = SupabaseConfig.supabaseAnonKey;
@@ -12,10 +20,7 @@ class SupabaseService {
       // The app will use local/offline data instead.
       return;
     }
-    await Supabase.initialize(
-      url: url,
-      anonKey: anonKey,
-    );
+    await Supabase.initialize(url: url, anonKey: anonKey);
   }
 
   static bool get isInitialized {
@@ -85,7 +90,9 @@ class SupabaseService {
   }
 
   static Future<void> updateProduct(
-      String id, Map<String, dynamic> updates) async {
+    String id,
+    Map<String, dynamic> updates,
+  ) async {
     if (!isInitialized) return;
     await client.from('products').update(updates).eq('id', id);
   }
@@ -95,7 +102,9 @@ class SupabaseService {
     await client.from('products').delete().eq('id', id);
   }
 
-  static Future<Map<String, dynamic>?> getProductMetadata(String productId) async {
+  static Future<Map<String, dynamic>?> getProductMetadata(
+    String productId,
+  ) async {
     if (!isInitialized) return null;
     final response = await client
         .from('product_catalog_metadata')
@@ -105,7 +114,9 @@ class SupabaseService {
     return response == null ? null : Map<String, dynamic>.from(response);
   }
 
-  static Future<void> upsertProductMetadata(Map<String, dynamic> metadata) async {
+  static Future<void> upsertProductMetadata(
+    Map<String, dynamic> metadata,
+  ) async {
     if (!isInitialized) return;
     await client.from('product_catalog_metadata').upsert(metadata);
   }
@@ -122,7 +133,9 @@ class SupabaseService {
         .eq('product_id', productId)
         .eq('locale_code', localeCode);
     if (keywords.isEmpty) return;
-    await client.from('search_keywords').insert(
+    await client
+        .from('search_keywords')
+        .insert(
           keywords
               .map(
                 (keyword) => {
@@ -147,15 +160,18 @@ class SupabaseService {
   }
 
   static Future<Map<String, dynamic>> createOrder(
-      Map<String, dynamic> order) async {
+    Map<String, dynamic> order,
+  ) async {
     if (!isInitialized) return {};
-    final response =
-        await client.from('orders').insert(order).select().single();
+    final response = await client
+        .from('orders')
+        .insert(order)
+        .select()
+        .single();
     return response;
   }
 
-  static Future<void> createOrderItems(
-      List<Map<String, dynamic>> items) async {
+  static Future<void> createOrderItems(List<Map<String, dynamic>> items) async {
     if (!isInitialized || items.isEmpty) return;
     await client.from('order_items').insert(items);
   }
@@ -171,7 +187,8 @@ class SupabaseService {
   }
 
   static Future<List<Map<String, dynamic>>> getOrderStatusEvents(
-      String orderId) async {
+    String orderId,
+  ) async {
     if (!isInitialized) return [];
     final response = await client
         .from('order_status_events')
@@ -182,7 +199,8 @@ class SupabaseService {
   }
 
   static Future<void> reserveInventory(
-      List<Map<String, dynamic>> reservations) async {
+    List<Map<String, dynamic>> reservations,
+  ) async {
     if (!isInitialized || reservations.isEmpty) return;
     await client.from('inventory_reservations').insert(reservations);
   }
@@ -196,14 +214,16 @@ class SupabaseService {
         .from('inventory_reservations')
         .update({
           'reservation_status': status,
-          'released_at':
-              status == 'released' ? DateTime.now().toIso8601String() : null,
+          'released_at': status == 'released'
+              ? DateTime.now().toIso8601String()
+              : null,
         })
         .eq('order_id', orderId);
   }
 
   static Future<List<Map<String, dynamic>>> getInventoryReservations(
-      String orderId) async {
+    String orderId,
+  ) async {
     if (!isInitialized) return [];
     final response = await client
         .from('inventory_reservations')
@@ -214,13 +234,15 @@ class SupabaseService {
   }
 
   static Future<void> insertDeliveryRouteUpdate(
-      Map<String, dynamic> update) async {
+    Map<String, dynamic> update,
+  ) async {
     if (!isInitialized) return;
     await client.from('delivery_route_updates').insert(update);
   }
 
   static Future<List<Map<String, dynamic>>> getDeliveryRouteUpdates(
-      String orderId) async {
+    String orderId,
+  ) async {
     if (!isInitialized) return [];
     final response = await client
         .from('delivery_route_updates')
@@ -232,10 +254,14 @@ class SupabaseService {
 
   static Future<void> saveProofOfDelivery(Map<String, dynamic> proof) async {
     if (!isInitialized) return;
-    await client.from('proof_of_delivery').upsert(proof, onConflict: 'order_id');
+    await client
+        .from('proof_of_delivery')
+        .upsert(proof, onConflict: 'order_id');
   }
 
-  static Future<Map<String, dynamic>?> getProofOfDelivery(String orderId) async {
+  static Future<Map<String, dynamic>?> getProofOfDelivery(
+    String orderId,
+  ) async {
     if (!isInitialized) return null;
     final response = await client
         .from('proof_of_delivery')
@@ -269,6 +295,38 @@ class SupabaseService {
   ) async {
     if (!isInitialized || storeId.isEmpty) return;
     await client.from('stores').update(payload).eq('id', storeId);
+  }
+
+  static Future<Map<String, dynamic>?> upsertOwnerStore({
+    required String ownerId,
+    required String name,
+    required String address,
+    required double latitude,
+    required double longitude,
+    String? phone,
+  }) async {
+    if (!isInitialized || ownerId.isEmpty) return null;
+    final existing = await getStoreByOwner(ownerId);
+    final payload = <String, dynamic>{
+      'name': name,
+      'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+      'owner_id': ownerId,
+      if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+    };
+
+    if (existing != null) {
+      await client.from('stores').update(payload).eq('id', existing['id']);
+      return await getStoreByOwner(ownerId);
+    }
+
+    final response = await client
+        .from('stores')
+        .insert(payload)
+        .select()
+        .single();
+    return Map<String, dynamic>.from(response);
   }
 
   static Future<List<Map<String, dynamic>>> getStoreServiceAreas() async {
@@ -323,7 +381,9 @@ class SupabaseService {
     return response == null ? null : Map<String, dynamic>.from(response);
   }
 
-  static Future<void> upsertUserAccountState(Map<String, dynamic> payload) async {
+  static Future<void> upsertUserAccountState(
+    Map<String, dynamic> payload,
+  ) async {
     if (!isInitialized || currentUser == null) return;
     await client.from('user_account_state').upsert({
       ...payload,
@@ -387,23 +447,23 @@ class SupabaseService {
   }) async {
     if (!isInitialized) return;
     await client.auth.updateUser(
-      UserAttributes(
-        email: email,
-        password: password,
-        data: data,
-      ),
+      UserAttributes(email: email, password: password, data: data),
     );
   }
 
   // ─── Users / Auth ────────────────────────────────────────
 
   static Future<AuthResponse> signUp(String email, String password) async {
+    _ensureInitialized();
     return await client.auth.signUp(email: email, password: password);
   }
 
   static Future<AuthResponse> signIn(String email, String password) async {
-    return await client.auth
-        .signInWithPassword(email: email, password: password);
+    _ensureInitialized();
+    return await client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
   }
 
   static Future<void> requestEmailOtp({
@@ -411,12 +471,10 @@ class SupabaseService {
     required String userName,
     required String role,
   }) async {
+    _ensureInitialized();
     await client.auth.signInWithOtp(
       email: email,
-      data: {
-        'name': userName,
-        'role': role,
-      },
+      data: {'name': userName, 'role': role},
     );
   }
 
@@ -426,6 +484,7 @@ class SupabaseService {
     required String role,
     String? email,
   }) async {
+    _ensureInitialized();
     await client.auth.signInWithOtp(
       phone: phone,
       data: {
@@ -440,6 +499,7 @@ class SupabaseService {
     required String email,
     required String otpCode,
   }) async {
+    _ensureInitialized();
     return await client.auth.verifyOTP(
       email: email,
       token: otpCode,
@@ -451,6 +511,7 @@ class SupabaseService {
     required String phone,
     required String otpCode,
   }) async {
+    _ensureInitialized();
     return await client.auth.verifyOTP(
       phone: phone,
       token: otpCode,
@@ -459,10 +520,12 @@ class SupabaseService {
   }
 
   static Future<void> signOut() async {
+    _ensureInitialized();
     await client.auth.signOut();
   }
 
-  static User? get currentUser => isInitialized ? client.auth.currentUser : null;
+  static User? get currentUser =>
+      isInitialized ? client.auth.currentUser : null;
 
   static Future<void> upsertNotificationDevice({
     required String deviceToken,
@@ -473,19 +536,16 @@ class SupabaseService {
     bool pushEnabled = true,
   }) async {
     if (!isInitialized || currentUser == null) return;
-    await client.from('notification_devices').upsert(
-      {
-        'user_id': currentUser!.id,
-        'device_token': deviceToken,
-        'platform': platform,
-        'app_variant': appVariant,
-        'locale_code': localeCode,
-        'timezone_name': timezoneName,
-        'push_enabled': pushEnabled,
-        'last_seen_at': DateTime.now().toIso8601String(),
-      },
-      onConflict: 'device_token',
-    );
+    await client.from('notification_devices').upsert({
+      'user_id': currentUser!.id,
+      'device_token': deviceToken,
+      'platform': platform,
+      'app_variant': appVariant,
+      'locale_code': localeCode,
+      'timezone_name': timezoneName,
+      'push_enabled': pushEnabled,
+      'last_seen_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'device_token');
   }
 
   static Future<List<Map<String, dynamic>>> getNotifications() async {
@@ -576,7 +636,8 @@ class SupabaseService {
   }
 
   static Future<void> upsertRestockSubscription(
-      Map<String, dynamic> payload) async {
+    Map<String, dynamic> payload,
+  ) async {
     if (!isInitialized || currentUser == null) return;
     await client.from('user_restock_subscriptions').upsert({
       ...payload,
@@ -597,7 +658,8 @@ class SupabaseService {
   // ─── Real-time subscriptions ─────────────────────────────
 
   static RealtimeChannel subscribeToOrders(
-      void Function(Map<String, dynamic>) onUpdate) {
+    void Function(Map<String, dynamic>) onUpdate,
+  ) {
     return client
         .channel('orders_channel')
         .onPostgresChanges(
@@ -610,7 +672,9 @@ class SupabaseService {
   }
 
   static RealtimeChannel subscribeToDeliveryLocation(
-      String orderId, void Function(Map<String, dynamic>) onUpdate) {
+    String orderId,
+    void Function(Map<String, dynamic>) onUpdate,
+  ) {
     return client
         .channel('delivery_$orderId')
         .onPostgresChanges(
@@ -628,7 +692,8 @@ class SupabaseService {
   }
 
   static RealtimeChannel subscribeToNotifications(
-      void Function(Map<String, dynamic>) onInsert) {
+    void Function(Map<String, dynamic>) onInsert,
+  ) {
     return client
         .channel('notifications_channel')
         .onPostgresChanges(
@@ -641,7 +706,9 @@ class SupabaseService {
   }
 
   static RealtimeChannel subscribeToOrderStatusEvents(
-      String orderId, void Function(Map<String, dynamic>) onInsert) {
+    String orderId,
+    void Function(Map<String, dynamic>) onInsert,
+  ) {
     return client
         .channel('order_events_$orderId')
         .onPostgresChanges(
