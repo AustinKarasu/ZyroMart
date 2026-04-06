@@ -5,6 +5,7 @@ import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/mock_data.dart';
 import '../../services/order_service.dart';
+import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 import '../shared/notification_center_screen.dart';
 import 'store_dashboard_screen.dart';
@@ -37,10 +38,22 @@ class _StoreMainScreenState extends State<StoreMainScreen> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'Products'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Orders',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.inventory),
+            label: 'Products',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
         ],
       ),
     );
@@ -55,116 +68,200 @@ class _StoreSettingsScreen extends StatelessWidget {
     final auth = context.watch<AuthService>();
     final preferences = context.watch<AppPreferencesService>();
     final user = auth.currentUser;
+    final fallbackStore = MockData.stores.firstWhere(
+      (store) => store.ownerId == user?.id,
+      orElse: () => MockData.stores.first,
+    );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Store Settings')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryRed.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.store, color: AppTheme.primaryRed, size: 32),
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: user == null || !SupabaseService.isInitialized
+          ? Future.value(null)
+          : SupabaseService.getStoreByOwner(user.id),
+      builder: (context, storeSnapshot) {
+        final storeRow = storeSnapshot.data;
+        final storeId = (storeRow?['id'] ?? fallbackStore.id).toString();
+        final storeName =
+            (storeRow?['name'] ?? user?.name ?? 'Store owner').toString();
+        final storePhone =
+            (storeRow?['phone'] ?? user?.phone ?? '').toString();
+        final storeAddress = (storeRow?['address'] ??
+                (user?.address.isNotEmpty == true ? user!.address : ''))
+            .toString();
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Store Settings')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: AppTheme.cardShadow,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(user?.name ?? 'Store owner', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(user?.address.isNotEmpty == true ? user!.address : 'Update store address and radius for serviceability', style: const TextStyle(color: AppTheme.textMedium, fontSize: 13)),
-                    ],
-                  ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.store,
+                        color: AppTheme.primaryRed,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            storeName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            storeAddress.isNotEmpty
+                                ? storeAddress
+                                : 'Update store address and radius for serviceability',
+                            style: const TextStyle(
+                              color: AppTheme.textMedium,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              _buildEditableItem(
+                context,
+                Icons.storefront_outlined,
+                'Store name',
+                storeName,
+                onTap: () => _showStoreEditor(
+                  context,
+                  auth,
+                  storeId,
+                  initialName: storeName,
+                  initialPhone: storePhone,
+                  initialAddress: storeAddress,
+                ),
+              ),
+              _buildEditableItem(
+                context,
+                Icons.phone,
+                'Phone',
+                storePhone.isNotEmpty
+                    ? storePhone
+                    : 'Add store contact number',
+                onTap: () => _showStoreEditor(
+                  context,
+                  auth,
+                  storeId,
+                  initialName: storeName,
+                  initialPhone: storePhone,
+                  initialAddress: storeAddress,
+                ),
+              ),
+              _buildEditableItem(
+                context,
+                Icons.location_on,
+                'Location',
+                storeAddress.isNotEmpty
+                    ? storeAddress
+                    : 'Set the exact store address',
+                onTap: () => _showStoreEditor(
+                  context,
+                  auth,
+                  storeId,
+                  initialName: storeName,
+                  initialPhone: storePhone,
+                  initialAddress: storeAddress,
+                ),
+              ),
+              _buildEditableItem(
+                context,
+                Icons.my_location_outlined,
+                'Service radius',
+                'Order visibility follows the configured delivery radius',
+                onTap: () => _showRadiusEditor(context, storeId),
+              ),
+              _buildTapItem(
+                context,
+                Icons.notifications_none_rounded,
+                'Notification center',
+                'Review order updates, payout alerts, and ops messages',
+                const NotificationCenterScreen(title: 'Store notifications'),
+              ),
+              _buildTapItem(
+                context,
+                Icons.tune_rounded,
+                'Operations preferences',
+                'Pickup timing, substitutions, and stock attention',
+                StoreOperationsPreferencesScreen(userId: user?.id ?? 'guest'),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile.adaptive(
+                value: preferences.orderNotifications,
+                onChanged: preferences.setOrderNotifications,
+                title: const Text('Order notifications'),
+                subtitle: const Text(
+                  'Get alerts for new, accepted, and cancelled orders.',
+                ),
+                tileColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                value: preferences.autoLogin,
+                onChanged: preferences.setAutoLogin,
+                title: const Text('Auto login'),
+                subtitle: const Text(
+                  'Stay signed in on this store device until logout.',
+                ),
+                tileColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ListTile(
+                leading: const Icon(Icons.logout, color: AppTheme.primaryRed),
+                title: const Text('Log out'),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: AppTheme.textLight,
+                ),
+                onTap: auth.logout,
+                tileColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildEditableItem(
-            context,
-            Icons.storefront_outlined,
-            'Store name',
-            user?.name ?? 'Configure store identity',
-            onTap: () => _showStoreEditor(context, auth),
-          ),
-          _buildEditableItem(
-            context,
-            Icons.phone,
-            'Phone',
-            user?.phone ?? 'Add store contact number',
-            onTap: () => _showStoreEditor(context, auth),
-          ),
-          _buildEditableItem(
-            context,
-            Icons.location_on,
-            'Location',
-            user?.address.isNotEmpty == true ? user!.address : 'Set the exact store address',
-            onTap: () => _showStoreEditor(context, auth),
-          ),
-          _buildEditableItem(
-            context,
-            Icons.my_location_outlined,
-            'Service radius',
-            'Order visibility follows the configured delivery radius',
-            onTap: () => _showRadiusEditor(context),
-          ),
-          _buildTapItem(
-            context,
-            Icons.notifications_none_rounded,
-            'Notification center',
-            'Review order updates, payout alerts, and ops messages',
-            const NotificationCenterScreen(title: 'Store notifications'),
-          ),
-          _buildTapItem(
-            context,
-            Icons.tune_rounded,
-            'Operations preferences',
-            'Pickup timing, substitutions, and stock attention',
-            StoreOperationsPreferencesScreen(userId: user?.id ?? 'guest'),
-          ),
-          const SizedBox(height: 16),
-          SwitchListTile.adaptive(
-            value: preferences.orderNotifications,
-            onChanged: preferences.setOrderNotifications,
-            title: const Text('Order notifications'),
-            subtitle: const Text('Get alerts for new, accepted, and cancelled orders.'),
-            tileColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          const SizedBox(height: 8),
-          SwitchListTile.adaptive(
-            value: preferences.autoLogin,
-            onChanged: preferences.setAutoLogin,
-            title: const Text('Auto login'),
-            subtitle: const Text('Stay signed in on this store device until logout.'),
-            tileColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          const SizedBox(height: 24),
-          ListTile(
-            leading: const Icon(Icons.logout, color: AppTheme.primaryRed),
-            title: const Text('Log out'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
-            onTap: auth.logout,
-            tileColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -183,7 +280,13 @@ class _StoreSettingsScreen extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textLight)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textLight,
+                ),
+              ),
               Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
             ],
           ),
@@ -221,12 +324,19 @@ class _StoreSettingsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showStoreEditor(BuildContext context, AuthService auth) async {
+  Future<void> _showStoreEditor(
+    BuildContext context,
+    AuthService auth,
+    String storeId, {
+    required String initialName,
+    required String initialPhone,
+    required String initialAddress,
+  }) async {
     final user = auth.currentUser;
     if (user == null) return;
-    final nameController = TextEditingController(text: user.name);
-    final phoneController = TextEditingController(text: user.phone);
-    final addressController = TextEditingController(text: user.address);
+    final nameController = TextEditingController(text: initialName);
+    final phoneController = TextEditingController(text: initialPhone);
+    final addressController = TextEditingController(text: initialAddress);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -272,6 +382,13 @@ class _StoreSettingsScreen extends StatelessWidget {
                     profileImageUrl: user.profileImageUrl,
                     location: user.location,
                   );
+                  if (storeId.isNotEmpty && SupabaseService.isInitialized) {
+                    await SupabaseService.updateStore(storeId, {
+                      'name': nameController.text.trim(),
+                      'phone': phoneController.text.trim(),
+                      'address': addressController.text.trim(),
+                    }).catchError((_) {});
+                  }
                   if (!context.mounted) return;
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -279,7 +396,8 @@ class _StoreSettingsScreen extends StatelessWidget {
                       content: Text(
                         success
                             ? 'Store settings updated'
-                            : (auth.errorMessage ?? 'Could not update store settings'),
+                            : (auth.errorMessage ??
+                                'Could not update store settings'),
                       ),
                     ),
                   );
@@ -293,16 +411,9 @@ class _StoreSettingsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showRadiusEditor(BuildContext context) async {
+  Future<void> _showRadiusEditor(BuildContext context, String storeId) async {
     final orderService = context.read<OrderService>();
-    final auth = context.read<AuthService>();
-    final storeOwner = auth.currentUser;
-    if (storeOwner == null) return;
-    final ownerStore = MockData.stores.firstWhere(
-      (store) => store.ownerId == storeOwner.id,
-      orElse: () => MockData.stores.first,
-    );
-    final currentRadius = orderService.radiusForStore(ownerStore.id);
+    final currentRadius = orderService.radiusForStore(storeId);
     final controller =
         TextEditingController(text: currentRadius.toStringAsFixed(1));
     await showModalBottomSheet<void>(
@@ -337,7 +448,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 onPressed: () {
                   final value = double.tryParse(controller.text.trim());
                   if (value == null) return;
-                  orderService.updateStoreRadius(ownerStore.id, value);
+                  orderService.updateStoreRadius(storeId, value);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Service radius updated')),

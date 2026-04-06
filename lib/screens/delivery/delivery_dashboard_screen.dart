@@ -69,6 +69,12 @@ class DeliveryDashboardScreen extends StatelessWidget {
                       order.deliveryPersonId == rider?.id))
               .toList();
           final earnings = orderService.earningsFor(UserRole.delivery);
+          final routePings = rider == null
+              ? 0
+              : orderService.routePingCountForDeliveryPartner(rider.id);
+          final pendingProof = rider == null
+              ? 0
+              : orderService.pendingProofCountForDeliveryPartner(rider.id);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -132,6 +138,14 @@ class DeliveryDashboardScreen extends StatelessWidget {
                       style: const TextStyle(
                         color: AppTheme.primaryRed,
                         fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '$routePings live route pings recorded • $pendingProof deliveries still need handoff proof',
+                      style: const TextStyle(
+                        color: AppTheme.textMedium,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

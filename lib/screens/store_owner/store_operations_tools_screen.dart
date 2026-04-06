@@ -6,6 +6,7 @@ import '../../models/user.dart';
 import '../../services/auth_service.dart';
 import '../../services/mock_data.dart';
 import '../../services/order_service.dart';
+import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 
 class StoreAnalyticsDetailScreen extends StatelessWidget {
@@ -16,20 +17,42 @@ class StoreAnalyticsDetailScreen extends StatelessWidget {
     final auth = context.watch<AuthService>();
     final orderService = context.watch<OrderService>();
     final owner = auth.currentUser;
-    final store = MockData.stores.firstWhere(
+    final fallbackStore = MockData.stores.firstWhere(
       (candidate) => candidate.ownerId == owner?.id,
       orElse: () => MockData.stores.first,
     );
-    final earnings = orderService.earningsFor(UserRole.storeOwner, userId: store.ownerId);
-    final storeOrders = orderService.allOrders.where((order) => order.storeId == store.id).toList()
-      ..sort((a, b) => b.placedAt.compareTo(a.placedAt));
-    final activeOrders = storeOrders.where((order) => order.status != OrderStatus.delivered && order.status != OrderStatus.cancelled).toList();
-    final deliveredOrders = storeOrders.where((order) => order.status == OrderStatus.delivered).toList();
-    final cancelledOrders = storeOrders.where((order) => order.status == OrderStatus.cancelled).toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Store analytics')),
-      body: ListView(
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: owner == null || !SupabaseService.isInitialized
+          ? Future.value(null)
+          : SupabaseService.getStoreByOwner(owner.id),
+      builder: (context, storeSnapshot) {
+        final storeRow = storeSnapshot.data;
+        final storeId = (storeRow?['id'] ?? fallbackStore.id).toString();
+        final ownerId = owner?.id ?? fallbackStore.ownerId;
+        final earnings =
+            orderService.earningsFor(UserRole.storeOwner, userId: ownerId);
+        final storeOrders = orderService.allOrders
+            .where((order) => order.storeId == storeId)
+            .toList()
+          ..sort((a, b) => b.placedAt.compareTo(a.placedAt));
+        final activeOrders = storeOrders
+            .where(
+              (order) =>
+                  order.status != OrderStatus.delivered &&
+                  order.status != OrderStatus.cancelled,
+            )
+            .toList();
+        final deliveredOrders = storeOrders
+            .where((order) => order.status == OrderStatus.delivered)
+            .toList();
+        final cancelledOrders = storeOrders
+            .where((order) => order.status == OrderStatus.cancelled)
+            .toList();
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Store analytics')),
+          body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _AnalyticsCard(
@@ -52,9 +75,10 @@ class StoreAnalyticsDetailScreen extends StatelessWidget {
                 _summaryRow('Active orders', '${activeOrders.length}'),
                 _summaryRow('Delivered orders', '${deliveredOrders.length}'),
                 _summaryRow('Cancelled orders', '${cancelledOrders.length}'),
-                _summaryRow('Avg basket value', 'Rs ${orderService.averageOrderValueForStore(store.id).toInt()}'),
-                _summaryRow('Reserved stock buckets', '${orderService.activeReservationCountForStore(store.id)}'),
-                _summaryRow('Service radius', '${orderService.radiusForStore(store.id).toStringAsFixed(1)} km'),
+                _summaryRow('Avg basket value', 'Rs ${orderService.averageOrderValueForStore(storeId).toInt()}'),
+                _summaryRow('Reserved stock buckets', '${orderService.activeReservationCountForStore(storeId)}'),
+                _summaryRow('Live route pings', '${orderService.routePingCountForStore(storeId)}'),
+                _summaryRow('Service radius', '${orderService.radiusForStore(storeId).toStringAsFixed(1)} km'),
               ],
             ),
           ),
@@ -117,6 +141,8 @@ class StoreAnalyticsDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+        );
+      },
     );
   }
 

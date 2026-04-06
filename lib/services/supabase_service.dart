@@ -252,6 +252,24 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  static Future<Map<String, dynamic>?> getStoreByOwner(String ownerId) async {
+    if (!isInitialized || ownerId.isEmpty) return null;
+    final response = await client
+        .from('stores')
+        .select()
+        .eq('owner_id', ownerId)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<void> updateStore(
+    String storeId,
+    Map<String, dynamic> payload,
+  ) async {
+    if (!isInitialized || storeId.isEmpty) return;
+    await client.from('stores').update(payload).eq('id', storeId);
+  }
+
   static Future<List<Map<String, dynamic>>> getStoreServiceAreas() async {
     if (!isInitialized) return [];
     final response = await client.from('store_service_areas').select();

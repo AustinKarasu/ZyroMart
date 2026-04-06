@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../services/auth_service.dart';
 import '../../services/location_service.dart';
 import '../../services/operator_preferences_service.dart';
 import '../../services/order_service.dart';
-import '../../services/mock_data.dart';
 import '../../theme/app_theme.dart';
 import 'delivery_detail_screen.dart';
 
@@ -27,6 +27,7 @@ class DeliveryMapScreen extends StatelessWidget {
           return Consumer<OrderService>(
         builder: (context, orderService, _) {
           final location = context.watch<LocationService>();
+          final rider = context.watch<AuthService>().currentUser;
           final activeOrders = orderService.orders
               .where((o) =>
                   o.status == OrderStatus.readyForPickup ||
@@ -46,14 +47,14 @@ class DeliveryMapScreen extends StatelessWidget {
 
           final markers = <Marker>[];
 
-          // Add store markers
-          for (final store in MockData.stores) {
+          // Add store markers only for active tasks
+          for (final order in activeOrders) {
             markers.add(Marker(
-              point: store.location,
+              point: order.storeLocation,
               width: 40,
               height: 40,
-              child: const Tooltip(
-                message: 'Store',
+              child: Tooltip(
+                message: order.storeName,
                 child: Icon(Icons.store, color: AppTheme.primaryRed, size: 36),
               ),
             ));
@@ -145,8 +146,11 @@ class DeliveryMapScreen extends StatelessWidget {
             children: [
               FlutterMap(
                 options: MapOptions(
-                  initialCenter:
-                      location.currentLocation ?? MockData.deliveryPersons[0].location,
+                  initialCenter: location.currentLocation ??
+                      rider?.location ??
+                      (activeOrders.isNotEmpty
+                          ? activeOrders.first.storeLocation
+                          : const LatLng(28.6139, 77.2090)),
                   initialZoom: 13,
                 ),
                 children: [

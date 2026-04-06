@@ -289,6 +289,31 @@ class OrderService extends ChangeNotifier {
         .length;
   }
 
+  int routePingCountForStore(String storeId) {
+    return _routeUpdatesByOrderId.entries
+        .where((entry) => getOrder(entry.key)?.storeId == storeId)
+        .fold<int>(0, (sum, entry) => sum + entry.value.length);
+  }
+
+  int routePingCountForDeliveryPartner(String deliveryPartnerId) {
+    return _routeUpdatesByOrderId.entries
+        .where(
+          (entry) => getOrder(entry.key)?.deliveryPersonId == deliveryPartnerId,
+        )
+        .fold<int>(0, (sum, entry) => sum + entry.value.length);
+  }
+
+  int pendingProofCountForDeliveryPartner(String deliveryPartnerId) {
+    return _orders
+        .where(
+          (order) =>
+              order.deliveryPersonId == deliveryPartnerId &&
+              order.status == OrderStatus.outForDelivery &&
+              !_proofOfDeliveryByOrderId.containsKey(order.id),
+        )
+        .length;
+  }
+
   Order placeOrder({
     required List<CartItem> items,
     required double totalAmount,
