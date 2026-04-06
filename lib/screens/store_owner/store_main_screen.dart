@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
-import '../../services/mock_data.dart';
 import '../../services/order_service.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
@@ -68,10 +67,6 @@ class _StoreSettingsScreen extends StatelessWidget {
     final auth = context.watch<AuthService>();
     final preferences = context.watch<AppPreferencesService>();
     final user = auth.currentUser;
-    final fallbackStore = MockData.stores.firstWhere(
-      (store) => store.ownerId == user?.id,
-      orElse: () => MockData.stores.first,
-    );
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: user == null || !SupabaseService.isInitialized
@@ -79,14 +74,14 @@ class _StoreSettingsScreen extends StatelessWidget {
           : SupabaseService.getStoreByOwner(user.id),
       builder: (context, storeSnapshot) {
         final storeRow = storeSnapshot.data;
-        final storeId = (storeRow?['id'] ?? fallbackStore.id).toString();
-        final storeName =
-            (storeRow?['name'] ?? user?.name ?? 'Store owner').toString();
-        final storePhone =
-            (storeRow?['phone'] ?? user?.phone ?? '').toString();
-        final storeAddress = (storeRow?['address'] ??
-                (user?.address.isNotEmpty == true ? user!.address : ''))
+        final storeId = (storeRow?['id'] ?? '').toString();
+        final storeName = (storeRow?['name'] ?? user?.name ?? 'Store owner')
             .toString();
+        final storePhone = (storeRow?['phone'] ?? user?.phone ?? '').toString();
+        final storeAddress =
+            (storeRow?['address'] ??
+                    (user?.address.isNotEmpty == true ? user!.address : ''))
+                .toString();
 
         return Scaffold(
           appBar: AppBar(title: const Text('Store Settings')),
@@ -168,9 +163,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                 context,
                 Icons.phone,
                 'Phone',
-                storePhone.isNotEmpty
-                    ? storePhone
-                    : 'Add store contact number',
+                storePhone.isNotEmpty ? storePhone : 'Add store contact number',
                 onTap: () => _showStoreEditor(
                   context,
                   auth,
@@ -274,21 +267,32 @@ class _StoreSettingsScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: AppTheme.primaryRed, size: 22),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textLight,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textLight,
+                  ),
                 ),
-              ),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -318,10 +322,7 @@ class _StoreSettingsScreen extends StatelessWidget {
     String value, {
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: _buildItem(icon, label, value),
-    );
+    return InkWell(onTap: onTap, child: _buildItem(icon, label, value));
   }
 
   Future<void> _showStoreEditor(
@@ -397,7 +398,7 @@ class _StoreSettingsScreen extends StatelessWidget {
                         success
                             ? 'Store settings updated'
                             : (auth.errorMessage ??
-                                'Could not update store settings'),
+                                  'Could not update store settings'),
                       ),
                     ),
                   );
@@ -412,10 +413,21 @@ class _StoreSettingsScreen extends StatelessWidget {
   }
 
   Future<void> _showRadiusEditor(BuildContext context, String storeId) async {
+    if (storeId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Create your store profile first to configure service radius.',
+          ),
+        ),
+      );
+      return;
+    }
     final orderService = context.read<OrderService>();
     final currentRadius = orderService.radiusForStore(storeId);
-    final controller =
-        TextEditingController(text: currentRadius.toStringAsFixed(1));
+    final controller = TextEditingController(
+      text: currentRadius.toStringAsFixed(1),
+    );
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -436,10 +448,10 @@ class _StoreSettingsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Radius in km',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
+              decoration: const InputDecoration(labelText: 'Radius in km'),
             ),
             const SizedBox(height: 16),
             SizedBox(

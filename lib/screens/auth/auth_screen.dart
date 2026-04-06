@@ -12,18 +12,11 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _nameController = TextEditingController(text: 'Aayan Karasu');
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   UserRole _selectedRole = UserRole.customer;
-
-  @override
-  void initState() {
-    super.initState();
-    _emailController.text = 'customer@zyromart.com';
-    _phoneController.text = '+919876543220';
-  }
 
   @override
   void dispose() {
@@ -76,7 +69,11 @@ class _AuthScreenState extends State<AuthScreen> {
                           color: AppTheme.primaryRed,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(Icons.flash_on, color: Colors.white, size: 34),
+                        child: const Icon(
+                          Icons.flash_on,
+                          color: Colors.white,
+                          size: 34,
+                        ),
                       ),
                       const SizedBox(height: 18),
                       const Text(
@@ -92,7 +89,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       Text(
                         auth.canUseSupabaseAuth
                             ? 'Phone OTP is connected to Supabase. Use a real mobile number with country code.'
-                            : 'Supabase SMS OTP is not configured yet. Use demo OTP 123456 to explore all three apps.',
+                            : 'Supabase SMS OTP is not configured yet for this build.',
                         style: const TextStyle(
                           color: AppTheme.textMedium,
                           fontSize: 15,
@@ -105,8 +102,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         onChanged: (role) {
                           setState(() {
                             _selectedRole = role;
-                            _emailController.text = _defaultEmailForRole(role);
-                            _phoneController.text = _defaultPhoneForRole(role);
                           });
                         },
                       ),
@@ -167,7 +162,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           onPressed: auth.isLoading
                               ? null
                               : () async {
-                                  final messenger = ScaffoldMessenger.of(context);
+                                  final messenger = ScaffoldMessenger.of(
+                                    context,
+                                  );
                                   if (!auth.otpRequested) {
                                     final success = await auth.requestOtp(
                                       phone: _phoneController.text,
@@ -179,18 +176,22 @@ class _AuthScreenState extends State<AuthScreen> {
                                       messenger.showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            auth.canUseSupabaseAuth
-                                                ? 'OTP sent to ${_phoneController.text.trim()}'
-                                                : 'Demo OTP ready. Enter 123456.',
+                                            'OTP sent to ${_phoneController.text.trim()}',
                                           ),
                                         ),
                                       );
                                     }
                                   } else {
-                                    final success = await auth.verifyOtp(_otpController.text);
-                                    if (!success && mounted && auth.errorMessage == null) {
+                                    final success = await auth.verifyOtp(
+                                      _otpController.text,
+                                    );
+                                    if (!success &&
+                                        mounted &&
+                                        auth.errorMessage == null) {
                                       messenger.showSnackBar(
-                                        const SnackBar(content: Text('Could not verify OTP')),
+                                        const SnackBar(
+                                          content: Text('Could not verify OTP'),
+                                        ),
                                       );
                                     }
                                   }
@@ -199,9 +200,16 @@ class _AuthScreenState extends State<AuthScreen> {
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : Text(auth.otpRequested ? 'Verify and Continue' : 'Send OTP'),
+                              : Text(
+                                  auth.otpRequested
+                                      ? 'Verify and Continue'
+                                      : 'Send OTP',
+                                ),
                         ),
                       ),
                     ],
@@ -214,45 +222,35 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
     );
   }
-
-  String _defaultEmailForRole(UserRole role) {
-    switch (role) {
-      case UserRole.customer:
-        return 'customer@zyromart.com';
-      case UserRole.storeOwner:
-        return 'owner@zyromart.com';
-      case UserRole.delivery:
-        return 'delivery@zyromart.com';
-    }
-  }
-
-  String _defaultPhoneForRole(UserRole role) {
-    switch (role) {
-      case UserRole.customer:
-        return '+919876543220';
-      case UserRole.storeOwner:
-        return '+919876543210';
-      case UserRole.delivery:
-        return '+919876543215';
-    }
-  }
 }
 
 class _RoleSelector extends StatelessWidget {
   final UserRole selectedRole;
   final ValueChanged<UserRole> onChanged;
 
-  const _RoleSelector({
-    required this.selectedRole,
-    required this.onChanged,
-  });
+  const _RoleSelector({required this.selectedRole, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     final roles = <(UserRole, String, IconData, String)>[
-      (UserRole.customer, 'Customer', Icons.shopping_bag_outlined, 'Shop the storefront'),
-      (UserRole.storeOwner, 'Store Owner', Icons.storefront_outlined, 'Run catalog and orders'),
-      (UserRole.delivery, 'Delivery', Icons.delivery_dining_outlined, 'Complete last-mile trips'),
+      (
+        UserRole.customer,
+        'Customer',
+        Icons.shopping_bag_outlined,
+        'Shop the storefront',
+      ),
+      (
+        UserRole.storeOwner,
+        'Store Owner',
+        Icons.storefront_outlined,
+        'Run catalog and orders',
+      ),
+      (
+        UserRole.delivery,
+        'Delivery',
+        Icons.delivery_dining_outlined,
+        'Complete last-mile trips',
+      ),
     ];
 
     return Wrap(
@@ -274,7 +272,10 @@ class _RoleSelector extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(entry.$3, color: isSelected ? Colors.white : AppTheme.primaryRed),
+                Icon(
+                  entry.$3,
+                  color: isSelected ? Colors.white : AppTheme.primaryRed,
+                ),
                 const SizedBox(height: 10),
                 Text(
                   entry.$2,

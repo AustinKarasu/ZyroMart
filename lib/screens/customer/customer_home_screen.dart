@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/category.dart';
@@ -63,13 +63,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF111315) : const Color(0xFFF6F7F2),
+      backgroundColor: isDark
+          ? const Color(0xFF111315)
+          : const Color(0xFFF6F7F2),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             stretch: true,
-            backgroundColor: isDark ? const Color(0xFF171A1E) : const Color(0xFFF7F4E8),
+            backgroundColor: isDark
+                ? const Color(0xFF171A1E)
+                : const Color(0xFFF7F4E8),
             expandedHeight: 212,
             toolbarHeight: 84,
             elevation: 0,
@@ -90,19 +94,23 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(                  child: Column(
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Delivery under 24hr',
                         style: TextStyle(
-                          color: isDark ? Colors.white : const Color(0xFF111111),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111111),
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      Text(                        freeDeliveryLeft == 0
+                      Text(
+                        freeDeliveryLeft == 0
                             ? 'Free delivery unlocked on this cart'
                             : 'Add Rs ${freeDeliveryLeft.toInt()} more for free delivery',
                         style: const TextStyle(
@@ -151,7 +159,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
-                          child: Text(                            '${cart.itemCount}',
+                          child: Text(
+                            '${cart.itemCount}',
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -186,7 +195,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         height: 138,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFFF1D77B).withValues(alpha: 0.33),
+                          color: const Color(
+                            0xFFF1D77B,
+                          ).withValues(alpha: 0.33),
                         ),
                       ),
                     ),
@@ -217,8 +228,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     onChanged: (v) => setState(() => _searchQuery = v),
                     decoration: InputDecoration(
                       hintText: 'Search atta, chips, fruits, dairy, beauty',
-                      prefixIcon:
-                          const Icon(Icons.search, color: AppTheme.textLight),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppTheme.textLight,
+                      ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
@@ -229,8 +242,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             )
                           : null,
                       filled: true,
-                      fillColor:
-                          isDark ? const Color(0xFF1B1F23) : Colors.white,
+                      fillColor: isDark
+                          ? const Color(0xFF1B1F23)
+                          : Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,
@@ -269,13 +283,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                child: _HeroCommerceBanner(products: spotlightProducts),
+                child: _HeroCommerceBanner(
+                  products: spotlightProducts,
+                  isDark: isDark,
+                ),
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: _PromoRail(),
+                child: _PromoRail(isDark: isDark),
               ),
             ),
             SliverToBoxAdapter(
@@ -316,13 +333,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 12,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final category = categories[index];
-                    return _CategoryTile(category: category);
-                  },
-                  childCount: categories.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final category = categories[index];
+                  return _CategoryTile(category: category, isDark: isDark);
+                }, childCount: categories.length),
               ),
             ),
             SliverToBoxAdapter(
@@ -357,10 +371,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: trendingProducts.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 12),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final product = trendingProducts[index];
-                    return _TrendingProductCard(product: product);
+                    return _TrendingProductCard(
+                      product: product,
+                      isDark: isDark,
+                    );
                   },
                 ),
               ),
@@ -399,7 +417,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final product = recommendationProducts[index];
-                    return _TrendingProductCard(product: product);
+                    return _TrendingProductCard(
+                      product: product,
+                      isDark: isDark,
+                    );
                   },
                 ),
               ),
@@ -410,7 +431,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
               child: Row(
                 children: [
-                  Expanded(                    child: Text(                      _searchQuery.isEmpty ? 'Bestsellers for your basket' : 'Search results',
+                  Expanded(
+                    child: Text(
+                      _searchQuery.isEmpty
+                          ? 'Bestsellers for your basket'
+                          : 'Search results',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -418,7 +443,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                     ),
                   ),
-                  Text(                    '${filteredProducts.length} items',
+                  Text(
+                    '${filteredProducts.length} items',
                     style: const TextStyle(
                       color: AppTheme.textMedium,
                       fontWeight: FontWeight.w700,
@@ -437,21 +463,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final product = filteredProducts[index];
-                  return ProductCard(
-                    product: product,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(product: product),
-                      ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final product = filteredProducts[index];
+                return ProductCard(
+                  product: product,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProductDetailScreen(product: product),
                     ),
-                  );
-                },
-                childCount: filteredProducts.length,
-              ),
+                  ),
+                );
+              }, childCount: filteredProducts.length),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 104)),
@@ -490,13 +513,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(                  '${cart.itemCount} items',
+                Text(
+                  '${cart.itemCount} items',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(                  'Checkout total Rs ${cart.grandTotal.toInt()}',
+                Text(
+                  'Checkout total Rs ${cart.grandTotal.toInt()}',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.86),
                     fontSize: 12,
@@ -506,7 +531,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             const Row(
               children: [
-                Text(                  'View Cart',
+                Text(
+                  'View Cart',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -551,9 +577,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 }
 
 class _HeroCommerceBanner extends StatelessWidget {
-  const _HeroCommerceBanner({required this.products});
+  const _HeroCommerceBanner({required this.products, required this.isDark});
 
   final List<Product> products;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -578,16 +605,21 @@ class _HeroCommerceBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(            child: Column(
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Text(                    'Freshly restocked',
+                  child: const Text(
+                    'Freshly restocked',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -595,7 +627,8 @@ class _HeroCommerceBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(                  'Groceries curated for tonight',
+                const Text(
+                  'Groceries curated for tonight',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -604,7 +637,8 @@ class _HeroCommerceBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(                  'Smart baskets, premium produce, household essentials, and snack-ready deals in one scroll.',
+                Text(
+                  'Smart baskets, premium produce, household essentials, and snack-ready deals in one scroll.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.92),
                     fontSize: 13.5,
@@ -613,12 +647,16 @@ class _HeroCommerceBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF114E22),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text(                    'Open 24 hours',
+                  child: const Text(
+                    'Open 24 hours',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -642,8 +680,11 @@ class _HeroCommerceBanner extends StatelessWidget {
                     borderRadius: BorderRadius.circular(28),
                     fit: BoxFit.cover,
                   )
-                : const Icon(Icons.local_grocery_store_rounded,
-                    color: Colors.white, size: 52),
+                : const Icon(
+                    Icons.local_grocery_store_rounded,
+                    color: Colors.white,
+                    size: 52,
+                  ),
           ),
         ],
       ),
@@ -652,12 +693,28 @@ class _HeroCommerceBanner extends StatelessWidget {
 }
 
 class _PromoRail extends StatelessWidget {
+  const _PromoRail({required this.isDark});
+
+  final bool isDark;
+
   @override
   Widget build(BuildContext context) {
     final offers = const [
-      ('STORE OFFERS', 'Coupons are issued only by verified stores', Color(0xFFE8F7E9)),
-      ('PLATFORM DEALS', 'Admin-managed campaigns appear here when active', Color(0xFFFFF0D8)),
-      ('REAL INVENTORY', 'Product pricing and availability now follow live store flows', Color(0xFFFFECEA)),
+      (
+        'STORE OFFERS',
+        'Coupons are issued only by verified stores',
+        Color(0xFFE8F7E9),
+      ),
+      (
+        'PLATFORM DEALS',
+        'Admin-managed campaigns appear here when active',
+        Color(0xFFFFF0D8),
+      ),
+      (
+        'REAL INVENTORY',
+        'Product pricing and availability now follow live store flows',
+        Color(0xFFFFECEA),
+      ),
     ];
 
     return SizedBox(
@@ -678,23 +735,27 @@ class _PromoRail extends StatelessWidget {
               width: 244,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: offer.$3,
+                color: isDark ? const Color(0xFF1D2127) : offer.$3,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(                    offer.$1,
-                    style: const TextStyle(
-                      color: Color(0xFF156F2E),
+                  Text(
+                    offer.$1,
+                    style: TextStyle(
+                      color: isDark
+                          ? const Color(0xFF79CF85)
+                          : const Color(0xFF156F2E),
                       fontWeight: FontWeight.w900,
                       fontSize: 17,
                     ),
                   ),
-                  Text(                    offer.$2,
-                    style: const TextStyle(
-                      color: AppTheme.textDark,
+                  Text(
+                    offer.$2,
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : AppTheme.textDark,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -709,9 +770,10 @@ class _PromoRail extends StatelessWidget {
 }
 
 class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.category});
+  const _CategoryTile({required this.category, required this.isDark});
 
   final Category category;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -725,7 +787,7 @@ class _CategoryTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1C1F24) : Colors.white,
           borderRadius: BorderRadius.circular(24),
           boxShadow: const [
             BoxShadow(
@@ -760,10 +822,11 @@ class _CategoryTile extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 height: 1.18,
                 fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : AppTheme.textDark,
               ),
             ),
           ],
@@ -774,9 +837,10 @@ class _CategoryTile extends StatelessWidget {
 }
 
 class _TrendingProductCard extends StatelessWidget {
-  const _TrendingProductCard({required this.product});
+  const _TrendingProductCard({required this.product, required this.isDark});
 
   final Product product;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -790,7 +854,7 @@ class _TrendingProductCard extends StatelessWidget {
       child: Container(
         width: 174,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1C1F24) : Colors.white,
           borderRadius: BorderRadius.circular(26),
           boxShadow: const [
             BoxShadow(
@@ -805,8 +869,9 @@ class _TrendingProductCard extends StatelessWidget {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(26)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
                 child: AppImage(
                   imageUrl: product.imageUrl,
                   fit: BoxFit.cover,
@@ -822,13 +887,16 @@ class _TrendingProductCard extends StatelessWidget {
                   Text(
                     product.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : AppTheme.textDark,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Rs ${product.price.toInt()} • ${product.unit}',
-                    style: const TextStyle(
-                      color: AppTheme.textMedium,
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : AppTheme.textMedium,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -841,6 +909,3 @@ class _TrendingProductCard extends StatelessWidget {
     );
   }
 }
-
-
-

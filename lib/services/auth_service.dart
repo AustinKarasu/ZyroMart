@@ -6,7 +6,6 @@ import 'app_preferences_service.dart';
 import 'app_telemetry_service.dart';
 import 'input_security_service.dart';
 import 'rate_limit_service.dart';
-import 'mock_data.dart';
 import 'supabase_service.dart';
 
 class AuthService extends ChangeNotifier {
@@ -81,6 +80,7 @@ class AuthService extends ChangeNotifier {
     String? password,
     required String name,
     required UserRole role,
+    bool isSignUpFlow = false,
     String? storeName,
     String? storeAddress,
     LatLng? storeLocation,
@@ -102,15 +102,16 @@ class AuthService extends ChangeNotifier {
         _errorMessage = 'Enter a valid phone number with country code.';
         return false;
       }
-      if (_pendingName == null || _pendingName!.isEmpty) {
-        _errorMessage = 'Enter your full name.';
-        return false;
-      }
-      if (_pendingName!.length > InputSecurityService.nameMaxLength) {
+      if (_pendingName != null &&
+          _pendingName!.length > InputSecurityService.nameMaxLength) {
         _errorMessage = 'Name is too long.';
         return false;
       }
-      if (role == UserRole.storeOwner) {
+      if (isSignUpFlow && (_pendingName == null || _pendingName!.isEmpty)) {
+        _errorMessage = 'Enter your full name.';
+        return false;
+      }
+      if (isSignUpFlow && role == UserRole.storeOwner) {
         if ((_pendingStoreName ?? '').isEmpty) {
           _errorMessage = 'Store name is required for store owner signup.';
           return false;
@@ -141,7 +142,9 @@ class AuthService extends ChangeNotifier {
       await SupabaseService.requestPhoneOtp(
         phone: _pendingPhone!,
         email: _pendingEmail,
-        userName: _pendingName!.isEmpty ? 'ZyroMart User' : _pendingName!,
+        userName: (_pendingName ?? '').isEmpty
+            ? 'ZyroMart User'
+            : _pendingName!,
         role: _roleToDb(role),
       );
       await RateLimitService.clear('otp:${_pendingPhone!}');
@@ -185,15 +188,18 @@ class AuthService extends ChangeNotifier {
         phone: _pendingPhone!,
         otpCode: otpCode.trim(),
       );
+      final existingProfile = await SupabaseService.getMyProfile();
+      final existingRole = _roleFromDb(existingProfile?['role']?.toString());
+      final effectiveRole = existingRole ?? _selectedRole!;
       await _upsertCurrentProfile(
-        role: _selectedRole!,
+        role: effectiveRole,
         phone: _pendingPhone!,
         email: _pendingEmail,
         name: _pendingName,
-        address: _selectedRole == UserRole.storeOwner
+        address: effectiveRole == UserRole.storeOwner
             ? _pendingStoreAddress
             : null,
-        location: _selectedRole == UserRole.storeOwner
+        location: effectiveRole == UserRole.storeOwner
             ? _pendingStoreLocation
             : null,
       );
@@ -202,12 +208,12 @@ class AuthService extends ChangeNotifier {
         await SupabaseService.updateAccount(
           email: _pendingEmail!,
           password: _pendingPassword!,
-          data: {'name': _pendingName, 'role': _roleToDb(_selectedRole!)},
+          data: {'name': _pendingName, 'role': _roleToDb(effectiveRole)},
         );
       }
-      await _upsertOwnerStoreIfNeeded();
+      await _upsertOwnerStoreIfNeeded(role: effectiveRole);
       await _hydrateCurrentUser(
-        fallbackRole: _selectedRole,
+        fallbackRole: effectiveRole,
         fallbackName: _pendingName,
         fallbackPhone: _pendingPhone,
         fallbackEmail: _pendingEmail,
@@ -253,25 +259,13 @@ class AuthService extends ChangeNotifier {
         return false;
       }
       await SupabaseService.signIn(normalizedEmail, password);
-      final profile = await SupabaseService.getMyProfile();
-      final actualRole = _roleFromDb(profile?['role']?.toString());
-      if (actualRole == null || actualRole != role) {
-        await SupabaseService.signOut();
-        _errorMessage =
-            'This account belongs to ${_roleLabel(actualRole)}. Use the matching role to sign in.';
-        await RateLimitService.recordFailure('password:$normalizedEmail');
-        return false;
-      }
       await RateLimitService.clear('password:$normalizedEmail');
       await AppTelemetryService.trackAuthAttempt(
         route: 'password_sign_in',
         success: true,
         identifierHash: normalizedEmail.hashCode.toString(),
       );
-      await _hydrateCurrentUser(
-        fallbackRole: role,
-        fallbackEmail: normalizedEmail,
-      );
+      await _hydrateCurrentUser(fallbackEmail: normalizedEmail);
       _statusMessage = 'Signed in successfully';
       return true;
     } catch (error) {
@@ -446,10 +440,7 @@ class AuthService extends ChangeNotifier {
         _inferRoleFromEmail(sessionUser.email ?? fallbackEmail ?? '');
 
     final phone =
-        (profile?['phone'] ??
-                sessionUser.phone ??
-                fallbackPhone ??
-                MockData.defaultCustomer.phone)
+        (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? '')
             .toString();
     final email =
         (profile?['email'] ??
@@ -536,8 +527,8 @@ class AuthService extends ChangeNotifier {
     });
   }
 
-  Future<void> _upsertOwnerStoreIfNeeded() async {
-    if (_selectedRole != UserRole.storeOwner) return;
+  Future<void> _upsertOwnerStoreIfNeeded({required UserRole role}) async {
+    if (role != UserRole.storeOwner) return;
     final sessionUser = SupabaseService.currentUser;
     if (sessionUser == null) return;
     final storeName = (_pendingStoreName ?? '').trim();
@@ -562,14 +553,8 @@ class AuthService extends ChangeNotifier {
   }
 
   LatLng _fallbackLocation(UserRole role) {
-    switch (role) {
-      case UserRole.customer:
-        return MockData.defaultCustomer.location;
-      case UserRole.storeOwner:
-        return MockData.defaultStoreOwner.location;
-      case UserRole.delivery:
-        return MockData.deliveryPersons.first.location;
-    }
+    // Neutral fallback to avoid hardcoded city defaults in production flows.
+    return const LatLng(20.5937, 78.9629);
   }
 
   UserRole? _roleFromDb(String? value) {
@@ -618,19 +603,6 @@ class AuthService extends ChangeNotifier {
   String _fallbackEmailForPhone(String phone) {
     final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
     return 'user$digits@zyromart.app';
-  }
-
-  String _roleLabel(UserRole? role) {
-    switch (role) {
-      case UserRole.customer:
-        return 'customer';
-      case UserRole.storeOwner:
-        return 'store owner';
-      case UserRole.delivery:
-        return 'delivery partner';
-      case null:
-        return 'another role';
-    }
   }
 
   void _clearMessages() {

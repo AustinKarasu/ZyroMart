@@ -10,9 +10,15 @@ import '../services/mock_data.dart';
 import '../services/supabase_service.dart';
 
 class CatalogService extends ChangeNotifier {
-  List<Category> _categories = List.of(MockData.categories);
-  List<Product> _products = List.of(MockData.products);
-  List<Store> _stores = List.of(MockData.stores);
+  List<Category> _categories = SupabaseService.isInitialized
+      ? <Category>[]
+      : List.of(MockData.categories);
+  List<Product> _products = SupabaseService.isInitialized
+      ? <Product>[]
+      : List.of(MockData.products);
+  List<Store> _stores = SupabaseService.isInitialized
+      ? <Store>[]
+      : List.of(MockData.stores);
   final Map<String, List<Product>> _searchCache = {};
   bool _isLoading = false;
 
@@ -95,15 +101,9 @@ class CatalogService extends ChangeNotifier {
       final productRows = await SupabaseService.getProducts();
       final storeRows = await SupabaseService.getStores();
 
-      if (categoryRows.isNotEmpty) {
-        _categories = _mergeCategories(categoryRows.map(_mapCategory).toList());
-      }
-      if (productRows.isNotEmpty) {
-        _products = productRows.map(_mapProduct).toList();
-      }
-      if (storeRows.isNotEmpty) {
-        _stores = storeRows.map(_mapStore).toList();
-      }
+      _categories = categoryRows.map(_mapCategory).toList();
+      _products = productRows.map(_mapProduct).toList();
+      _stores = storeRows.map(_mapStore).toList();
     } catch (_) {
       // Keep the seeded fallback already in memory.
     } finally {
@@ -111,19 +111,6 @@ class CatalogService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  List<Category> _mergeCategories(List<Category> liveCategories) {
-    final merged = [...liveCategories];
-    final existingNames = liveCategories
-        .map((category) => category.name.toLowerCase())
-        .toSet();
-    for (final fallback in MockData.categories) {
-      if (!existingNames.contains(fallback.name.toLowerCase())) {
-        merged.add(fallback);
-      }
-    }
-    return merged;
   }
 
   Category _mapCategory(Map<String, dynamic> row) {

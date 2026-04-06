@@ -47,7 +47,7 @@ class _IntroExperience extends StatelessWidget {
       (
         Icons.verified_user_outlined,
         'Verified access only',
-        'Phone verification for signup and strict role-based sign-in for customer, store owner, and delivery.',
+        'Phone verification for signup and profile-backed access for customer, store owner, and delivery.',
       ),
       (
         Icons.storefront_outlined,
@@ -439,7 +439,7 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                               _isSignUp
                                   ? 'Email is required for signup. We verify the phone number first and attach the password immediately after OTP verification.'
                                   : auth.isPasswordLogin
-                                  ? 'Use your email and password. The selected role must match the role saved in your account.'
+                                  ? 'Use your email and password. Role access is resolved from your live profile after sign-in.'
                                   : 'Phone OTP sign in does not require an email field.',
                               style: const TextStyle(
                                 color: AppTheme.textMedium,
@@ -679,6 +679,7 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
         password: _isSignUp ? _passwordController.text : null,
         name: _nameController.text,
         role: _selectedRole,
+        isSignUpFlow: _isSignUp,
         storeName: _isSignUp && _selectedRole == UserRole.storeOwner
             ? _storeNameController.text
             : null,

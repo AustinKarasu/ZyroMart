@@ -1,0 +1,20 @@
+ZyroMart v1.4.7
+
+Release focus:
+- Fixed OTP sign-in so full name is no longer required for existing-user login.
+- Removed password sign-in role mismatch blocker ("account belongs to store owner").
+- Hardened Supabase initialization path to prevent admin/client late-init errors.
+- Reworked store owner product management to use live catalog CRUD (add/edit/delete/toggle stock).
+- Improved store settings card layout to prevent text overflow and clipping.
+- Reduced demo/local feel by removing hardcoded auth defaults and keeping live-first flows.
+- Checkout/order placement flow improvements with safer error handling and compile-time fixes.
+
+Validation completed:
+- flutter analyze: no issues
+- flutter test: all passing
+- storefront release APK built
+- admin release APK built
+
+Artifacts:
+- zyromart.apk
+- admin-app.apk

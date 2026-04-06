@@ -20,7 +20,12 @@ class OrderService extends ChangeNotifier {
 
   final Distance _distance = const Distance();
   final List<Order> _orders = [];
-  List<Store> _storeCatalog = List.of(MockData.stores);
+  List<Store> _storeCatalog = SupabaseService.isInitialized
+      ? <Store>[]
+      : List.of(MockData.stores);
+  final List<AppUser> _deliveryRoster = SupabaseService.isInitialized
+      ? <AppUser>[]
+      : List.of(MockData.deliveryPersons);
   final Map<String, DeliveryFeedback> _feedbackByOrderId = {};
   final List<AppNotification> _notifications = [];
   final Map<String, double> _heldStoreEarnings = {};
@@ -45,7 +50,9 @@ class OrderService extends ChangeNotifier {
   String _scope = 'guest';
 
   OrderService() {
-    _orders.addAll(MockData.sampleOrders);
+    if (!SupabaseService.isInitialized) {
+      _orders.addAll(MockData.sampleOrders);
+    }
     for (final store in _storeCatalog) {
       _serviceRadiusByStoreId[store.id] = _defaultServiceRadiusKm;
     }
@@ -58,6 +65,7 @@ class OrderService extends ChangeNotifier {
     }
     _restoreLocalState();
     _refreshStoreCatalog();
+    _refreshDeliveryRoster();
   }
 
   void bindUser(AppUser? user) {
@@ -75,6 +83,7 @@ class OrderService extends ChangeNotifier {
     _scope = nextScope;
     _restoreLocalState();
     _refreshStoreCatalog();
+    _refreshDeliveryRoster();
     if (_viewer != null) {
       _syncRemoteNotifications();
       _syncRemoteOrders();
@@ -377,11 +386,17 @@ class OrderService extends ChangeNotifier {
     String? notes,
     String paymentMethod = 'cod',
   }) {
-    final customer = _viewer ?? MockData.defaultCustomer;
+    final customer = _viewer;
+    if (customer == null) {
+      throw StateError('You must sign in before placing an order.');
+    }
     final availableStores = storesServingLocation(customerLocation);
-    final store = availableStores.isNotEmpty
-        ? availableStores.first
-        : MockData.stores.first;
+    if (availableStores.isEmpty) {
+      throw StateError(
+        'No store currently serves your delivery location. Update address/location and retry.',
+      );
+    }
+    final store = availableStores.first;
     final verificationCode = _generateDeliveryCode();
     var order = Order(
       id: 'ORD${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
@@ -455,6 +470,25 @@ class OrderService extends ChangeNotifier {
       return false;
     }
 
+    AppUser? assignedDeliveryPartner;
+    if (status == OrderStatus.outForDelivery) {
+      if (_viewer?.role == UserRole.delivery) {
+        assignedDeliveryPartner = _viewer;
+      } else if ((order.deliveryPersonId ?? '').isNotEmpty) {
+        final existing = _deliveryRoster.where(
+          (partner) => partner.id == order.deliveryPersonId,
+        );
+        if (existing.isNotEmpty) {
+          assignedDeliveryPartner = existing.first;
+        }
+      } else {
+        assignedDeliveryPartner = _assignDeliveryPartner(order);
+      }
+      if (assignedDeliveryPartner == null) {
+        return false;
+      }
+    }
+
     final previousStatus = order.status;
 
     if (!_isValidTransition(previousStatus, status)) {
@@ -468,22 +502,21 @@ class OrderService extends ChangeNotifier {
       nextStatus: status,
       notes: _statusEventNote(status),
     );
-    if (status == OrderStatus.outForDelivery) {
-      final deliveryPartner = _viewer?.role == UserRole.delivery
-          ? _viewer!
-          : _assignDeliveryPartner(order);
-      order.deliveryPersonId = deliveryPartner.id;
-      order.deliveryPersonName = deliveryPartner.name;
-      order.deliveryPersonLocation = deliveryPartner.location;
+    if (status == OrderStatus.outForDelivery &&
+        assignedDeliveryPartner != null) {
+      order.deliveryPersonId = assignedDeliveryPartner.id;
+      order.deliveryPersonName = assignedDeliveryPartner.name;
+      order.deliveryPersonLocation = assignedDeliveryPartner.location;
       _createNotification(
         recipientUserId: order.customerId,
         category: 'order',
         title: 'Your order is on the way',
-        body: '${deliveryPartner.name} is now delivering order ${order.id}.',
+        body:
+            '${assignedDeliveryPartner.name} is now delivering order ${order.id}.',
         orderId: order.id,
       );
       _createNotification(
-        recipientUserId: deliveryPartner.id,
+        recipientUserId: assignedDeliveryPartner.id,
         category: 'order',
         title: 'Proceed to customer',
         body:
@@ -723,10 +756,22 @@ class OrderService extends ChangeNotifier {
     if (orderId == null || orderId.isEmpty) return null;
     final items = _mapRemoteItems(row['order_items']);
     final storeId = (row['store_id'] ?? '').toString();
-    final store = MockData.stores.firstWhere(
+    final matchingStore = _storeCatalog.where(
       (candidate) => candidate.id == storeId,
-      orElse: () => MockData.stores.first,
     );
+    final store = matchingStore.isNotEmpty
+        ? matchingStore.first
+        : Store(
+            id: storeId,
+            name: (row['store_name'] ?? 'Store').toString(),
+            address: 'Store address unavailable',
+            location: LatLng(
+              ((row['store_latitude'] ?? 0) as num).toDouble(),
+              ((row['store_longitude'] ?? 0) as num).toDouble(),
+            ),
+            imageUrl: '',
+            ownerId: '',
+          );
     final status = _statusFromDb((row['status'] ?? 'placed').toString());
     return Order(
       id: orderId,
@@ -792,13 +837,19 @@ class OrderService extends ChangeNotifier {
           reviewCount: (productMap['review_count'] ?? 0) as int,
         );
       } else {
-        final fallback = MockData.products.firstWhere(
-          (item) => item.id == (row['product_id'] ?? '').toString(),
-          orElse: () => MockData.products.first,
-        );
-        product = fallback.copyWith(
-          name: (row['product_name'] ?? fallback.name).toString(),
-          price: ((row['product_price'] ?? fallback.price) as num).toDouble(),
+        product = Product(
+          id: (row['product_id'] ?? '').toString(),
+          name: (row['product_name'] ?? 'Product').toString(),
+          description: '',
+          price: ((row['product_price'] ?? 0) as num).toDouble(),
+          imageUrl: '',
+          categoryId: '',
+          storeId: '',
+          inStock: true,
+          stockQuantity: 0,
+          unit: 'piece',
+          rating: 0,
+          reviewCount: 0,
         );
       }
       return CartItem(
@@ -954,12 +1005,7 @@ class OrderService extends ChangeNotifier {
     }
 
     final store = _storeForOrder(order);
-    final deliveryPartner = order.deliveryPersonId == null
-        ? null
-        : MockData.deliveryPersons.firstWhere(
-            (partner) => partner.id == order.deliveryPersonId,
-            orElse: () => MockData.deliveryPersons.first,
-          );
+    final deliveryPartnerId = order.deliveryPersonId;
     final platformShare = _platformShare(order);
     final deliveryShare = _deliveryShare(order);
     final storeShare = _storeShare(order);
@@ -967,9 +1013,9 @@ class OrderService extends ChangeNotifier {
     _heldPlatformEarnings[order.id] = platformShare;
     _heldStoreEarnings[store.ownerId] =
         (_heldStoreEarnings[store.ownerId] ?? 0) + storeShare;
-    if (deliveryPartner != null) {
-      _heldDeliveryEarnings[deliveryPartner.id] =
-          (_heldDeliveryEarnings[deliveryPartner.id] ?? 0) + deliveryShare;
+    if (deliveryPartnerId != null && deliveryPartnerId.isNotEmpty) {
+      _heldDeliveryEarnings[deliveryPartnerId] =
+          (_heldDeliveryEarnings[deliveryPartnerId] ?? 0) + deliveryShare;
     }
     _settlementReleasedByOrderId[order.id] = false;
   }
@@ -1133,8 +1179,46 @@ class OrderService extends ChangeNotifier {
     );
   }
 
-  AppUser _assignDeliveryPartner(Order order) {
-    final nearest = [...MockData.deliveryPersons]
+  Future<void> _refreshDeliveryRoster() async {
+    if (!SupabaseService.isInitialized) return;
+    final rows = await SupabaseService.getProfiles().catchError(
+      (_) => <Map<String, dynamic>>[],
+    );
+    if (rows.isEmpty) return;
+    _deliveryRoster
+      ..clear()
+      ..addAll(
+        rows
+            .where((row) => (row['role'] ?? '').toString() == 'delivery')
+            .map(_mapDeliveryProfile),
+      );
+    notifyListeners();
+  }
+
+  AppUser _mapDeliveryProfile(Map<String, dynamic> row) {
+    return AppUser(
+      id: row['id'].toString(),
+      name: (row['name'] ?? 'Delivery Partner').toString(),
+      email: (row['email'] ?? '').toString(),
+      phone: (row['phone'] ?? '').toString(),
+      role: UserRole.delivery,
+      address: (row['address'] ?? '').toString(),
+      location: LatLng(
+        ((row['latitude'] ?? 0) as num).toDouble(),
+        ((row['longitude'] ?? 0) as num).toDouble(),
+      ),
+      profileImageUrl: (row['profile_image_url'] ?? '').toString(),
+      deliveryRating: ((row['delivery_rating'] ?? 0) as num).toDouble(),
+      completedDeliveries: (row['completed_deliveries'] ?? 0) as int,
+      isOnline: row['is_online'] ?? true,
+    );
+  }
+
+  AppUser? _assignDeliveryPartner(Order order) {
+    if (_deliveryRoster.isEmpty) {
+      return null;
+    }
+    final nearest = [..._deliveryRoster]
       ..sort((a, b) {
         final distanceA = _distance.as(
           LengthUnit.Kilometer,
@@ -1154,7 +1238,14 @@ class OrderService extends ChangeNotifier {
   Store _storeForOrder(Order order) {
     return _storeCatalog.firstWhere(
       (store) => store.id == order.storeId,
-      orElse: () => MockData.stores.first,
+      orElse: () => Store(
+        id: order.storeId,
+        name: order.storeName,
+        address: 'Store address unavailable',
+        location: order.storeLocation,
+        imageUrl: '',
+        ownerId: '',
+      ),
     );
   }
 

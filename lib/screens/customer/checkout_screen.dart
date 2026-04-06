@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/order.dart';
 import '../../services/auth_service.dart';
 import '../../services/cart_service.dart';
 import '../../services/location_service.dart';
@@ -467,16 +468,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final location = context.read<LocationService>();
     final orderService = context.read<OrderService>();
     final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
     if (cart.items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Your cart is empty')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Your cart is empty')),
+      );
       return;
     }
 
     if (!cart.meetsMinimumOrderRequirement) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Add at least 3 products before placing an order'),
         ),
@@ -486,7 +488,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final customerPhone = auth.currentUser?.phone.trim() ?? '';
     if (customerPhone.isEmpty || customerPhone.length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text(
             'A verified phone number is required before placing an order',
@@ -497,21 +499,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     if (address.isEmpty || address.length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Please enter a valid delivery address')),
       );
       return;
     }
 
     if (address.length > _maxAddressLength) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Delivery address is too long')),
       );
       return;
     }
 
     if (notes.length > _maxNotesLength) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Delivery instructions are too long')),
       );
       return;
@@ -521,23 +523,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     await Future.delayed(const Duration(milliseconds: 700));
 
     if (!mounted) return;
-
-    final order = orderService.placeOrder(
-      items: cart.items,
-      totalAmount: cart.totalAmount,
-      deliveryFee: cart.deliveryFee,
-      deliveryAddress: address,
-      customerLocation:
-          location.currentLocation ??
-          auth.currentUser?.location ??
-          const LatLng(28.6139, 77.2090),
-      platformFee: cart.platformFee,
-      handlingFee: cart.handlingFee,
-      deliveryTip: cart.deliveryTip,
-      couponDiscount: cart.couponDiscount,
-      notes: notes.isEmpty ? null : notes,
-      paymentMethod: _paymentMethod,
-    );
+    Order order;
+    try {
+      order = orderService.placeOrder(
+        items: cart.items,
+        totalAmount: cart.totalAmount,
+        deliveryFee: cart.deliveryFee,
+        deliveryAddress: address,
+        customerLocation:
+            location.currentLocation ??
+            auth.currentUser?.location ??
+            const LatLng(20.5937, 78.9629),
+        platformFee: cart.platformFee,
+        handlingFee: cart.handlingFee,
+        deliveryTip: cart.deliveryTip,
+        couponDiscount: cart.couponDiscount,
+        notes: notes.isEmpty ? null : notes,
+        paymentMethod: _paymentMethod,
+      );
+    } catch (error) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Bad state: ', '')),
+          ),
+        );
+      }
+      setState(() => _isPlacing = false);
+      return;
+    }
 
     cart.clear();
     if (!mounted) return;

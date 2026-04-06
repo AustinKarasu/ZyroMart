@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../models/user.dart';
 import '../../services/auth_service.dart';
-import '../../services/mock_data.dart';
 import '../../services/operator_preferences_service.dart';
 import '../../services/order_service.dart';
 import '../../services/supabase_service.dart';
@@ -18,10 +17,6 @@ class StoreDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final storeOwner = auth.currentUser;
-    final fallbackStore = MockData.stores.firstWhere(
-      (candidate) => candidate.ownerId == storeOwner?.id,
-      orElse: () => MockData.stores.first,
-    );
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: storeOwner == null || !SupabaseService.isInitialized
@@ -29,10 +24,10 @@ class StoreDashboardScreen extends StatelessWidget {
           : SupabaseService.getStoreByOwner(storeOwner.id),
       builder: (context, storeSnapshot) {
         final storeRow = storeSnapshot.data;
-        final storeId = (storeRow?['id'] ?? fallbackStore.id).toString();
-        final storeName = (storeRow?['name'] ?? fallbackStore.name).toString();
-        final storeIsOpen =
-            storeRow?['is_open'] as bool? ?? fallbackStore.isOpen;
+        final storeId = (storeRow?['id'] ?? '').toString();
+        final storeName = (storeRow?['name'] ?? (storeOwner?.name ?? 'Store'))
+            .toString();
+        final storeIsOpen = storeRow?['is_open'] as bool? ?? true;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF6F7F2),
@@ -54,7 +49,7 @@ class StoreDashboardScreen extends StatelessWidget {
           body: FutureBuilder<Map<String, dynamic>>(
             future: OperatorPreferencesService.load(
               appVariant: 'store_owner',
-              userId: storeOwner?.id ?? fallbackStore.ownerId,
+              userId: storeOwner?.id ?? 'guest',
             ),
             builder: (context, preferencesSnapshot) {
               final storePreferences =
@@ -63,7 +58,7 @@ class StoreDashboardScreen extends StatelessWidget {
                 builder: (context, orderService, _) {
                   final earnings = orderService.earningsFor(
                     UserRole.storeOwner,
-                    userId: storeOwner?.id ?? fallbackStore.ownerId,
+                    userId: storeOwner?.id ?? '',
                   );
                   final activeOrders = orderService.allOrders
                       .where(
@@ -75,16 +70,18 @@ class StoreDashboardScreen extends StatelessWidget {
                       .toList();
                   final admin = orderService.adminSnapshot;
                   final radius = orderService.radiusForStore(storeId);
-                  final averageOrderValue =
-                      orderService.averageOrderValueForStore(storeId);
-                  final activeReservations =
-                      orderService.activeReservationCountForStore(storeId);
-                  final outForDelivery =
-                      orderService.outForDeliveryCountForStore(storeId);
-                  final routePings =
-                      orderService.routePingCountForStore(storeId);
+                  final averageOrderValue = orderService
+                      .averageOrderValueForStore(storeId);
+                  final activeReservations = orderService
+                      .activeReservationCountForStore(storeId);
+                  final outForDelivery = orderService
+                      .outForDeliveryCountForStore(storeId);
+                  final routePings = orderService.routePingCountForStore(
+                    storeId,
+                  );
                   final substitutionsEnabled =
-                      storePreferences['substitutions_enabled'] as bool? ?? true;
+                      storePreferences['substitutions_enabled'] as bool? ??
+                      true;
                   final pickupAlerts =
                       storePreferences['pickup_alerts'] as bool? ?? true;
                   final inventoryWarnings =
@@ -198,8 +195,7 @@ class StoreDashboardScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   '${radius.toStringAsFixed(1)} km',
@@ -221,8 +217,8 @@ class StoreDashboardScreen extends StatelessWidget {
                               max: 12,
                               divisions: 22,
                               value: radius,
-                              onChanged: (value) =>
-                                  orderService.updateStoreRadius(storeId, value),
+                              onChanged: (value) => orderService
+                                  .updateStoreRadius(storeId, value),
                             ),
                           ],
                         ),
@@ -313,8 +309,7 @@ class StoreDashboardScreen extends StatelessWidget {
                               SizedBox(width: 14),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Open full analytics',
