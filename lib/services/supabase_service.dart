@@ -153,6 +153,12 @@ class SupabaseService {
     return response;
   }
 
+  static Future<void> createOrderItems(
+      List<Map<String, dynamic>> items) async {
+    if (!isInitialized || items.isEmpty) return;
+    await client.from('order_items').insert(items);
+  }
+
   static Future<void> updateOrderStatus(String id, String status) async {
     if (!isInitialized) return;
     await client.from('orders').update({'status': status}).eq('id', id);
@@ -244,6 +250,17 @@ class SupabaseService {
     if (!isInitialized) return [];
     final response = await client.from('stores').select();
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<List<Map<String, dynamic>>> getStoreServiceAreas() async {
+    if (!isInitialized) return [];
+    final response = await client.from('store_service_areas').select();
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<void> upsertStoreServiceArea(Map<String, dynamic> area) async {
+    if (!isInitialized) return;
+    await client.from('store_service_areas').upsert(area);
   }
 
   static Future<Map<String, dynamic>?> getMyProfile() async {

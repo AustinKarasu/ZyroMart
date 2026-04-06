@@ -7,6 +7,7 @@ import '../models/cart_item.dart';
 import '../models/delivery_feedback.dart';
 import '../models/earnings_summary.dart';
 import '../models/order.dart';
+import '../models/product.dart';
 import '../models/store.dart';
 import '../models/user.dart';
 import 'mock_data.dart';
@@ -35,6 +36,7 @@ class OrderService extends ChangeNotifier {
   final Map<String, List<Map<String, dynamic>>> _inventoryReservationsByOrderId = {};
   final Map<String, Map<String, dynamic>> _proofOfDeliveryByOrderId = {};
   RealtimeChannel? _notificationChannel;
+  RealtimeChannel? _ordersChannel;
   AppUser? _viewer;
 
   OrderService() {
@@ -57,9 +59,12 @@ class OrderService extends ChangeNotifier {
     }
     _notificationChannel?.unsubscribe();
     _notificationChannel = null;
+    _ordersChannel?.unsubscribe();
+    _ordersChannel = null;
     _viewer = user;
     if (_viewer != null) {
       _syncRemoteNotifications();
+      _syncRemoteOrders();
     }
     notifyListeners();
   }
@@ -240,6 +245,14 @@ class OrderService extends ChangeNotifier {
 
   void updateStoreRadius(String storeId, double radiusKm) {
     _serviceRadiusByStoreId[storeId] = radiusKm.clamp(1, 15);
+    if (SupabaseService.isInitialized) {
+      SupabaseService.upsertStoreServiceArea({
+        'store_id': storeId,
+        'radius_km': _serviceRadiusByStoreId[storeId],
+        'minimum_order_amount': 0,
+        'is_active': true,
+      }).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -288,7 +301,7 @@ class OrderService extends ChangeNotifier {
     final availableStores = storesServingLocation(customerLocation);
     final store = availableStores.isNotEmpty ? availableStores.first : MockData.stores.first;
     final verificationCode = _generateDeliveryCode();
-    final order = Order(
+    var order = Order(
       id: 'ORD${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
       items: items
           .map((item) => CartItem(product: item.product, quantity: item.quantity))
@@ -314,6 +327,21 @@ class OrderService extends ChangeNotifier {
       couponDiscount: couponDiscount,
       deliveryVerificationCode: verificationCode,
     );
+    if (SupabaseService.isInitialized) {
+      final remoteOrder = _persistRemoteOrder(
+        customer: customer,
+        store: store,
+        order: order,
+      );
+      remoteOrder.then((savedOrder) {
+        if (savedOrder == null) return;
+        final index = _orders.indexWhere((item) => item.id == order.id);
+        if (index >= 0) {
+          _orders[index] = savedOrder;
+          notifyListeners();
+        }
+      });
+    }
     _orders.insert(0, order);
     _completionCodes[order.id] = verificationCode;
     _initializeLedgerForOrder(order);
@@ -455,6 +483,215 @@ class OrderService extends ChangeNotifier {
       await SupabaseService.insertDeliveryRouteUpdate(payload).catchError((_) {});
     }
     notifyListeners();
+  }
+
+  Future<Order?> _persistRemoteOrder({
+    required AppUser customer,
+    required Store store,
+    required Order order,
+  }) async {
+    try {
+      final inserted = await SupabaseService.createOrder({
+        'order_number': order.id,
+        'total_amount': order.totalAmount,
+        'delivery_fee': order.deliveryFee,
+        'status': order.status.name,
+        'customer_id': customer.id,
+        'customer_name': customer.name,
+        'customer_phone': customer.phone,
+        'store_id': store.id,
+        'store_name': store.name,
+        'delivery_address': order.deliveryAddress,
+        'customer_latitude': order.customerLocation.latitude,
+        'customer_longitude': order.customerLocation.longitude,
+        'store_latitude': order.storeLocation.latitude,
+        'store_longitude': order.storeLocation.longitude,
+        'notes': order.notes,
+        'payment_method': order.paymentMethod,
+        'estimated_delivery': order.estimatedDelivery.toIso8601String(),
+      });
+      final orderId = inserted['id']?.toString();
+      if (orderId == null || orderId.isEmpty) {
+        return null;
+      }
+      await SupabaseService.createOrderItems(
+        order.items
+            .map(
+              (item) => {
+                'order_id': orderId,
+                'product_id': item.product.id,
+                'product_name': item.product.name,
+                'product_price': item.product.price,
+                'quantity': item.quantity,
+              },
+            )
+            .toList(),
+      );
+      return order.copyWithId(orderId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _syncRemoteOrders() async {
+    if (!SupabaseService.isInitialized || _viewer == null) return;
+    await _loadRemoteOrders();
+    _ordersChannel = SupabaseService.subscribeToOrders((_) {
+      _loadRemoteOrders();
+    });
+  }
+
+  Future<void> _loadRemoteOrders() async {
+    try {
+      final rows = await SupabaseService.getOrders();
+      final serviceAreas = await SupabaseService.getStoreServiceAreas();
+      for (final area in serviceAreas) {
+        final storeId = (area['store_id'] ?? '').toString();
+        if (storeId.isNotEmpty) {
+          _serviceRadiusByStoreId[storeId] =
+              ((area['radius_km'] ?? _defaultServiceRadiusKm) as num).toDouble();
+        }
+      }
+      if (rows.isEmpty) {
+        notifyListeners();
+        return;
+      }
+      final remoteOrders = rows.map(_mapRemoteOrder).whereType<Order>().toList();
+      if (remoteOrders.isNotEmpty) {
+        _orders
+          ..clear()
+          ..addAll(remoteOrders);
+        for (final order in remoteOrders) {
+          _completionCodes[order.id] = order.deliveryVerificationCode;
+        }
+      }
+      await Future.wait(remoteOrders.map(_loadRemoteOrderDetails));
+      notifyListeners();
+    } catch (_) {
+      // Keep local state when remote sync fails.
+    }
+  }
+
+  Future<void> _loadRemoteOrderDetails(Order order) async {
+    final results = await Future.wait([
+      SupabaseService.getOrderStatusEvents(order.id).catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getInventoryReservations(order.id).catchError((_) => <Map<String, dynamic>>[]),
+      SupabaseService.getProofOfDelivery(order.id).catchError((_) => null),
+    ]);
+    _statusEventsByOrderId[order.id] =
+        List<Map<String, dynamic>>.from(results[0] as List);
+    _inventoryReservationsByOrderId[order.id] =
+        List<Map<String, dynamic>>.from(results[1] as List);
+    final proof = results[2];
+    if (proof is Map<String, dynamic>) {
+      _proofOfDeliveryByOrderId[order.id] = proof;
+    }
+  }
+
+  Order? _mapRemoteOrder(Map<String, dynamic> row) {
+    final orderId = row['id']?.toString();
+    if (orderId == null || orderId.isEmpty) return null;
+    final items = _mapRemoteItems(row['order_items']);
+    final storeId = (row['store_id'] ?? '').toString();
+    final store = MockData.stores.firstWhere(
+      (candidate) => candidate.id == storeId,
+      orElse: () => MockData.stores.first,
+    );
+    final status = _statusFromDb((row['status'] ?? 'placed').toString());
+    return Order(
+      id: orderId,
+      items: items,
+      totalAmount: ((row['total_amount'] ?? 0) as num).toDouble(),
+      deliveryFee: ((row['delivery_fee'] ?? 0) as num).toDouble(),
+      status: status,
+      customerId: (row['customer_id'] ?? '').toString(),
+      customerName: (row['customer_name'] ?? 'Customer').toString(),
+      customerPhone: (row['customer_phone'] ?? '').toString(),
+      storeId: storeId,
+      storeName: (row['store_name'] ?? store.name).toString(),
+      deliveryPersonId: row['delivery_person_id']?.toString(),
+      deliveryPersonName: row['delivery_person_name']?.toString(),
+      deliveryAddress: (row['delivery_address'] ?? '').toString(),
+      placedAt: DateTime.tryParse((row['created_at'] ?? '').toString()) ??
+          DateTime.now(),
+      estimatedDelivery:
+          DateTime.tryParse((row['estimated_delivery'] ?? '').toString()) ??
+              DateTime.now().add(const Duration(hours: 24)),
+      customerLocation: LatLng(
+        ((row['customer_latitude'] ?? 0) as num).toDouble(),
+        ((row['customer_longitude'] ?? 0) as num).toDouble(),
+      ),
+      storeLocation: LatLng(
+        ((row['store_latitude'] ?? store.location.latitude) as num).toDouble(),
+        ((row['store_longitude'] ?? store.location.longitude) as num)
+            .toDouble(),
+      ),
+      notes: row['notes']?.toString(),
+      paymentMethod: (row['payment_method'] ?? 'cod').toString(),
+      deliveryVerificationCode: _completionCodes[orderId] ?? _generateDeliveryCode(),
+    );
+  }
+
+  List<CartItem> _mapRemoteItems(dynamic rawItems) {
+    final rows = rawItems is List ? rawItems : const [];
+    return rows.map<CartItem>((raw) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final rawProduct = row['products'];
+      Product product;
+      if (rawProduct is Map) {
+        final productMap = Map<String, dynamic>.from(rawProduct);
+        product = Product(
+          id: (productMap['id'] ?? row['product_id'] ?? '').toString(),
+          name: (productMap['name'] ?? row['product_name'] ?? 'Product').toString(),
+          description: (productMap['description'] ?? '').toString(),
+          price: ((productMap['price'] ?? row['product_price'] ?? 0) as num)
+              .toDouble(),
+          originalPrice: productMap['original_price'] == null
+              ? null
+              : ((productMap['original_price']) as num).toDouble(),
+          imageUrl: (productMap['image_url'] ?? '').toString(),
+          categoryId: (productMap['category_id'] ?? '').toString(),
+          storeId: (productMap['store_id'] ?? '').toString(),
+          inStock: productMap['in_stock'] ?? true,
+          stockQuantity: (productMap['stock_quantity'] ?? 0) as int,
+          unit: (productMap['unit'] ?? 'piece').toString(),
+          rating: ((productMap['rating'] ?? 4.0) as num).toDouble(),
+          reviewCount: (productMap['review_count'] ?? 0) as int,
+        );
+      } else {
+        final fallback = MockData.products.firstWhere(
+          (item) => item.id == (row['product_id'] ?? '').toString(),
+          orElse: () => MockData.products.first,
+        );
+        product = fallback.copyWith(
+          name: (row['product_name'] ?? fallback.name).toString(),
+          price: ((row['product_price'] ?? fallback.price) as num).toDouble(),
+        );
+      }
+      return CartItem(
+        product: product,
+        quantity: (row['quantity'] ?? 1) as int,
+      );
+    }).toList();
+  }
+
+  OrderStatus _statusFromDb(String value) {
+    switch (value) {
+      case 'confirmed':
+        return OrderStatus.confirmed;
+      case 'preparing':
+        return OrderStatus.preparing;
+      case 'ready_for_pickup':
+        return OrderStatus.readyForPickup;
+      case 'out_for_delivery':
+        return OrderStatus.outForDelivery;
+      case 'delivered':
+        return OrderStatus.delivered;
+      case 'cancelled':
+        return OrderStatus.cancelled;
+      default:
+        return OrderStatus.placed;
+    }
   }
 
   bool submitDeliveryFeedback({

@@ -108,4 +108,34 @@ class Order {
         return 0.0;
     }
   }
+
+  Order copyWithId(String id) {
+    return Order(
+      id: id,
+      items: items,
+      totalAmount: totalAmount,
+      deliveryFee: deliveryFee,
+      platformFee: platformFee,
+      handlingFee: handlingFee,
+      deliveryTip: deliveryTip,
+      couponDiscount: couponDiscount,
+      status: status,
+      customerId: customerId,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      storeId: storeId,
+      storeName: storeName,
+      deliveryPersonId: deliveryPersonId,
+      deliveryPersonName: deliveryPersonName,
+      deliveryAddress: deliveryAddress,
+      placedAt: placedAt,
+      estimatedDelivery: estimatedDelivery,
+      customerLocation: customerLocation,
+      storeLocation: storeLocation,
+      deliveryPersonLocation: deliveryPersonLocation,
+      notes: notes,
+      paymentMethod: paymentMethod,
+      deliveryVerificationCode: deliveryVerificationCode,
+    );
+  }
 }
