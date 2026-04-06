@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../models/user.dart';
+import 'app_preferences_service.dart';
 import 'mock_data.dart';
 import 'supabase_service.dart';
 
@@ -10,12 +11,15 @@ class AuthService extends ChangeNotifier {
   UserRole? _selectedRole;
   bool _isLoading = false;
   bool _otpRequested = false;
+  bool _initialized = false;
   String? _pendingPhone;
   String? _pendingEmail;
   String? _pendingName;
+  String? _pendingPassword;
   String? _errorMessage;
   String? _statusMessage;
   bool _isPasswordLogin = false;
+  AppPreferencesService? _preferences;
 
   AppUser? get currentUser => _currentUser;
   UserRole? get selectedRole => _selectedRole;
@@ -30,8 +34,25 @@ class AuthService extends ChangeNotifier {
   bool get isPasswordLogin => _isPasswordLogin;
 
   Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
     if (!SupabaseService.isInitialized) return;
+    if (_preferences != null && !_preferences!.autoLogin) {
+      await SupabaseService.signOut();
+      return;
+    }
     await _hydrateCurrentUser();
+  }
+
+  void applyPreferences(AppPreferencesService preferences) {
+    _preferences = preferences;
+    if (!_initialized) {
+      initialize();
+      return;
+    }
+    if (!preferences.autoLogin && SupabaseService.currentUser != null) {
+      logout();
+    }
   }
 
   void selectRole(UserRole role) {
@@ -49,6 +70,7 @@ class AuthService extends ChangeNotifier {
   Future<bool> requestOtp({
     required String phone,
     String? email,
+    String? password,
     required String name,
     required UserRole role,
   }) async {
@@ -58,6 +80,7 @@ class AuthService extends ChangeNotifier {
     _pendingPhone = _normalizePhone(phone);
     _pendingEmail = email?.trim().toLowerCase();
     _pendingName = name.trim();
+    _pendingPassword = password;
     notifyListeners();
 
     try {
@@ -111,6 +134,17 @@ class AuthService extends ChangeNotifier {
         email: _pendingEmail,
         name: _pendingName,
       );
+      if ((_pendingEmail?.isNotEmpty ?? false) &&
+          (_pendingPassword?.isNotEmpty ?? false)) {
+        await SupabaseService.updateAccount(
+          email: _pendingEmail!,
+          password: _pendingPassword!,
+          data: {
+            'name': _pendingName,
+            'role': _roleToDb(_selectedRole!),
+          },
+        );
+      }
       await _hydrateCurrentUser(
         fallbackRole: _selectedRole,
         fallbackName: _pendingName,
@@ -141,7 +175,18 @@ class AuthService extends ChangeNotifier {
 
     try {
       await SupabaseService.signIn(email.trim().toLowerCase(), password);
-      await _hydrateCurrentUser(fallbackRole: role, fallbackEmail: email.trim().toLowerCase());
+      final profile = await SupabaseService.getMyProfile();
+      final actualRole = _roleFromDb(profile?['role']?.toString());
+      if (actualRole == null || actualRole != role) {
+        await SupabaseService.signOut();
+        _errorMessage =
+            'This account belongs to ${_roleLabel(actualRole)}. Use the matching role to sign in.';
+        return false;
+      }
+      await _hydrateCurrentUser(
+        fallbackRole: role,
+        fallbackEmail: email.trim().toLowerCase(),
+      );
       _statusMessage = 'Signed in successfully';
       return true;
     } catch (error) {
@@ -202,8 +247,8 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> updateProfile({
     required String name,
-    required String email,
     required String address,
+    required String phone,
     required UserRole role,
   }) async {
     if (_currentUser == null) return false;
@@ -215,16 +260,16 @@ class AuthService extends ChangeNotifier {
     try {
       await _upsertCurrentProfile(
         role: role,
-        phone: _currentUser!.phone,
-        email: email.trim().toLowerCase(),
+        phone: _normalizePhone(phone) ?? _currentUser!.phone,
+        email: _currentUser!.email,
         name: name.trim(),
         address: address.trim(),
       );
       await _hydrateCurrentUser(
         fallbackRole: role,
         fallbackName: name.trim(),
-        fallbackPhone: _currentUser!.phone,
-        fallbackEmail: email.trim().toLowerCase(),
+        fallbackPhone: _normalizePhone(phone) ?? _currentUser!.phone,
+        fallbackEmail: _currentUser!.email,
       );
       _statusMessage = 'Profile saved';
       return true;
@@ -247,6 +292,7 @@ class AuthService extends ChangeNotifier {
     _pendingPhone = null;
     _pendingEmail = null;
     _pendingName = null;
+    _pendingPassword = null;
     _clearMessages();
     notifyListeners();
   }
@@ -378,6 +424,19 @@ class AuthService extends ChangeNotifier {
   String _fallbackEmailForPhone(String phone) {
     final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
     return 'user$digits@zyromart.app';
+  }
+
+  String _roleLabel(UserRole? role) {
+    switch (role) {
+      case UserRole.customer:
+        return 'customer';
+      case UserRole.storeOwner:
+        return 'store owner';
+      case UserRole.delivery:
+        return 'delivery partner';
+      case null:
+        return 'another role';
+    }
   }
 
   void _clearMessages() {

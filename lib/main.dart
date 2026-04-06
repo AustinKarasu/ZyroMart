@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'services/auth_service.dart';
+import 'services/app_preferences_service.dart';
 import 'services/cart_service.dart';
 import 'services/catalog_service.dart';
 import 'services/location_service.dart';
@@ -26,20 +27,31 @@ class ZyroMartApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()..initialize()),
+        ChangeNotifierProvider(
+          create: (_) => AppPreferencesService()..initialize(),
+        ),
         ChangeNotifierProvider(create: (_) => CartService()),
         ChangeNotifierProvider(create: (_) => CatalogService()..load()),
         ChangeNotifierProvider(create: (_) => LocationService()..initialize()),
+        ChangeNotifierProxyProvider<AppPreferencesService, AuthService>(
+          create: (_) => AuthService(),
+          update: (_, preferences, auth) =>
+              auth!..applyPreferences(preferences),
+        ),
         ChangeNotifierProxyProvider<AuthService, OrderService>(
           create: (_) => OrderService(),
           update: (_, auth, orderService) => orderService!..bindUser(auth.currentUser),
         ),
       ],
-      child: MaterialApp(
-        title: 'ZyroMart',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.theme,
-        home: const AnimatedSplashScreen(),
+      child: Consumer<AppPreferencesService>(
+        builder: (context, preferences, _) => MaterialApp(
+          title: 'ZyroMart',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.theme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: preferences.themeMode,
+          home: const AnimatedSplashScreen(),
+        ),
       ),
     );
   }

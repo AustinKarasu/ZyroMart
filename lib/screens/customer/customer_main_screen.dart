@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import 'customer_home_screen.dart';
@@ -39,25 +40,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   }
 }
 
-class _CustomerProfileScreen extends StatefulWidget {
+class _CustomerProfileScreen extends StatelessWidget {
   const _CustomerProfileScreen();
-
-  @override
-  State<_CustomerProfileScreen> createState() => _CustomerProfileScreenState();
-}
-
-class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
-  String _appearance = 'Warm Light';
-  bool _hideSensitiveItems = false;
-  bool _twoFactorEnabled = true;
-  bool _marketingNotifications = true;
-  bool _orderNotifications = true;
-  bool _soundEnabled = true;
-  bool _biometricsEnabled = false;
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
+    final preferences = context.watch<AppPreferencesService>();
     final user = auth.currentUser;
 
     return Scaffold(
@@ -79,11 +68,6 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
               children: [
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: () {},
-                      style: IconButton.styleFrom(backgroundColor: Colors.white12),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    ),
                     const Spacer(),
                     IconButton(
                       onPressed: () => _showProfileEditor(context, auth),
@@ -102,9 +86,15 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text(user?.name ?? 'Your account', style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900)),
+                Text(
+                  user?.name ?? 'Your account',
+                  style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 6),
-                Text(user?.phone ?? '', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 18)),
+                Text(
+                  user?.phone ?? '',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 18),
+                ),
                 const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.all(18),
@@ -118,16 +108,16 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Complete your account setup', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                            Text('Faster sign-in setup', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
                             SizedBox(height: 6),
-                            Text('Add your email and password for faster sign in across devices.', style: TextStyle(color: Colors.white70, height: 1.4)),
+                            Text('Add your email and password after OTP verification for easier future logins.', style: TextStyle(color: Colors.white70, height: 1.4)),
                           ],
                         ),
                       ),
                       FilledButton(
                         onPressed: () => _showPasswordSetup(context, auth),
                         style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppTheme.primaryRed),
-                        child: const Text('Set up'),
+                        child: const Text('Manage'),
                       ),
                     ],
                   ),
@@ -141,54 +131,90 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
               children: [
                 Row(
                   children: [
-                    Expanded(child: _statCard(Icons.receipt_long, 'Your orders', 'Track live and past orders')),
+                    Expanded(child: _statCard(Icons.receipt_long, 'Your orders', 'Track active and completed orders')),
                     const SizedBox(width: 12),
-                    Expanded(child: _statCard(Icons.card_giftcard, 'Gift cards', 'Claim and redeem instantly')),
+                    Expanded(child: _statCard(Icons.card_giftcard, 'Gift cards', 'Store credit and rewards when available')),
                     const SizedBox(width: 12),
-                    Expanded(child: _statCard(Icons.support_agent, 'Need help?', '24/7 support and FAQs')),
+                    Expanded(child: _statCard(Icons.support_agent, 'Need help?', 'Support, refunds, and order help')),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _sectionCard(
                   title: 'Appearance',
                   children: [
-                    _dropdownRow('Theme style', _appearance, ['Warm Light', 'Graphite Dark', 'Solarized', 'System']),
-                    _switchRow('Hide sensitive items', 'Hide restricted and wellness-related items from browsing.', _hideSensitiveItems, (value) => setState(() => _hideSensitiveItems = value)),
-                    _switchRow('Enable sounds', 'Play sounds for order milestones and rider updates.', _soundEnabled, (value) => setState(() => _soundEnabled = value)),
+                    _themeRow(context, preferences),
+                    _switchRow(
+                      'Hide sensitive items',
+                      'Hide wellness and restricted products from browse screens.',
+                      preferences.hideSensitiveItems,
+                      preferences.setHideSensitiveItems,
+                    ),
+                    _switchRow(
+                      'Enable sounds',
+                      'Play a light system bell sound when sounds are enabled.',
+                      preferences.soundEnabled,
+                      preferences.setSoundEnabled,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _sectionCard(
                   title: 'Your information',
                   children: [
-                    _navRow(Icons.location_on_outlined, 'Address book', user?.address.isNotEmpty == true ? user!.address : 'Home, office, and saved places'),
-                    _navRow(Icons.favorite_border, 'Your wishlist', 'Save items for later restocks'),
-                    _navRow(Icons.payment_outlined, 'Payment methods', 'Cards, UPI, COD, and billing preferences'),
-                    _navRow(Icons.receipt_long_outlined, 'GST details', 'Business invoices and saved tax info'),
-                    _navRow(Icons.redeem_outlined, 'Promo codes', 'Redeem active offers like FREEDEL, SAVE50, WELCOME100'),
-                    _navRow(Icons.card_giftcard_outlined, 'Claim gift card', 'Apply gift balances and campaign rewards'),
-                    _navRow(Icons.stars_outlined, 'Collected rewards', 'Loyalty milestones, cashback, and partner perks'),
+                    _navRow(context, Icons.location_on_outlined, 'Address book', user?.address.isNotEmpty == true ? user!.address : 'Manage your saved delivery address'),
+                    _navRow(context, Icons.favorite_border, 'Your wishlist', 'Save products you want to buy later'),
+                    _navRow(context, Icons.payment_outlined, 'Payment methods', 'Manage UPI, COD, and billing preferences'),
+                    _navRow(context, Icons.receipt_long_outlined, 'GST details', 'Saved business invoice details'),
+                    _navRow(context, Icons.redeem_outlined, 'Promo codes', 'Only verified store and platform coupons appear here'),
+                    _navRow(context, Icons.card_giftcard_outlined, 'Claim gift card', 'Apply available gift card balances'),
+                    _navRow(context, Icons.stars_outlined, 'Collected rewards', 'Track loyalty and order rewards'),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _sectionCard(
                   title: 'Security and access',
                   children: [
-                    _switchRow('Two-factor verification', 'Keep OTP verification enabled for secure account changes.', _twoFactorEnabled, (value) => setState(() => _twoFactorEnabled = value)),
-                    _switchRow('Biometric unlock', 'Use fingerprint or face unlock when supported on device.', _biometricsEnabled, (value) => setState(() => _biometricsEnabled = value)),
-                    _navRow(Icons.mail_outline, 'Password login', user?.email.isNotEmpty == true ? user!.email : 'Add email and password for faster login'),
-                    _navRow(Icons.privacy_tip_outlined, 'Account privacy', 'Control data visibility and account permissions'),
+                    _switchRow(
+                      'Two-factor verification',
+                      'Require OTP verification during sensitive account changes.',
+                      preferences.twoFactorEnabled,
+                      preferences.setTwoFactorEnabled,
+                    ),
+                    _switchRow(
+                      'Biometric unlock',
+                      'Use biometric unlock when supported on this device.',
+                      preferences.biometricUnlock,
+                      preferences.setBiometricUnlock,
+                    ),
+                    _switchRow(
+                      'Auto login',
+                      'Stay signed in on this device until you log out manually.',
+                      preferences.autoLogin,
+                      preferences.setAutoLogin,
+                    ),
+                    _navRow(context, Icons.mail_outline, 'Password login', user?.email.isNotEmpty == true ? user!.email : 'No email password configured yet'),
+                    _navRow(context, Icons.privacy_tip_outlined, 'Account privacy', 'Control account safety and personal data preferences'),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _sectionCard(
                   title: 'Preferences',
                   children: [
-                    _switchRow('Order notifications', 'Receive rider movement, packing, and delivery alerts.', _orderNotifications, (value) => setState(() => _orderNotifications = value)),
-                    _switchRow('Marketing updates', 'Receive new offers, launches, and rewards campaigns.', _marketingNotifications, (value) => setState(() => _marketingNotifications = value)),
-                    _navRow(Icons.help_outline, 'Help and support', 'Chat, call, and report delivery or billing issues'),
-                    _navRow(Icons.share_outlined, 'Share the app', 'Invite friends and earn referral rewards'),
-                    _navRow(Icons.info_outline, 'About ZyroMart', 'Version, company info, and platform details'),
+                    _switchRow(
+                      'Order notifications',
+                      'Receive preparation, dispatch, and delivery updates.',
+                      preferences.orderNotifications,
+                      preferences.setOrderNotifications,
+                    ),
+                    _switchRow(
+                      'Marketing updates',
+                      'Receive new launches, store campaigns, and rewards.',
+                      preferences.marketingNotifications,
+                      preferences.setMarketingNotifications,
+                    ),
+                    _navRow(context, Icons.help_outline, 'Help and support', 'Chat, call, or report an issue'),
+                    _navRow(context, Icons.share_outlined, 'Share the app', 'Share ZyroMart with friends and family'),
+                    _navRow(context, Icons.info_outline, 'About ZyroMart', 'App information and version details'),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -204,6 +230,37 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _themeRow(BuildContext context, AppPreferencesService preferences) {
+    final current = switch (preferences.themeMode) {
+      ThemeMode.dark => 'Dark',
+      ThemeMode.system => 'System',
+      ThemeMode.light => 'Light',
+    };
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Theme style', style: TextStyle(fontWeight: FontWeight.w600)),
+      trailing: DropdownButton<String>(
+        value: current,
+        underline: const SizedBox.shrink(),
+        items: const [
+          DropdownMenuItem(value: 'Light', child: Text('Light')),
+          DropdownMenuItem(value: 'Dark', child: Text('Dark')),
+          DropdownMenuItem(value: 'System', child: Text('System')),
+        ],
+        onChanged: (newValue) {
+          if (newValue == null) return;
+          final mode = switch (newValue) {
+            'Dark' => ThemeMode.dark,
+            'System' => ThemeMode.system,
+            _ => ThemeMode.light,
+          };
+          preferences.setThemeMode(mode);
+        },
       ),
     );
   }
@@ -234,13 +291,18 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
     );
   }
 
-  Widget _navRow(IconData icon, String title, String subtitle) {
+  Widget _navRow(BuildContext context, IconData icon, String title, String subtitle) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: AppTheme.textMedium),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$title is available in this account section.')),
+        );
+      },
     );
   }
 
@@ -254,25 +316,10 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
     );
   }
 
-  Widget _dropdownRow(String title, String value, List<String> options) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: DropdownButton<String>(
-        value: value,
-        underline: const SizedBox.shrink(),
-        items: options.map((option) => DropdownMenuItem(value: option, child: Text(option))).toList(),
-        onChanged: (newValue) {
-          if (newValue == null) return;
-          setState(() => _appearance = newValue);
-        },
-      ),
-    );
-  }
-
   Future<void> _showPasswordSetup(BuildContext context, AuthService auth) async {
     final emailController = TextEditingController(text: auth.currentUser?.email ?? '');
     final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     await showModalBottomSheet<void>(
@@ -281,53 +328,56 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: StatefulBuilder(
-            builder: (context, setModalState) {
-              return Padding(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Set up email and password', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: emailController,
-                        decoration: const InputDecoration(labelText: 'Email'),
-                        validator: (value) => (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(labelText: 'Password'),
-                        validator: (value) => (value == null || value.length < 8) ? 'Minimum 8 characters' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            if (!formKey.currentState!.validate()) return;
-                            final success = await auth.setupEmailPassword(
-                              email: emailController.text,
-                              password: passwordController.text,
-                            );
-                            if (!context.mounted) return;
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(success ? 'Password login saved' : (auth.errorMessage ?? 'Could not save password'))),
-                            );
-                          },
-                          child: const Text('Save credentials'),
-                        ),
-                      ),
-                    ],
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Set up email and password', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: emailController,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator: (value) => (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
                   ),
-                ),
-              );
-            },
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                    validator: (value) => (value == null || value.length < 8) ? 'Minimum 8 characters' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: confirmController,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Confirm password'),
+                    validator: (value) => value != passwordController.text ? 'Passwords do not match' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (!formKey.currentState!.validate()) return;
+                        final success = await auth.setupEmailPassword(
+                          email: emailController.text,
+                          password: passwordController.text,
+                        );
+                        if (!context.mounted) return;
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(success ? 'Password login saved' : (auth.errorMessage ?? 'Could not save password'))),
+                        );
+                      },
+                      child: const Text('Save credentials'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -338,7 +388,7 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
     final user = auth.currentUser;
     if (user == null) return;
     final nameController = TextEditingController(text: user.name);
-    final emailController = TextEditingController(text: user.email);
+    final phoneController = TextEditingController(text: user.phone);
     final addressController = TextEditingController(text: user.address);
 
     await showModalBottomSheet<void>(
@@ -352,11 +402,17 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Edit account details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                const CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Color(0xFFE9D4B0),
+                  child: Icon(Icons.camera_alt_outlined, color: AppTheme.textDark),
+                ),
+                const SizedBox(height: 10),
+                const Text('Change profile details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 16),
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
                 const SizedBox(height: 12),
-                TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+                TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone number')),
                 const SizedBox(height: 12),
                 TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
                 const SizedBox(height: 16),
@@ -366,8 +422,8 @@ class _CustomerProfileScreenState extends State<_CustomerProfileScreen> {
                     onPressed: () async {
                       final success = await auth.updateProfile(
                         name: nameController.text,
-                        email: emailController.text,
                         address: addressController.text,
+                        phone: phoneController.text,
                         role: user.role,
                       );
                       if (!context.mounted) return;

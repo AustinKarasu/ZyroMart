@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -18,9 +15,7 @@ class OrderService extends ChangeNotifier {
   static const double _defaultServiceRadiusKm = 5;
 
   final Distance _distance = const Distance();
-  final Random _random = Random();
   final List<Order> _orders = [];
-  final Map<String, Timer> _progressTimers = {};
   final Map<String, DeliveryFeedback> _feedbackByOrderId = {};
   final List<AppNotification> _notifications = [];
   final Map<String, double> _heldStoreEarnings = {};
@@ -33,7 +28,6 @@ class OrderService extends ChangeNotifier {
   final Map<String, bool> _settlementReleasedByOrderId = {};
   final Map<String, bool> _deliveryPartnerPromptedByOrderId = {};
   final Map<String, bool> _customerPromptedByOrderId = {};
-  Timer? _simulationTimer;
   AppUser? _viewer;
 
   OrderService() {
@@ -42,13 +36,11 @@ class OrderService extends ChangeNotifier {
       _serviceRadiusByStoreId[store.id] = _defaultServiceRadiusKm;
     }
     for (final order in _orders) {
-      _ensureProgressForOrder(order);
       _initializeLedgerForOrder(order);
       if (order.status == OrderStatus.delivered) {
         _releaseSettlement(order);
       }
     }
-    _startDeliverySimulation();
   }
 
   void bindUser(AppUser? user) {
@@ -93,6 +85,16 @@ class OrderService extends ChangeNotifier {
 
   List<Order> get storeOrders =>
       _visibleOrders.where((order) => order.status != OrderStatus.cancelled).toList();
+
+  bool canCustomerCancel(Order order) {
+    if (_viewer?.role != UserRole.customer || _viewer?.id != order.customerId) {
+      return false;
+    }
+    if (order.status != OrderStatus.placed && order.status != OrderStatus.confirmed) {
+      return false;
+    }
+    return DateTime.now().difference(order.placedAt) <= const Duration(minutes: 5);
+  }
 
   Order? getOrder(String id) {
     final matches = _orders.where((order) => order.id == id);
@@ -259,7 +261,6 @@ class OrderService extends ChangeNotifier {
     _orders.insert(0, order);
     _initializeLedgerForOrder(order);
     _pushOrderNotifications(order);
-    _ensureProgressForOrder(order);
     notifyListeners();
     return order;
   }
@@ -292,7 +293,6 @@ class OrderService extends ChangeNotifier {
     }
 
     if (status == OrderStatus.delivered) {
-      _progressTimers.remove(order.id)?.cancel();
       _releaseSettlement(order);
       _createNotification(
         recipientUserId: order.customerId,
@@ -313,7 +313,6 @@ class OrderService extends ChangeNotifier {
     }
 
     if (status == OrderStatus.cancelled) {
-      _progressTimers.remove(order.id)?.cancel();
       _clearHeldSettlement(order);
     }
 
@@ -397,102 +396,31 @@ class OrderService extends ChangeNotifier {
     return transitions[current]?.contains(next) ?? false;
   }
 
-  void _ensureProgressForOrder(Order order) {
-    if (_progressTimers.containsKey(order.id) ||
-        order.status == OrderStatus.delivered ||
-        order.status == OrderStatus.cancelled ||
-        order.status == OrderStatus.outForDelivery) {
-      return;
+  bool cancelOrder(String orderId) {
+    final order = getOrder(orderId);
+    if (order == null || !canCustomerCancel(order)) {
+      return false;
     }
 
-    _progressTimers[order.id] =
-        Timer.periodic(const Duration(seconds: 8), (timer) {
-      if (order.status == OrderStatus.cancelled ||
-          order.status == OrderStatus.delivered) {
-        timer.cancel();
-        _progressTimers.remove(order.id);
-        return;
-      }
-
-      switch (order.status) {
-        case OrderStatus.placed:
-          order.status = OrderStatus.confirmed;
-          break;
-        case OrderStatus.confirmed:
-          order.status = OrderStatus.preparing;
-          break;
-        case OrderStatus.preparing:
-          order.status = OrderStatus.readyForPickup;
-          _createNotification(
-            recipientUserId: order.customerId,
-            category: 'order',
-            title: 'Packed and ready',
-            body: '${order.storeName} has packed order ${order.id}. A delivery partner will pick it up shortly.',
-            orderId: order.id,
-          );
-          break;
-        case OrderStatus.readyForPickup:
-          final deliveryPartner = _assignDeliveryPartner(order);
-          order.status = OrderStatus.outForDelivery;
-          order.deliveryPersonId = deliveryPartner.id;
-          order.deliveryPersonName = deliveryPartner.name;
-          order.deliveryPersonLocation = deliveryPartner.location;
-          _createNotification(
-            recipientUserId: order.customerId,
-            category: 'order',
-            title: 'Rider assigned',
-            body: '${deliveryPartner.name} has picked up order ${order.id}.',
-            orderId: order.id,
-          );
-          timer.cancel();
-          _progressTimers.remove(order.id);
-          break;
-        case OrderStatus.outForDelivery:
-        case OrderStatus.delivered:
-        case OrderStatus.cancelled:
-          timer.cancel();
-          _progressTimers.remove(order.id);
-          return;
-      }
-      notifyListeners();
-    });
-  }
-
-  void _startDeliverySimulation() {
-    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      var changed = false;
-      for (final order in _orders) {
-        if (order.status == OrderStatus.outForDelivery &&
-            order.deliveryPersonLocation != null) {
-          final currentLoc = order.deliveryPersonLocation!;
-          final targetLoc = order.customerLocation;
-          final newLat = currentLoc.latitude +
-              (targetLoc.latitude - currentLoc.latitude) * 0.16 +
-              (_random.nextDouble() - 0.5) * 0.00035;
-          final newLng = currentLoc.longitude +
-              (targetLoc.longitude - currentLoc.longitude) * 0.16 +
-              (_random.nextDouble() - 0.5) * 0.00035;
-          order.deliveryPersonLocation = LatLng(newLat, newLng);
-          if ((targetLoc.latitude - newLat).abs() < 0.0008 &&
-              (targetLoc.longitude - newLng).abs() < 0.0008) {
-            order.status = OrderStatus.delivered;
-            _progressTimers.remove(order.id)?.cancel();
-            _releaseSettlement(order);
-            _createNotification(
-              recipientUserId: order.customerId,
-              category: 'order',
-              title: 'Delivered successfully',
-              body: 'Order ${order.id} arrived. Please rate your rider.',
-              orderId: order.id,
-            );
-          }
-          changed = true;
-        }
-      }
-      if (changed) {
-        notifyListeners();
-      }
-    });
+    order.status = OrderStatus.cancelled;
+    _clearHeldSettlement(order);
+    _createNotification(
+      recipientUserId: order.customerId,
+      category: 'order',
+      title: 'Order cancelled',
+      body: 'Order ${order.id} was cancelled within the allowed window.',
+      orderId: order.id,
+    );
+    final store = _storeForOrder(order);
+    _createNotification(
+      recipientUserId: store.ownerId,
+      category: 'order',
+      title: 'Order cancelled by customer',
+      body: 'Order ${order.id} was cancelled before fulfillment.',
+      orderId: order.id,
+    );
+    notifyListeners();
+    return true;
   }
 
   void _initializeLedgerForOrder(Order order) {
@@ -645,13 +573,4 @@ class OrderService extends ChangeNotifier {
     return share < 0 ? 0 : share;
   }
 
-  @override
-  void dispose() {
-    _simulationTimer?.cancel();
-    for (final timer in _progressTimers.values) {
-      timer.cancel();
-    }
-    _progressTimers.clear();
-    super.dispose();
-  }
 }

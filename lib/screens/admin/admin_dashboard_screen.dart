@@ -211,7 +211,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           SizedBox(height: 10),
                           Text(
-                            'This target is isolated from customer, store owner, and delivery flows. Build it with flutter build apk -t lib/admin_main.dart for a dedicated admin application package.',
+                            'This target is isolated from customer, store owner, and delivery flows. Build it with flutter build apk --flavor admin -t lib/admin_main.dart for a dedicated admin application package.',
                             style: TextStyle(
                               color: AppTheme.textMedium,
                               height: 1.5,

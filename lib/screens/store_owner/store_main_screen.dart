@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import 'store_dashboard_screen.dart';
-import 'store_products_screen.dart';
 import 'store_orders_screen.dart';
+import 'store_products_screen.dart';
 
 class StoreMainScreen extends StatefulWidget {
   const StoreMainScreen({super.key});
@@ -47,6 +49,9 @@ class _StoreSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
+    final preferences = context.watch<AppPreferencesService>();
+    final user = auth.currentUser;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Store Settings')),
       body: ListView(
@@ -71,13 +76,13 @@ class _StoreSettingsScreen extends StatelessWidget {
                   child: const Icon(Icons.store, color: AppTheme.primaryRed, size: 32),
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('ZyroMart Central', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 4),
-                      Text('123 Main Street, Sector 15', style: TextStyle(color: AppTheme.textMedium, fontSize: 13)),
+                      Text(user?.name ?? 'Store owner', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(user?.address.isNotEmpty == true ? user!.address : 'Update store address and radius for serviceability', style: const TextStyle(color: AppTheme.textMedium, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -85,17 +90,34 @@ class _StoreSettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _buildItem(Icons.access_time, 'Store Hours', '08:00 AM - 10:00 PM'),
-          _buildItem(Icons.phone, 'Phone', '+91 9876543210'),
-          _buildItem(Icons.location_on, 'Address', '123 Main Street, Sector 15, Noida'),
+          _buildItem(Icons.storefront_outlined, 'Store name', user?.name ?? 'Configure store identity'),
+          _buildItem(Icons.phone, 'Phone', user?.phone ?? 'Add store contact number'),
+          _buildItem(Icons.location_on, 'Location', user?.address.isNotEmpty == true ? user!.address : 'Set the exact store address'),
+          _buildItem(Icons.my_location_outlined, 'Service radius', 'Order visibility follows the configured delivery radius'),
+          const SizedBox(height: 16),
+          SwitchListTile.adaptive(
+            value: preferences.orderNotifications,
+            onChanged: preferences.setOrderNotifications,
+            title: const Text('Order notifications'),
+            subtitle: const Text('Get alerts for new, accepted, and cancelled orders.'),
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile.adaptive(
+            value: preferences.autoLogin,
+            onChanged: preferences.setAutoLogin,
+            title: const Text('Auto login'),
+            subtitle: const Text('Stay signed in on this store device until logout.'),
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
           const SizedBox(height: 24),
           ListTile(
-            leading: const Icon(Icons.swap_horiz, color: AppTheme.textMedium),
-            title: const Text('Switch Role'),
+            leading: const Icon(Icons.logout, color: AppTheme.primaryRed),
+            title: const Text('Log out'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
-            onTap: () {
-              auth.logout();
-            },
+            onTap: auth.logout,
             tileColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),

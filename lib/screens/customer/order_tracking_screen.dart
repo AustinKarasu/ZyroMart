@@ -51,7 +51,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      _buildStatusPanel(order),
+                      _buildStatusPanel(context, orderService, order),
                       const SizedBox(height: 14),
                       if (order.deliveryPersonName != null)
                         _buildPartnerCard(order, orderService),
@@ -138,7 +138,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 
-  Widget _buildStatusPanel(Order order) {
+  Widget _buildStatusPanel(
+    BuildContext context,
+    OrderService orderService,
+    Order order,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -207,6 +211,28 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               Text('Delivered', style: TextStyle(color: AppTheme.textLight)),
             ],
           ),
+          if (orderService.canCustomerCancel(order)) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  final cancelled = orderService.cancelOrder(order.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        cancelled
+                            ? 'Order cancelled within the 5-minute window.'
+                            : 'This order can no longer be cancelled.',
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Cancel order'),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -518,3 +544,4 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     }
   }
 }
+

@@ -20,8 +20,12 @@ class _OnboardingAuthScreenState extends State<OnboardingAuthScreen> {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 320),
       child: _showAuth
-          ? _ProfessionalAuthCard(onBack: () => setState(() => _showAuth = false))
-          : _IntroExperience(onContinue: () => setState(() => _showAuth = true)),
+          ? _ProfessionalAuthCard(
+              onBack: () => setState(() => _showAuth = false),
+            )
+          : _IntroExperience(
+              onContinue: () => setState(() => _showAuth = true),
+            ),
     );
   }
 }
@@ -36,18 +40,18 @@ class _IntroExperience extends StatelessWidget {
     final highlights = <(IconData, String, String)>[
       (
         Icons.schedule,
-        '24-hour operations feel',
+        '24-hour delivery promise',
         'Round-the-clock storefront, fulfillment, and account access built for real use.'
       ),
       (
         Icons.verified_user_outlined,
-        'Phone verified access',
-        'Role-based sign in for customers, store owners, and delivery partners.'
+        'Verified access only',
+        'Phone verification for signup and strict role-based sign-in for customer, store owner, and delivery.'
       ),
       (
         Icons.storefront_outlined,
-        'One platform, three apps',
-        'Operations, storefront, and delivery workflows in one polished product.'
+        'One platform, separate operations',
+        'Customer, store, delivery, and admin experiences stay connected while keeping clean boundaries.'
       ),
     ];
 
@@ -77,12 +81,13 @@ class _IntroExperience extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
                       ),
                       child: compact
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
                               children: [hero, const SizedBox(height: 24), card],
                             )
                           : Row(
@@ -124,18 +129,31 @@ class _IntroHero extends StatelessWidget {
           ),
           child: const Text(
             'ZYROMART QUICK COMMERCE',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
           ),
         ),
         const SizedBox(height: 22),
         const Text(
           'Groceries, operations, and delivery in one professional stack.',
-          style: TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900, height: 1.05),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 42,
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+          ),
         ),
         const SizedBox(height: 16),
         Text(
-          'A real entry experience with OTP, password sign-in, profile persistence, and operational dashboards that feel closer to premium quick-commerce products.',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.84), fontSize: 16, height: 1.6),
+          'A real entry experience with OTP signup, password sign-in, persistent roles, and operational dashboards built for actual daily use.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.84),
+            fontSize: 16,
+            height: 1.6,
+          ),
         ),
         const SizedBox(height: 28),
         Wrap(
@@ -167,39 +185,62 @@ class _IntroHighlights extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
             'Built for daily operations',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.textDark),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: AppTheme.textDark,
+            ),
           ),
           const SizedBox(height: 16),
           ...highlights.map(
             (item) => Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xFFF8F4EF), borderRadius: BorderRadius.circular(22)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F4EF),
+                borderRadius: BorderRadius.circular(22),
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 46,
                     height: 46,
-                    decoration: BoxDecoration(color: const Color(0xFFFFE1D4), borderRadius: BorderRadius.circular(14)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFE1D4),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     child: Icon(item.$1, color: AppTheme.primaryRed),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.textDark)),
+                        Text(
+                          item.$2,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textDark,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text(item.$3, style: const TextStyle(color: AppTheme.textMedium, height: 1.45)),
+                        Text(
+                          item.$3,
+                          style: const TextStyle(
+                            color: AppTheme.textMedium,
+                            height: 1.45,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -223,11 +264,12 @@ class _ProfessionalAuthCard extends StatefulWidget {
 }
 
 class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
-  final _nameController = TextEditingController(text: 'Aayan Karasu');
-  final _emailController = TextEditingController(text: 'customer@zyromart.com');
-  final _phoneController = TextEditingController(text: '+919876543220');
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   UserRole _selectedRole = UserRole.customer;
   bool _isSignUp = false;
 
@@ -238,6 +280,7 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
     _phoneController.dispose();
     _otpController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -245,15 +288,22 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final roleSubtitle = switch (_selectedRole) {
-      UserRole.customer => 'Shop the storefront with a verified phone number or saved password.',
-      UserRole.storeOwner => 'Manage catalog, prep, and live incoming orders.',
-      UserRole.delivery => 'Accept trips, navigate routes, and complete deliveries.',
+      UserRole.customer =>
+        'Shop the storefront with verified signup and role-safe password login.',
+      UserRole.storeOwner =>
+        'Manage catalog, prep, radius, and live incoming orders.',
+      UserRole.delivery =>
+        'Accept trips, navigate routes, and complete deliveries.',
     };
 
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7EEE8), Color(0xFFFFFAF7)]),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF7EEE8), Color(0xFFFFFAF7)],
+          ),
         ),
         child: SafeArea(
           child: Center(
@@ -266,7 +316,13 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(32),
-                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 32, offset: Offset(0, 18))],
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 32,
+                        offset: Offset(0, 18),
+                      ),
+                    ],
                   ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -275,22 +331,40 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          TextButton.icon(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back), label: const Text('Back')),
+                          TextButton.icon(
+                            onPressed: widget.onBack,
+                            icon: const Icon(Icons.arrow_back),
+                            label: const Text('Back'),
+                          ),
                           const SizedBox(height: 8),
-                          const Text('Secure access for every role', style: TextStyle(color: AppTheme.textDark, fontSize: 34, fontWeight: FontWeight.w900, height: 1.05)),
+                          const Text(
+                            'Secure access for every role',
+                            style: TextStyle(
+                              color: AppTheme.textDark,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                              height: 1.05,
+                            ),
+                          ),
                           const SizedBox(height: 12),
-                          Text(roleSubtitle, style: const TextStyle(color: AppTheme.textMedium, fontSize: 15, height: 1.55)),
+                          Text(
+                            roleSubtitle,
+                            style: const TextStyle(
+                              color: AppTheme.textMedium,
+                              fontSize: 15,
+                              height: 1.55,
+                            ),
+                          ),
                           const SizedBox(height: 20),
-                          _AuthModeSwitch(isSignUp: _isSignUp, onChanged: (value) => setState(() => _isSignUp = value)),
+                          _AuthModeSwitch(
+                            isSignUp: _isSignUp,
+                            onChanged: (value) => setState(() => _isSignUp = value),
+                          ),
                           const SizedBox(height: 18),
                           _RoleGrid(
                             selectedRole: _selectedRole,
                             onChanged: (role) {
-                              setState(() {
-                                _selectedRole = role;
-                                _emailController.text = _defaultEmailForRole(role);
-                                _phoneController.text = _defaultPhoneForRole(role);
-                              });
+                              setState(() => _selectedRole = role);
                               context.read<AuthService>().selectRole(role);
                             },
                           ),
@@ -298,11 +372,30 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                           if (!_isSignUp)
                             Container(
                               padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(color: const Color(0xFFF3ECE5), borderRadius: BorderRadius.circular(18)),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3ECE5),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
                               child: Row(
                                 children: [
-                                  Expanded(child: _ModeChip(label: 'OTP Login', selected: !auth.isPasswordLogin, onTap: () => context.read<AuthService>().setPasswordMode(false))),
-                                  Expanded(child: _ModeChip(label: 'Password', selected: auth.isPasswordLogin, onTap: () => context.read<AuthService>().setPasswordMode(true))),
+                                  Expanded(
+                                    child: _ModeChip(
+                                      label: 'OTP Login',
+                                      selected: !auth.isPasswordLogin,
+                                      onTap: () => context
+                                          .read<AuthService>()
+                                          .setPasswordMode(false),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _ModeChip(
+                                      label: 'Password',
+                                      selected: auth.isPasswordLogin,
+                                      onTap: () => context
+                                          .read<AuthService>()
+                                          .setPasswordMode(true),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -311,54 +404,133 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
 
                       final formCard = Container(
                         padding: const EdgeInsets.all(22),
-                        decoration: BoxDecoration(color: const Color(0xFFFBF7F2), borderRadius: BorderRadius.circular(26)),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBF7F2),
+                          borderRadius: BorderRadius.circular(26),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(_isSignUp ? 'Create your account' : 'Sign in to continue', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppTheme.textDark)),
+                            Text(
+                              _isSignUp ? 'Create your account' : 'Sign in to continue',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               _isSignUp
-                                  ? 'Verify your phone first, then set email and password later inside account settings.'
+                                  ? 'Email is required for signup. We verify the phone number first and attach the password immediately after OTP verification.'
                                   : auth.isPasswordLogin
-                                      ? 'Use your saved email and password for faster access.'
-                                      : 'A real OTP will be sent through Supabase phone authentication.',
-                              style: const TextStyle(color: AppTheme.textMedium, height: 1.45),
+                                      ? 'Use your email and password. The selected role must match the role saved in your account.'
+                                      : 'Phone OTP sign in does not require an email field.',
+                              style: const TextStyle(
+                                color: AppTheme.textMedium,
+                                height: 1.45,
+                              ),
                             ),
                             const SizedBox(height: 18),
                             if (_isSignUp) ...[
-                              TextField(controller: _nameController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline))),
+                              TextField(
+                                controller: _nameController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: const InputDecoration(
+                                  labelText: 'Full Name',
+                                  prefixIcon: Icon(Icons.person_outline),
+                                ),
+                              ),
                               const SizedBox(height: 14),
                             ],
-                            if (!_isSignUp || !auth.isPasswordLogin) ...[
-                              TextField(controller: _phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined), hintText: '+91 9876543210')),
+                            TextField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              decoration: const InputDecoration(
+                                labelText: 'Phone Number',
+                                prefixIcon: Icon(Icons.phone_outlined),
+                              ),
+                            ),
+                            if (_isSignUp || auth.isPasswordLogin) ...[
                               const SizedBox(height: 14),
-                            ],
-                            TextField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: _isSignUp ? 'Email Address (Optional)' : 'Email Address', prefixIcon: const Icon(Icons.alternate_email))),
-                            if (!_isSignUp && auth.isPasswordLogin) ...[
+                              TextField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                decoration: const InputDecoration(
+                                  labelText: 'Email Address',
+                                  prefixIcon: Icon(Icons.alternate_email),
+                                ),
+                              ),
                               const SizedBox(height: 14),
-                              TextField(controller: _passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline))),
+                              TextField(
+                                controller: _passwordController,
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Password',
+                                  prefixIcon: Icon(Icons.lock_outline),
+                                ),
+                              ),
                             ],
-                            const SizedBox(height: 14),
-                            if (auth.otpRequested && !_isSignUp || (_isSignUp && auth.otpRequested))
-                              TextField(controller: _otpController, keyboardType: TextInputType.number, maxLength: 6, decoration: const InputDecoration(labelText: '6-digit OTP', prefixIcon: Icon(Icons.lock_outline))),
+                            if (_isSignUp) ...[
+                              const SizedBox(height: 14),
+                              TextField(
+                                controller: _confirmPasswordController,
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Confirm Password',
+                                  prefixIcon: Icon(Icons.lock_person_outlined),
+                                ),
+                              ),
+                            ],
+                            if (auth.otpRequested) ...[
+                              const SizedBox(height: 14),
+                              TextField(
+                                controller: _otpController,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                decoration: const InputDecoration(
+                                  labelText: '6-digit OTP',
+                                  prefixIcon: Icon(Icons.lock_outline),
+                                ),
+                              ),
+                            ],
                             if (auth.errorMessage != null) ...[
                               const SizedBox(height: 4),
-                              Text(auth.errorMessage!, style: const TextStyle(color: AppTheme.primaryRed, fontWeight: FontWeight.w700)),
+                              Text(
+                                auth.errorMessage!,
+                                style: const TextStyle(
+                                  color: AppTheme.primaryRed,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                             if (auth.statusMessage != null) ...[
                               const SizedBox(height: 4),
-                              Text(auth.statusMessage!, style: const TextStyle(color: Color(0xFF8A5200), fontWeight: FontWeight.w700)),
+                              Text(
+                                auth.statusMessage!,
+                                style: const TextStyle(
+                                  color: Color(0xFF8A5200),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                             const SizedBox(height: 18),
                             SizedBox(
                               width: double.infinity,
                               height: 56,
                               child: ElevatedButton(
-                                onPressed: auth.isLoading ? null : () => _submit(context, auth),
+                                onPressed: auth.isLoading
+                                    ? null
+                                    : () => _submit(context, auth),
                                 child: auth.isLoading
-                                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white))
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
+                                          color: Colors.white,
+                                        ),
+                                      )
                                     : Text(_buttonLabel(auth)),
                               ),
                             ),
@@ -367,8 +539,22 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                       );
 
                       return compact
-                          ? Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [overview, const SizedBox(height: 24), formCard])
-                          : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: overview), const SizedBox(width: 24), Expanded(child: formCard)]);
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                overview,
+                                const SizedBox(height: 24),
+                                formCard,
+                              ],
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: overview),
+                                const SizedBox(width: 24),
+                                Expanded(child: formCard),
+                              ],
+                            );
                     },
                   ),
                 ),
@@ -382,61 +568,85 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
 
   Future<void> _submit(BuildContext context, AuthService auth) async {
     final messenger = ScaffoldMessenger.of(context);
+
     if (!_isSignUp && auth.isPasswordLogin) {
+      if (!_emailController.text.contains('@')) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Enter a valid email address')),
+        );
+        return;
+      }
       final success = await auth.signInWithPassword(
         email: _emailController.text,
         password: _passwordController.text,
         role: _selectedRole,
       );
       if (success && context.mounted) {
-        messenger.showSnackBar(const SnackBar(content: Text('Signed in with password')));
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Signed in with password')),
+        );
       }
       return;
     }
 
     if (!auth.otpRequested) {
+      if (_isSignUp) {
+        if (_nameController.text.trim().isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Enter your full name')),
+          );
+          return;
+        }
+        if (!_emailController.text.contains('@')) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Enter a valid email address')),
+          );
+          return;
+        }
+        if (_passwordController.text.length < 8) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Password must be at least 8 characters'),
+            ),
+          );
+          return;
+        }
+        if (_passwordController.text != _confirmPasswordController.text) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Passwords do not match')),
+          );
+          return;
+        }
+      }
+
       final success = await auth.requestOtp(
         phone: _phoneController.text,
-        email: _emailController.text,
+        email: _isSignUp ? _emailController.text : null,
+        password: _isSignUp ? _passwordController.text : null,
         name: _nameController.text,
         role: _selectedRole,
       );
       if (success && context.mounted) {
-        messenger.showSnackBar(SnackBar(content: Text(auth.statusMessage ?? 'OTP sent')));
+        messenger.showSnackBar(
+          SnackBar(content: Text(auth.statusMessage ?? 'OTP sent')),
+        );
       }
     } else {
       final success = await auth.verifyOtp(_otpController.text);
       if (!success && context.mounted && auth.errorMessage == null) {
-        messenger.showSnackBar(const SnackBar(content: Text('Could not verify OTP')));
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not verify OTP')),
+        );
       }
     }
   }
 
   String _buttonLabel(AuthService auth) {
     if (!_isSignUp && auth.isPasswordLogin) return 'Sign In';
+    if (_isSignUp) {
+      return auth.otpRequested ? 'Verify and Create Account' : 'Send OTP';
+    }
     return auth.otpRequested ? 'Verify and Continue' : 'Send OTP';
-  }
-
-  String _defaultEmailForRole(UserRole role) {
-    switch (role) {
-      case UserRole.customer:
-        return 'customer@zyromart.com';
-      case UserRole.storeOwner:
-        return 'owner@zyromart.com';
-      case UserRole.delivery:
-        return 'delivery@zyromart.com';
-    }
-  }
-
-  String _defaultPhoneForRole(UserRole role) {
-    switch (role) {
-      case UserRole.customer:
-        return '+919876543220';
-      case UserRole.storeOwner:
-        return '+919876543210';
-      case UserRole.delivery:
-        return '+919876543215';
-    }
   }
 }
 
@@ -450,11 +660,26 @@ class _AuthModeSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: const Color(0xFFF3ECE5), borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3ECE5),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
-          Expanded(child: _ModeChip(label: 'Sign In', selected: !isSignUp, onTap: () => onChanged(false))),
-          Expanded(child: _ModeChip(label: 'Sign Up', selected: isSignUp, onTap: () => onChanged(true))),
+          Expanded(
+            child: _ModeChip(
+              label: 'Sign In',
+              selected: !isSignUp,
+              onTap: () => onChanged(false),
+            ),
+          ),
+          Expanded(
+            child: _ModeChip(
+              label: 'Sign Up',
+              selected: isSignUp,
+              onTap: () => onChanged(true),
+            ),
+          ),
         ],
       ),
     );
@@ -466,7 +691,11 @@ class _ModeChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _ModeChip({required this.label, required this.selected, required this.onTap});
+  const _ModeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -476,8 +705,18 @@ class _ModeChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(14)),
-        child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: selected ? AppTheme.textDark : AppTheme.textMedium, fontWeight: FontWeight.w800)),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? AppTheme.textDark : AppTheme.textMedium,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }
@@ -512,17 +751,30 @@ class _RoleGrid extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected ? const Color(0xFF211311) : Colors.white,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: selected ? const Color(0xFF211311) : const Color(0xFFE8DED5)),
+              border: Border.all(
+                color: selected ? const Color(0xFF211311) : const Color(0xFFE8DED5),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(entry.$3, color: selected ? Colors.white : AppTheme.primaryRed),
                 const SizedBox(height: 14),
-                Text(entry.$2, style: TextStyle(color: selected ? Colors.white : AppTheme.textDark, fontWeight: FontWeight.w800)),
+                Text(
+                  entry.$2,
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppTheme.textDark,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(entry.$4, style: TextStyle(color: selected ? Colors.white70 : AppTheme.textMedium, fontSize: 12)),
+                Text(
+                  entry.$4,
+                  style: TextStyle(
+                    color: selected ? Colors.white70 : AppTheme.textMedium,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
           ),

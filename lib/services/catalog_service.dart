@@ -30,7 +30,7 @@ class CatalogService extends ChangeNotifier {
       final storeRows = await SupabaseService.getStores();
 
       if (categoryRows.isNotEmpty) {
-        _categories = categoryRows.map(_mapCategory).toList();
+        _categories = _mergeCategories(categoryRows.map(_mapCategory).toList());
       }
       if (productRows.isNotEmpty) {
         _products = productRows.map(_mapProduct).toList();
@@ -44,6 +44,17 @@ class CatalogService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  List<Category> _mergeCategories(List<Category> liveCategories) {
+    final merged = [...liveCategories];
+    final existingNames = liveCategories.map((category) => category.name.toLowerCase()).toSet();
+    for (final fallback in MockData.categories) {
+      if (!existingNames.contains(fallback.name.toLowerCase())) {
+        merged.add(fallback);
+      }
+    }
+    return merged;
   }
 
   Category _mapCategory(Map<String, dynamic> row) {

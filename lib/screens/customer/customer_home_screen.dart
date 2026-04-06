@@ -80,7 +80,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Delivering in 13 minutes',
+                        'Delivery under 24hr',
                         style: TextStyle(
                           color: Color(0xFF111111),
                           fontSize: 18,
@@ -552,9 +552,9 @@ class _PromoRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final offers = const [
-      ('FREEDEL', 'Free delivery over eligible carts', Color(0xFFE8F7E9)),
-      ('SAVE50', 'Rs 50 off on family baskets', Color(0xFFFFF0D8)),
-      ('WELCOME100', 'First big order gets a warm welcome', Color(0xFFFFECEA)),
+      ('STORE OFFERS', 'Coupons are issued only by verified stores', Color(0xFFE8F7E9)),
+      ('PLATFORM DEALS', 'Admin-managed campaigns appear here when active', Color(0xFFFFF0D8)),
+      ('REAL INVENTORY', 'Product pricing and availability now follow live store flows', Color(0xFFFFECEA)),
     ];
 
     return SizedBox(
@@ -724,7 +724,7 @@ class _TrendingProductCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Rs ${product.price.toInt()} â€¢ ${product.unit}',
+                    'Rs ${product.price.toInt()} • ${product.unit}',
                     style: const TextStyle(
                       color: AppTheme.textMedium,
                       fontWeight: FontWeight.w600,
@@ -739,4 +739,5 @@ class _TrendingProductCard extends StatelessWidget {
     );
   }
 }
+
 

@@ -115,4 +115,51 @@ class AppTheme {
       fontFamily: 'Roboto',
     );
   }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: const Color(0xFF4BC065),
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFF4BC065),
+        secondary: Color(0xFFF0C85A),
+        surface: Color(0xFF151A1E),
+        error: Color(0xFFFF6D6D),
+      ),
+      scaffoldBackgroundColor: const Color(0xFF0D1215),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF121A1F),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF151A1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF151A1E),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF273038)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF4BC065), width: 2),
+        ),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Color(0xFF121A1F),
+        selectedItemColor: Color(0xFF4BC065),
+        unselectedItemColor: Color(0xFF92A0AC),
+      ),
+      fontFamily: 'Roboto',
+    );
+  }
 }

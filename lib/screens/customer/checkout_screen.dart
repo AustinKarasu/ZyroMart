@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/cart_service.dart';
 import '../../services/location_service.dart';
-import '../../services/mock_data.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 import 'order_tracking_screen.dart';
@@ -20,9 +20,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   static const int _maxAddressLength = 250;
   static const int _maxNotesLength = 300;
 
-  final _addressController = TextEditingController(
-    text: '78 Residency Road, Sector 22, Noida',
-  );
+  final _addressController = TextEditingController();
   final _notesController = TextEditingController();
   final _couponController = TextEditingController();
   String _paymentMethod = 'upi_gpay';
@@ -40,6 +38,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartService>();
     final location = context.watch<LocationService>();
+    final auth = context.watch<AuthService>();
+
+    if (_addressController.text.isEmpty &&
+        (auth.currentUser?.address.isNotEmpty ?? false)) {
+      _addressController.text = auth.currentUser!.address;
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7F2),
@@ -119,7 +123,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       controller: _couponController,
                       textCapitalization: TextCapitalization.characters,
                       decoration: const InputDecoration(
-                        hintText: 'FREEDEL / SAVE50 / WELCOME100',
+                        hintText: 'Enter a verified store or platform coupon',
                         prefixIcon: Icon(Icons.local_offer_outlined),
                       ),
                     ),
@@ -149,18 +153,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 16),
             _sectionCard(
               title: 'Delivery tip',
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [0, 20, 30, 50].map((tip) {
-                  final selected = cart.deliveryTip == tip.toDouble();
-                  final label = tip == 0 ? 'No tip' : 'Rs $tip';
-                  return ChoiceChip(
-                    label: Text(label),
-                    selected: selected,
-                    onSelected: (_) => cart.setDeliveryTip(tip.toDouble()),
-                  );
-                }).toList(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tips are released to the assigned delivery partner only after a successful delivery.',
+                    style: TextStyle(color: AppTheme.textMedium, height: 1.4),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [0, 20, 30, 50].map((tip) {
+                      final selected = cart.deliveryTip == tip.toDouble();
+                      final label = tip == 0 ? 'No tip' : 'Rs $tip';
+                      return ChoiceChip(
+                        label: Text(label),
+                        selected: selected,
+                        onSelected: (_) => cart.setDeliveryTip(tip.toDouble()),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -269,7 +283,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   )
                 : Text(
-                    'Place order • Rs ${cart.grandTotal.toInt()}',
+                    'Place order â€¢ Rs ${cart.grandTotal.toInt()}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -318,14 +332,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Delivery in 24-32 mins',
+                  'Delivery under 24hr',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF1D8C3A),
                   ),
                 ),
                 Text(
-                  'Nearby store matching and live rider updates activate after confirmation.',
+                  'Store radius, assignment, and rider ETA update after the store accepts the order.',
                   style: TextStyle(color: AppTheme.textMedium, fontSize: 12),
                 ),
               ],
@@ -433,6 +447,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    if (!cart.meetsMinimumOrderRequirement) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add at least 3 products before placing an order'),
+        ),
+      );
+      return;
+    }
+
     final customerPhone = auth.currentUser?.phone.trim() ?? '';
     if (customerPhone.isEmpty || customerPhone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -476,7 +499,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       deliveryFee: cart.deliveryFee,
       deliveryAddress: address,
       customerLocation:
-          location.currentLocation ?? auth.currentUser?.location ?? MockData.defaultCustomer.location,
+          location.currentLocation ?? auth.currentUser?.location ?? const LatLng(28.6139, 77.2090),
       platformFee: cart.platformFee,
       handlingFee: cart.handlingFee,
       deliveryTip: cart.deliveryTip,
@@ -496,3 +519,4 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 }
+

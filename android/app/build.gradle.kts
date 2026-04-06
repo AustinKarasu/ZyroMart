@@ -9,6 +9,7 @@ android {
     namespace = "com.zyromart.zyromart"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+    flavorDimensions += "app"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -20,14 +21,23 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.zyromart.zyromart"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    productFlavors {
+        create("storefront") {
+            dimension = "app"
+            applicationId = "com.zyromart.zyromart"
+            resValue("string", "app_name", "ZyroMart")
+        }
+        create("admin") {
+            dimension = "app"
+            applicationId = "com.zyromart.admin"
+            resValue("string", "app_name", "ZyroMart Admin")
+        }
     }
 
     buildTypes {

@@ -19,6 +19,9 @@ class MockData {
     Category(id: 'cat8', name: 'Cleaning', icon: Icons.cleaning_services, color: Colors.teal),
     Category(id: 'cat9', name: 'Baby Care', icon: Icons.child_care, color: Colors.purple),
     Category(id: 'cat10', name: 'Frozen Foods', icon: Icons.ac_unit, color: Colors.cyan),
+    Category(id: 'cat11', name: 'Chips', icon: Icons.local_pizza, color: Colors.deepOrange),
+    Category(id: 'cat12', name: 'Sweets', icon: Icons.icecream, color: Colors.pinkAccent),
+    Category(id: 'cat13', name: 'Chocolates', icon: Icons.cookie_outlined, color: Colors.brown),
   ];
 
   static final List<Product> products = [
@@ -65,6 +68,9 @@ class MockData {
     // Cleaning
     Product(id: 'p27', name: 'Dish Soap (500ml)', description: 'Powerful grease-cutting dish soap with lemon.', price: 65, imageUrl: 'https://picsum.photos/seed/dishsoap/200/200', categoryId: 'cat8', storeId: 's1', unit: 'bottle', rating: 4.2, reviewCount: 189),
     Product(id: 'p28', name: 'Floor Cleaner (1L)', description: 'Disinfecting floor cleaner with lavender fragrance.', price: 120, imageUrl: 'https://picsum.photos/seed/cleaner/200/200', categoryId: 'cat8', storeId: 's1', unit: 'bottle', rating: 4.1, reviewCount: 234),
+    Product(id: 'p29', name: 'Masala Chips', description: 'Crispy masala potato chips for quick snacking.', price: 25, imageUrl: 'https://picsum.photos/seed/masalachips/200/200', categoryId: 'cat11', storeId: 's1', unit: 'pack', rating: 4.2, reviewCount: 154),
+    Product(id: 'p30', name: 'Gulab Jamun Tin', description: 'Soft syrup-soaked gulab jamun ready to serve.', price: 165, imageUrl: 'https://picsum.photos/seed/gulabjamun/200/200', categoryId: 'cat12', storeId: 's1', unit: 'tin', rating: 4.6, reviewCount: 118),
+    Product(id: 'p31', name: 'Dark Chocolate Bar', description: 'Rich dark chocolate with smooth cocoa finish.', price: 95, imageUrl: 'https://picsum.photos/seed/darkchocolate/200/200', categoryId: 'cat13', storeId: 's1', unit: 'bar', rating: 4.5, reviewCount: 221),
   ];
 
   static final List<Store> stores = [
