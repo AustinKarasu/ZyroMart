@@ -64,6 +64,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       _buildAddressCard(order),
                       const SizedBox(height: 14),
                       _buildItemsCard(order),
+                      const SizedBox(height: 14),
+                      _buildTimelineCard(orderService, order),
+                      if (order.status == OrderStatus.delivered)
+                        const SizedBox(height: 14),
+                      if (order.status == OrderStatus.delivered)
+                        _buildProofCard(orderService, order),
                     ],
                   ),
                 ),
@@ -396,6 +402,107 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 letterSpacing: 10,
                 fontWeight: FontWeight.w900,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineCard(OrderService orderService, Order order) {
+    final events = orderService.statusEventsForOrder(order.id);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Live order timeline',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          ),
+          const SizedBox(height: 12),
+          if (events.isEmpty)
+            const Text(
+              'Status changes will appear here as the store and delivery partner update the order.',
+              style: TextStyle(color: AppTheme.textMedium),
+            )
+          else
+            ...events.map(
+              (event) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryRed,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (event['next_status'] ?? 'updated')
+                                .toString()
+                                .replaceAll('_', ' '),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            (event['notes'] ?? '').toString(),
+                            style: const TextStyle(
+                              color: AppTheme.textMedium,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProofCard(OrderService orderService, Order order) {
+    final proof = orderService.proofOfDeliveryForOrder(order.id);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Proof of delivery',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            proof == null
+                ? 'Delivery proof will be stored after OTP verification is completed.'
+                : 'OTP verified and handed to ${(proof['handed_to_name'] ?? order.customerName).toString()}.',
+            style: const TextStyle(
+              color: AppTheme.textMedium,
+              height: 1.35,
             ),
           ),
         ],

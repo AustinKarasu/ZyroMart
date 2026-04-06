@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:provider/provider.dart';
 import '../../models/order.dart';
+import '../../services/location_service.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -18,6 +19,7 @@ class DeliveryDetailScreen extends StatelessWidget {
       body: Consumer<OrderService>(
         builder: (context, orderService, _) {
           final currentOrder = orderService.getOrder(order.id) ?? order;
+          final locationService = context.watch<LocationService>();
           return Column(
             children: [
               // Map
@@ -180,6 +182,29 @@ class DeliveryDetailScreen extends StatelessWidget {
                                 ),
                               ),
                             ],
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAF4FF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.route_rounded,
+                                      color: AppTheme.info, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      locationService.hasUsableLocation
+                                          ? 'Live rider GPS is available. Tap update below to refresh the route.'
+                                          : 'Enable device location to publish live route updates for this order.',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -231,6 +256,7 @@ class DeliveryDetailScreen extends StatelessWidget {
       bottomNavigationBar: Consumer<OrderService>(
         builder: (context, orderService, _) {
           final currentOrder = orderService.getOrder(order.id) ?? order;
+          final locationService = context.read<LocationService>();
           if (currentOrder.status == OrderStatus.delivered ||
               currentOrder.status == OrderStatus.cancelled) {
             return const SizedBox.shrink();
@@ -243,102 +269,146 @@ class DeliveryDetailScreen extends StatelessWidget {
             ),
             child: SizedBox(
               height: 50,
-              child: ElevatedButton(
-                onPressed: () async {
-                  if (currentOrder.status == OrderStatus.readyForPickup) {
-                    orderService.updateOrderStatus(
-                      currentOrder.id,
-                      OrderStatus.outForDelivery,
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Order picked up. Collect the customer OTP at handoff to complete delivery.',
-                        ),
-                        backgroundColor: AppTheme.success,
-                      ),
-                    );
-                    return;
-                  }
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await locationService.refreshLocation();
+                        final liveLocation = locationService.currentLocation;
+                        if (liveLocation == null) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  locationService.errorMessage ??
+                                      'Could not update live location.',
+                                ),
+                                backgroundColor: AppTheme.primaryRed,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                        await orderService.updateDeliveryLocation(
+                          orderId: currentOrder.id,
+                          location: liveLocation,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Live route updated for this delivery.'),
+                              backgroundColor: AppTheme.info,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.my_location_rounded),
+                      label: const Text('Update'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (currentOrder.status == OrderStatus.readyForPickup) {
+                          orderService.updateOrderStatus(
+                            currentOrder.id,
+                            OrderStatus.outForDelivery,
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Order picked up. Collect the customer OTP at handoff to complete delivery.',
+                              ),
+                              backgroundColor: AppTheme.success,
+                            ),
+                          );
+                          return;
+                        }
 
-                  final verified = await showModalBottomSheet<bool>(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (context) => Padding(
-                      padding: EdgeInsets.only(
-                        left: 20,
-                        right: 20,
-                        top: 20,
-                        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Verify customer OTP',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
+                        final verified = await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (context) => Padding(
+                            padding: EdgeInsets.only(
+                              left: 20,
+                              right: 20,
+                              top: 20,
+                              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Verify customer OTP',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Ask the customer for the 4-digit delivery code shown in their order tracking screen.',
+                                ),
+                                const SizedBox(height: 16),
+                                TextField(
+                                  controller: otpController,
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 4,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Delivery OTP',
+                                    prefixIcon: Icon(Icons.pin_outlined),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      final success = orderService.completeDeliveryWithCode(
+                                        currentOrder.id,
+                                        otpController.text,
+                                      );
+                                      Navigator.pop(context, success);
+                                    },
+                                    child: const Text('Verify and complete'),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Ask the customer for the 4-digit delivery code shown in their order tracking screen.',
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: otpController,
-                            keyboardType: TextInputType.number,
-                            maxLength: 4,
-                            decoration: const InputDecoration(
-                              labelText: 'Delivery OTP',
-                              prefixIcon: Icon(Icons.pin_outlined),
+                        );
+                        if (verified == true) {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Order delivered successfully.'),
+                                backgroundColor: AppTheme.success,
+                              ),
+                            );
+                          }
+                        } else if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Incorrect delivery OTP.'),
+                              backgroundColor: AppTheme.primaryRed,
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                final success = orderService.completeDeliveryWithCode(
-                                  currentOrder.id,
-                                  otpController.text,
-                                );
-                                Navigator.pop(context, success);
-                              },
-                              child: const Text('Verify and complete'),
-                            ),
-                          ),
-                        ],
+                          );
+                        }
+                      },
+                      child: Text(
+                        currentOrder.status == OrderStatus.readyForPickup
+                            ? 'Pick Up Order'
+                            : 'Mark as Delivered',
+                        style: const TextStyle(fontSize: 16),
                       ),
                     ),
-                  );
-                  if (verified == true) {
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Order delivered successfully.'),
-                          backgroundColor: AppTheme.success,
-                        ),
-                      );
-                    }
-                  } else if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Incorrect delivery OTP.'),
-                        backgroundColor: AppTheme.primaryRed,
-                      ),
-                    );
-                  }
-                },
-                child: Text(
-                  currentOrder.status == OrderStatus.readyForPickup
-                      ? 'Pick Up Order'
-                      : 'Mark as Delivered',
-                  style: const TextStyle(fontSize: 16),
-                ),
+                  ),
+                ],
               ),
             ),
           );

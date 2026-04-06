@@ -203,6 +203,19 @@ class OrderService extends ChangeNotifier {
       'deliveryFeedbackCount': _feedbackByOrderId.length,
       'averageDeliveryRating': avgRating,
       'serviceRadiusCount': _serviceRadiusByStoreId.length,
+      'statusEventCount': _statusEventsByOrderId.values.fold<int>(
+        0,
+        (sum, bucket) => sum + bucket.length,
+      ),
+      'activeReservationCount': _inventoryReservationsByOrderId.values.fold<int>(
+        0,
+        (sum, bucket) =>
+            sum +
+            bucket
+                .where((reservation) => reservation['reservation_status'] == 'reserved')
+                .length,
+      ),
+      'proofOfDeliveryCount': _proofOfDeliveryByOrderId.length,
     };
   }
 
@@ -221,6 +234,34 @@ class OrderService extends ChangeNotifier {
   void updateStoreRadius(String storeId, double radiusKm) {
     _serviceRadiusByStoreId[storeId] = radiusKm.clamp(1, 15);
     notifyListeners();
+  }
+
+  int activeReservationCountForStore(String storeId) {
+    return _inventoryReservationsByOrderId.values
+        .expand((bucket) => bucket)
+        .where((reservation) =>
+            reservation['store_id'] == storeId &&
+            reservation['reservation_status'] == 'reserved')
+        .length;
+  }
+
+  double averageOrderValueForStore(String storeId) {
+    final storeOrders = _orders.where((order) => order.storeId == storeId).toList();
+    if (storeOrders.isEmpty) {
+      return 0;
+    }
+    final total = storeOrders.fold<double>(
+      0,
+      (sum, order) => sum + order.grandTotal,
+    );
+    return total / storeOrders.length;
+  }
+
+  int outForDeliveryCountForStore(String storeId) {
+    return _orders
+        .where((order) =>
+            order.storeId == storeId && order.status == OrderStatus.outForDelivery)
+        .length;
   }
 
   Order placeOrder({
@@ -374,6 +415,39 @@ class OrderService extends ChangeNotifier {
       return false;
     }
     return updateOrderStatus(orderId, OrderStatus.delivered);
+  }
+
+  Future<void> updateDeliveryLocation({
+    required String orderId,
+    required LatLng location,
+    double? accuracyMeters,
+    double? speedKmph,
+    double? headingDegrees,
+  }) async {
+    final order = getOrder(orderId);
+    if (order == null) return;
+    order.deliveryPersonLocation = location;
+    final remainingMeters = _distance.as(
+      LengthUnit.Meter,
+      location,
+      order.customerLocation,
+    );
+    final etaMinutes = (remainingMeters / 320).clamp(1, 120).round();
+    final payload = <String, dynamic>{
+      'order_id': orderId,
+      'delivery_person_id': order.deliveryPersonId ?? _viewer?.id,
+      'latitude': location.latitude,
+      'longitude': location.longitude,
+      'accuracy_meters': accuracyMeters,
+      'speed_kmph': speedKmph,
+      'heading_degrees': headingDegrees,
+      'eta_minutes': etaMinutes,
+      'captured_at': DateTime.now().toIso8601String(),
+    };
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.insertDeliveryRouteUpdate(payload).catchError((_) {});
+    }
+    notifyListeners();
   }
 
   bool submitDeliveryFeedback({

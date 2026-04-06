@@ -178,6 +178,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 24),
                     _MetricsPanel(snapshot: snapshot, currency: currency),
                     const SizedBox(height: 24),
+                    _LiveSignalsPanel(snapshot: snapshot),
+                    const SizedBox(height: 24),
+                    _OperationsPanel(snapshot: snapshot),
+                    const SizedBox(height: 24),
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -218,6 +222,145 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LiveSignalsPanel extends StatelessWidget {
+  const _LiveSignalsPanel({required this.snapshot});
+
+  final AdminDashboardSnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final signals = snapshot?.liveSignals ?? const <String, dynamic>{};
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Live Signals',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _signalChip('Pending', '${signals['pending_orders'] ?? 0}'),
+              _signalChip('Proof Ready', '${signals['proof_of_delivery_ready'] ?? 0}'),
+              _signalChip('Active Customers', '${signals['active_customers'] ?? 0}'),
+              _signalChip('Riders Online', '${signals['active_delivery_partners'] ?? 0}'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _signalChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7FB),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _OperationsPanel extends StatelessWidget {
+  const _OperationsPanel({required this.snapshot});
+
+  final AdminDashboardSnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final events = snapshot?.recentOperationalEvents ?? const [];
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Operational Feed',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 14),
+          if (events.isEmpty)
+            const Text(
+              'Recent order and platform events will appear here once traffic starts moving through the live backend.',
+              style: TextStyle(color: AppTheme.textMedium, height: 1.45),
+            )
+          else
+            ...events.map(
+              (event) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        color: event['color'] as Color? ?? AppTheme.primaryRed,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (event['title'] ?? '').toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            (event['subtitle'] ?? '').toString(),
+                            style: const TextStyle(
+                              color: AppTheme.textMedium,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

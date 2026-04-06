@@ -61,6 +61,22 @@ class CatalogService extends ChangeNotifier {
     return List.unmodifiable(matches);
   }
 
+  List<Product> recommendedProducts({
+    int limit = 8,
+    Set<String> dietFilters = const {},
+  }) {
+    final results = _products
+        .where((product) =>
+            dietFilters.isEmpty || _matchesDietFilter(product, dietFilters))
+        .toList()
+      ..sort((a, b) {
+        final scoreA = (a.rating * 100) + a.reviewCount;
+        final scoreB = (b.rating * 100) + b.reviewCount;
+        return scoreB.compareTo(scoreA);
+      });
+    return results.take(limit).toList();
+  }
+
   Future<void> load() async {
     if (!SupabaseService.isInitialized) return;
 

@@ -22,6 +22,7 @@ class CustomerHomeScreen extends StatefulWidget {
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _dietFilters = {};
 
   @override
   void dispose() {
@@ -37,15 +38,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final freeDeliveryLeft = cart.amountForFreeDelivery;
     final products = catalog.products;
     final categories = catalog.categories;
-    final filteredProducts = _searchQuery.isEmpty
-        ? products
-        : products.where((p) {
-            final query = _searchQuery.toLowerCase();
-            return p.name.toLowerCase().contains(query) ||
-                p.description.toLowerCase().contains(query);
-          }).toList();
-    final spotlightProducts = products.take(4).toList();
+    final filteredProducts = catalog.smartSearch(
+      _searchQuery,
+      dietFilters: _dietFilters,
+    );
+    final spotlightProducts = catalog.recommendedProducts(
+      limit: 4,
+      dietFilters: _dietFilters,
+    );
     final trendingProducts = products.skip(4).take(6).toList();
+    final recommendationProducts = catalog.recommendedProducts(
+      limit: 6,
+      dietFilters: _dietFilters,
+    );
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF111315) : const Color(0xFFF6F7F2),
@@ -195,36 +200,58 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) => setState(() => _searchQuery = v),
-                decoration: InputDecoration(
-                  hintText: 'Search atta, chips, fruits, dairy, beauty',
-                  prefixIcon: const Icon(Icons.search, color: AppTheme.textLight),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search atta, chips, fruits, dairy, beauty',
+                      prefixIcon:
+                          const Icon(Icons.search, color: AppTheme.textLight),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor:
+                          isDark ? const Color(0xFF1B1F23) : Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF1D8C3A),
+                          width: 1.6,
+                        ),
+                      ),
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _dietChip('Vegetarian'),
+                        _dietChip('Vegan'),
+                        _dietChip('High-Protein'),
+                        _dietChip('Snacks'),
+                      ],
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: const BorderSide(color: Color(0xFF1D8C3A), width: 1.6),
-                  ),
-                ),
+                ],
               ),
             ),
           ),
@@ -323,6 +350,45 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   separatorBuilder: (context, index) => const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final product = trendingProducts[index];
+                    return _TrendingProductCard(product: product);
+                  },
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 28, 16, 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Smart basket suggestions',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : AppTheme.textDark,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Color(0xFF1D8C3A),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 228,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: recommendationProducts.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final product = recommendationProducts[index];
                     return _TrendingProductCard(product: product);
                   },
                 ),
@@ -442,6 +508,32 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dietChip(String label) {
+    final selected = _dietFilters.contains(label);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        selected: selected,
+        label: Text(label),
+        onSelected: (value) {
+          setState(() {
+            if (value) {
+              _dietFilters.add(label);
+            } else {
+              _dietFilters.remove(label);
+            }
+          });
+        },
+        backgroundColor: Colors.white,
+        selectedColor: const Color(0xFFD9F0DF),
+        checkmarkColor: const Color(0xFF1D8C3A),
+        side: BorderSide(
+          color: selected ? const Color(0xFF1D8C3A) : const Color(0xFFE4E8EC),
         ),
       ),
     );

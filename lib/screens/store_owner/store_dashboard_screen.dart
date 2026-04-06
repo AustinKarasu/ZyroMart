@@ -51,6 +51,12 @@ class StoreDashboardScreen extends StatelessWidget {
               .toList();
           final admin = orderService.adminSnapshot;
           final radius = orderService.radiusForStore(store.id);
+          final averageOrderValue =
+              orderService.averageOrderValueForStore(store.id);
+          final activeReservations =
+              orderService.activeReservationCountForStore(store.id);
+          final outForDelivery =
+              orderService.outForDeliveryCountForStore(store.id);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -145,6 +151,65 @@ class StoreDashboardScreen extends StatelessWidget {
                       value: radius,
                       onChanged: (value) =>
                           orderService.updateStoreRadius(store.id, value),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Avg basket',
+                      'Rs ${averageOrderValue.toInt()}',
+                      Icons.analytics_outlined,
+                      const Color(0xFF255E96),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Reserved stock',
+                      '$activeReservations',
+                      Icons.inventory_2_outlined,
+                      const Color(0xFF7A4AC7),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Operational analytics',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$outForDelivery orders are already on the road and $activeReservations inventory reservations are currently locked for confirmed demand.',
+                      style: const TextStyle(
+                        color: AppTheme.textMedium,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    LinearProgressIndicator(
+                      value: activeOrders.isEmpty
+                          ? 0
+                          : outForDelivery / activeOrders.length,
+                      minHeight: 8,
+                      color: const Color(0xFF1D8C3A),
+                      backgroundColor: const Color(0xFFE9EDF2),
                     ),
                   ],
                 ),

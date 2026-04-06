@@ -14,6 +14,8 @@ class AdminDashboardSnapshot {
     required this.pendingPlatformBalance,
     required this.paidPlatformBalance,
     required this.latestMetrics,
+    required this.recentOperationalEvents,
+    required this.liveSignals,
   });
 
   final int totalOrders;
@@ -24,6 +26,8 @@ class AdminDashboardSnapshot {
   final double pendingPlatformBalance;
   final double paidPlatformBalance;
   final Map<String, dynamic>? latestMetrics;
+  final List<Map<String, dynamic>> recentOperationalEvents;
+  final Map<String, dynamic> liveSignals;
 }
 
 class AdminService extends ChangeNotifier {
@@ -58,6 +62,7 @@ class AdminService extends ChangeNotifier {
       final profiles = results[3];
       final platformLedger = results[4];
       final metrics = results[5];
+      final latest = metrics.isEmpty ? null : metrics.first;
 
       double pending = 0;
       double paid = 0;
@@ -80,7 +85,16 @@ class AdminService extends ChangeNotifier {
             profiles.where((row) => row['role'] == 'delivery').length,
         pendingPlatformBalance: pending,
         paidPlatformBalance: paid,
-        latestMetrics: metrics.isEmpty ? null : metrics.first,
+        latestMetrics: latest,
+        recentOperationalEvents: _buildOperationalEvents(orders),
+        liveSignals: {
+          'pending_orders': orders
+              .where((row) => row['status'] != 'delivered' && row['status'] != 'cancelled')
+              .length,
+          'proof_of_delivery_ready': latest?['completed_orders'] ?? 0,
+          'active_customers': latest?['active_customers'] ?? 0,
+          'active_delivery_partners': latest?['active_delivery_partners'] ?? 0,
+        },
       );
     } catch (error) {
       _errorMessage = 'Could not load admin dashboard. ${error.toString()}';
@@ -112,7 +126,50 @@ class AdminService extends ChangeNotifier {
         'cancelled_orders': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
         'pending_orders': pendingOrders,
       },
+      recentOperationalEvents: MockData.sampleOrders.take(6).map((order) {
+        final status = order.statusLabel;
+        return {
+          'title': 'Order ${order.id}',
+          'subtitle': '$status • ${order.customerName}',
+          'color': _eventColorForStatus(order.status.name),
+        };
+      }).toList(),
+      liveSignals: {
+        'pending_orders': pendingOrders,
+        'proof_of_delivery_ready': completedOrders,
+        'active_customers': 1,
+        'active_delivery_partners': MockData.deliveryPersons.where((item) => item.isOnline).length,
+      },
     );
     notifyListeners();
+  }
+
+  List<Map<String, dynamic>> _buildOperationalEvents(List<Map<String, dynamic>> orders) {
+    final sorted = [...orders]
+      ..sort((a, b) => (b['created_at'] ?? '').toString().compareTo((a['created_at'] ?? '').toString()));
+    return sorted.take(8).map((row) {
+      final status = (row['status'] ?? 'placed').toString();
+      return {
+        'title': 'Order ${(row['order_number'] ?? row['id'] ?? '').toString()}',
+        'subtitle': '${status.replaceAll('_', ' ')} • ${(row['customer_name'] ?? 'Customer').toString()}',
+        'color': _eventColorForStatus(status),
+      };
+    }).toList();
+  }
+
+  static Color _eventColorForStatus(String status) {
+    switch (status) {
+      case 'delivered':
+        return const Color(0xFF176B3A);
+      case 'cancelled':
+        return const Color(0xFFBE342A);
+      case 'out_for_delivery':
+        return const Color(0xFF255E96);
+      case 'preparing':
+      case 'ready_for_pickup':
+        return const Color(0xFFD58A09);
+      default:
+        return const Color(0xFF4B5B6A);
+    }
   }
 }
