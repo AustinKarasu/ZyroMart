@@ -289,6 +289,34 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<bool> setOnlineStatus(bool isOnline) async {
+    if (_currentUser == null) return false;
+    _isLoading = true;
+    _clearMessages();
+    notifyListeners();
+    try {
+      await _upsertCurrentProfile(
+        role: _currentUser!.role,
+        phone: _currentUser!.phone,
+        email: _currentUser!.email,
+        name: _currentUser!.name,
+        address: _currentUser!.address,
+        profileImageUrl: _currentUser!.profileImageUrl,
+        location: _currentUser!.location,
+        isOnline: isOnline,
+      );
+      _currentUser = _currentUser!.copyWith(isOnline: isOnline);
+      _statusMessage = isOnline ? 'You are online' : 'You are offline';
+      return true;
+    } catch (error) {
+      _errorMessage = 'Could not update availability. ${error.toString()}';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     if (canUseSupabaseAuth) {
       await SupabaseService.signOut();
@@ -366,6 +394,7 @@ class AuthService extends ChangeNotifier {
     String? address,
     String? profileImageUrl,
     LatLng? location,
+    bool? isOnline,
   }) async {
     final sessionUser = SupabaseService.currentUser;
     if (sessionUser == null) return;
@@ -383,7 +412,7 @@ class AuthService extends ChangeNotifier {
       'profile_image_url': profileImageUrl ?? _currentUser?.profileImageUrl,
       'latitude': location?.latitude ?? _currentUser?.location.latitude ?? fallback.latitude,
       'longitude': location?.longitude ?? _currentUser?.location.longitude ?? fallback.longitude,
-      'is_online': _currentUser?.isOnline ?? true,
+      'is_online': isOnline ?? _currentUser?.isOnline ?? true,
     });
   }
 

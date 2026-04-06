@@ -6,6 +6,7 @@ import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
+import '../shared/notification_center_screen.dart';
 import 'delivery_dashboard_screen.dart';
 import 'delivery_map_screen.dart';
 
@@ -96,7 +97,19 @@ class _DeliveryProfileScreen extends StatelessWidget {
           const SizedBox(height: 16),
           SwitchListTile.adaptive(
             value: user?.isOnline ?? false,
-            onChanged: (_) {},
+            onChanged: (value) async {
+              final success = await auth.setOnlineStatus(value);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success
+                        ? 'Availability updated'
+                        : (auth.errorMessage ?? 'Could not update availability'),
+                  ),
+                ),
+              );
+            },
             title: const Text('Online status'),
             subtitle: const Text('Set your delivery availability for nearby assignments.'),
             tileColor: Colors.white,
@@ -119,6 +132,23 @@ class _DeliveryProfileScreen extends StatelessWidget {
             subtitle: const Text('Completed deliveries remain available for review.'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
             onTap: () {},
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          const SizedBox(height: 4),
+          ListTile(
+            leading: const Icon(Icons.notifications_none_rounded, color: AppTheme.textMedium),
+            title: const Text('Notification center'),
+            subtitle: const Text('Review assignment alerts, order updates, and payout messages.'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textLight),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const NotificationCenterScreen(
+                  title: 'Delivery notifications',
+                ),
+              ),
+            ),
             tileColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),

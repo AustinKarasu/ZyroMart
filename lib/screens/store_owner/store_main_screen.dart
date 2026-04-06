@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../shared/notification_center_screen.dart';
 import 'store_dashboard_screen.dart';
 import 'store_orders_screen.dart';
 import 'store_products_screen.dart';
@@ -94,6 +95,13 @@ class _StoreSettingsScreen extends StatelessWidget {
           _buildItem(Icons.phone, 'Phone', user?.phone ?? 'Add store contact number'),
           _buildItem(Icons.location_on, 'Location', user?.address.isNotEmpty == true ? user!.address : 'Set the exact store address'),
           _buildItem(Icons.my_location_outlined, 'Service radius', 'Order visibility follows the configured delivery radius'),
+          _buildTapItem(
+            context,
+            Icons.notifications_none_rounded,
+            'Notification center',
+            'Review order updates, payout alerts, and ops messages',
+            const NotificationCenterScreen(title: 'Store notifications'),
+          ),
           const SizedBox(height: 16),
           SwitchListTile.adaptive(
             value: preferences.orderNotifications,
@@ -147,6 +155,22 @@ class _StoreSettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTapItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    Widget destination,
+  ) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => destination),
+      ),
+      child: _buildItem(icon, label, value),
     );
   }
 }

@@ -5,8 +5,10 @@ import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
 import '../../theme/app_theme.dart';
+import '../shared/notification_center_screen.dart';
 import 'customer_home_screen.dart';
 import 'customer_orders_screen.dart';
+import 'restock_subscriptions_screen.dart';
 
 class CustomerMainScreen extends StatefulWidget {
   const CustomerMainScreen({super.key});
@@ -139,7 +141,23 @@ class _CustomerProfileScreen extends StatelessWidget {
                   children: [
                     Expanded(child: _statCard(Icons.receipt_long, 'Your orders', 'Track active and completed orders')),
                     const SizedBox(width: 12),
-                    Expanded(child: _statCard(Icons.card_giftcard, 'Gift cards', 'Store credit and rewards when available')),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationCenterScreen(
+                              title: 'Customer notifications',
+                            ),
+                          ),
+                        ),
+                        child: _statCard(
+                          Icons.notifications_none_rounded,
+                          'Notifications',
+                          'Order updates, promos, and delivery events',
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(child: _statCard(Icons.support_agent, 'Need help?', 'Support, refunds, and order help')),
                   ],
@@ -174,6 +192,14 @@ class _CustomerProfileScreen extends StatelessWidget {
                     _navRow(context, Icons.payment_outlined, 'Payment methods', 'Manage UPI, COD, and billing preferences', 'Saved payment preferences appear here for faster checkout.'),
                     _navRow(context, Icons.receipt_long_outlined, 'GST details', 'Saved business invoice details', 'Maintain invoice-ready GST data for eligible orders.'),
                     _navRow(context, Icons.redeem_outlined, 'Promo codes', 'Only verified store and platform coupons appear here', 'Active verified coupons are listed here once issued.'),
+                    _navRow(
+                      context,
+                      Icons.autorenew_rounded,
+                      'Auto-restock',
+                      'Keep essentials on a daily, weekly, or monthly cadence',
+                      'Restock subscriptions are account-scoped and sync through the backend.',
+                      destination: const RestockSubscriptionsScreen(),
+                    ),
                     _navRow(context, Icons.card_giftcard_outlined, 'Claim gift card', 'Apply available gift card balances', 'Redeem store credit or gift card balances from this section.'),
                     _navRow(context, Icons.stars_outlined, 'Collected rewards', 'Track loyalty and order rewards', 'Monitor loyalty, gift balances, and earned rewards.'),
                   ],
@@ -311,7 +337,14 @@ class _CustomerProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _navRow(BuildContext context, IconData icon, String title, String subtitle, String body) {
+  Widget _navRow(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    String body, {
+    Widget? destination,
+  }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: AppTheme.textMedium),
@@ -321,7 +354,8 @@ class _CustomerProfileScreen extends StatelessWidget {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => _InfoDetailScreen(title: title, subtitle: subtitle, body: body),
+          builder: (_) => destination ??
+              _InfoDetailScreen(title: title, subtitle: subtitle, body: body),
         ),
       ),
     );

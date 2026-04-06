@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_notification.dart';
 import '../models/cart_item.dart';
@@ -33,6 +34,7 @@ class OrderService extends ChangeNotifier {
   final Map<String, List<Map<String, dynamic>>> _statusEventsByOrderId = {};
   final Map<String, List<Map<String, dynamic>>> _inventoryReservationsByOrderId = {};
   final Map<String, Map<String, dynamic>> _proofOfDeliveryByOrderId = {};
+  RealtimeChannel? _notificationChannel;
   AppUser? _viewer;
 
   OrderService() {
@@ -53,7 +55,12 @@ class OrderService extends ChangeNotifier {
     if (_viewer?.id == user?.id && _viewer?.role == user?.role) {
       return;
     }
+    _notificationChannel?.unsubscribe();
+    _notificationChannel = null;
     _viewer = user;
+    if (_viewer != null) {
+      _syncRemoteNotifications();
+    }
     notifyListeners();
   }
 
@@ -489,6 +496,9 @@ class OrderService extends ChangeNotifier {
     final notification = _notifications.where((item) => item.id == notificationId);
     if (notification.isEmpty) return;
     notification.first.isRead = true;
+    if (SupabaseService.isInitialized) {
+      SupabaseService.markNotificationRead(notificationId).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -690,6 +700,16 @@ class OrderService extends ChangeNotifier {
         orderId: orderId,
       ),
     );
+    if (SupabaseService.isInitialized) {
+      final currentViewer = _viewer;
+      if (currentViewer != null) {
+        SupabaseService.upsertNotificationDevice(
+          deviceToken: 'local-${currentViewer.id}-${currentViewer.role.name}',
+          platform: 'android',
+          appVariant: 'storefront',
+        ).catchError((_) {});
+      }
+    }
   }
 
   AppUser _assignDeliveryPartner(Order order) {
@@ -733,6 +753,36 @@ class OrderService extends ChangeNotifier {
   String _generateDeliveryCode() {
     final value = DateTime.now().microsecondsSinceEpoch % 9000;
     return (1000 + value).toString();
+  }
+
+  Future<void> _syncRemoteNotifications() async {
+    if (!SupabaseService.isInitialized || _viewer == null) return;
+    await SupabaseService.upsertNotificationDevice(
+      deviceToken: 'local-${_viewer!.id}-${_viewer!.role.name}',
+      platform: 'android',
+      appVariant: 'storefront',
+    ).catchError((_) {});
+    final rows = await SupabaseService.getNotifications().catchError((_) => <Map<String, dynamic>>[]);
+    for (final row in rows) {
+      _mergeNotification(AppNotification.fromMap(row));
+    }
+    _notificationChannel = SupabaseService.subscribeToNotifications((row) {
+      final remote = AppNotification.fromMap(row);
+      if (remote.recipientUserId == _viewer?.id) {
+        _mergeNotification(remote);
+        notifyListeners();
+      }
+    });
+  }
+
+  void _mergeNotification(AppNotification notification) {
+    final index = _notifications.indexWhere((item) => item.id == notification.id);
+    if (index >= 0) {
+      _notifications[index] = notification;
+      return;
+    }
+    _notifications.add(notification);
+    _notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   List<Map<String, dynamic>> statusEventsForOrder(String orderId) {
