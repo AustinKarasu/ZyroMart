@@ -180,7 +180,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 24),
                     _LiveSignalsPanel(snapshot: snapshot),
                     const SizedBox(height: 24),
+                    _StatusBreakdownPanel(snapshot: snapshot),
+                    const SizedBox(height: 24),
                     _OperationsPanel(snapshot: snapshot),
+                    const SizedBox(height: 24),
+                    _AdminRunbookPanel(snapshot: snapshot),
                     const SizedBox(height: 24),
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -222,6 +226,165 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AdminRunbookPanel extends StatelessWidget {
+  const _AdminRunbookPanel({required this.snapshot});
+
+  final AdminDashboardSnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = snapshot?.orderStatusCounts ?? const <String, int>{};
+    final delayed = (counts['preparing'] ?? 0) + (counts['ready_for_pickup'] ?? 0);
+    final onRoad = counts['out_for_delivery'] ?? 0;
+    final cancelled = counts['cancelled'] ?? 0;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Operator focus',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 14),
+          _focusRow(
+            color: const Color(0xFFD58A09),
+            title: 'Store-side delays',
+            subtitle: '$delayed orders are still being prepared or waiting for pickup.',
+          ),
+          const SizedBox(height: 10),
+          _focusRow(
+            color: const Color(0xFF255E96),
+            title: 'On-road handoffs',
+            subtitle: '$onRoad orders are with riders and should be watched for OTP completion.',
+          ),
+          const SizedBox(height: 10),
+          _focusRow(
+            color: const Color(0xFFBE342A),
+            title: 'Cancellation watch',
+            subtitle: '$cancelled orders cancelled today. Review trends if this keeps climbing.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _focusRow({
+    required Color color,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          margin: const EdgeInsets.only(top: 4),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: AppTheme.textMedium,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusBreakdownPanel extends StatelessWidget {
+  const _StatusBreakdownPanel({required this.snapshot});
+
+  final AdminDashboardSnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = snapshot?.orderStatusCounts ?? const <String, int>{};
+    final labels = const {
+      'placed': 'Placed',
+      'confirmed': 'Confirmed',
+      'preparing': 'Preparing',
+      'ready_for_pickup': 'Ready for pickup',
+      'out_for_delivery': 'Out for delivery',
+      'delivered': 'Delivered',
+      'cancelled': 'Cancelled',
+    };
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Order status breakdown',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 14),
+          ...labels.entries.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.value,
+                      style: const TextStyle(
+                        color: AppTheme.textMedium,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${counts[entry.key] ?? 0}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF101927),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

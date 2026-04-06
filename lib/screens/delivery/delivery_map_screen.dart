@@ -196,6 +196,50 @@ class DeliveryMapScreen extends StatelessWidget {
                             fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: activeOrders.isEmpty
+                              ? null
+                              : () async {
+                                  await location.refreshLocation();
+                                  final liveLocation = location.currentLocation;
+                                  if (liveLocation == null) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            location.errorMessage ??
+                                                'Could not refresh live route.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return;
+                                  }
+                                  for (final order in activeOrders.where(
+                                    (item) => item.deliveryPersonId != null,
+                                  )) {
+                                    await orderService.updateDeliveryLocation(
+                                      orderId: order.id,
+                                      location: liveLocation,
+                                    );
+                                  }
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Live location synced for active deliveries.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                          icon: const Icon(Icons.my_location_rounded),
+                          label: const Text('Sync my live position'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           const Icon(Icons.store,

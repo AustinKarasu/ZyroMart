@@ -16,6 +16,7 @@ class AdminDashboardSnapshot {
     required this.latestMetrics,
     required this.recentOperationalEvents,
     required this.liveSignals,
+    required this.orderStatusCounts,
   });
 
   final int totalOrders;
@@ -28,6 +29,7 @@ class AdminDashboardSnapshot {
   final Map<String, dynamic>? latestMetrics;
   final List<Map<String, dynamic>> recentOperationalEvents;
   final Map<String, dynamic> liveSignals;
+  final Map<String, int> orderStatusCounts;
 }
 
 class AdminService extends ChangeNotifier {
@@ -95,6 +97,7 @@ class AdminService extends ChangeNotifier {
           'active_customers': latest?['active_customers'] ?? 0,
           'active_delivery_partners': latest?['active_delivery_partners'] ?? 0,
         },
+        orderStatusCounts: _buildStatusCounts(orders),
       );
     } catch (error) {
       _errorMessage = 'Could not load admin dashboard. ${error.toString()}';
@@ -140,6 +143,15 @@ class AdminService extends ChangeNotifier {
         'active_customers': 1,
         'active_delivery_partners': MockData.deliveryPersons.where((item) => item.isOnline).length,
       },
+      orderStatusCounts: {
+        'placed': MockData.sampleOrders.where((o) => o.status == OrderStatus.placed).length,
+        'confirmed': MockData.sampleOrders.where((o) => o.status == OrderStatus.confirmed).length,
+        'preparing': MockData.sampleOrders.where((o) => o.status == OrderStatus.preparing).length,
+        'ready_for_pickup': MockData.sampleOrders.where((o) => o.status == OrderStatus.readyForPickup).length,
+        'out_for_delivery': MockData.sampleOrders.where((o) => o.status == OrderStatus.outForDelivery).length,
+        'delivered': completedOrders,
+        'cancelled': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
+      },
     );
     notifyListeners();
   }
@@ -171,5 +183,22 @@ class AdminService extends ChangeNotifier {
       default:
         return const Color(0xFF4B5B6A);
     }
+  }
+
+  Map<String, int> _buildStatusCounts(List<Map<String, dynamic>> orders) {
+    final counts = <String, int>{
+      'placed': 0,
+      'confirmed': 0,
+      'preparing': 0,
+      'ready_for_pickup': 0,
+      'out_for_delivery': 0,
+      'delivered': 0,
+      'cancelled': 0,
+    };
+    for (final row in orders) {
+      final status = (row['status'] ?? 'placed').toString();
+      counts[status] = (counts[status] ?? 0) + 1;
+    }
+    return counts;
   }
 }

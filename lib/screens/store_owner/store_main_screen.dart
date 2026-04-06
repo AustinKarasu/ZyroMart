@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/mock_data.dart';
+import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
 import '../shared/notification_center_screen.dart';
 import 'store_dashboard_screen.dart';
@@ -91,10 +93,34 @@ class _StoreSettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _buildItem(Icons.storefront_outlined, 'Store name', user?.name ?? 'Configure store identity'),
-          _buildItem(Icons.phone, 'Phone', user?.phone ?? 'Add store contact number'),
-          _buildItem(Icons.location_on, 'Location', user?.address.isNotEmpty == true ? user!.address : 'Set the exact store address'),
-          _buildItem(Icons.my_location_outlined, 'Service radius', 'Order visibility follows the configured delivery radius'),
+          _buildEditableItem(
+            context,
+            Icons.storefront_outlined,
+            'Store name',
+            user?.name ?? 'Configure store identity',
+            onTap: () => _showStoreEditor(context, auth),
+          ),
+          _buildEditableItem(
+            context,
+            Icons.phone,
+            'Phone',
+            user?.phone ?? 'Add store contact number',
+            onTap: () => _showStoreEditor(context, auth),
+          ),
+          _buildEditableItem(
+            context,
+            Icons.location_on,
+            'Location',
+            user?.address.isNotEmpty == true ? user!.address : 'Set the exact store address',
+            onTap: () => _showStoreEditor(context, auth),
+          ),
+          _buildEditableItem(
+            context,
+            Icons.my_location_outlined,
+            'Service radius',
+            'Order visibility follows the configured delivery radius',
+            onTap: () => _showRadiusEditor(context),
+          ),
           _buildTapItem(
             context,
             Icons.notifications_none_rounded,
@@ -171,6 +197,150 @@ class _StoreSettingsScreen extends StatelessWidget {
         MaterialPageRoute(builder: (_) => destination),
       ),
       child: _buildItem(icon, label, value),
+    );
+  }
+
+  Widget _buildEditableItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value, {
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: _buildItem(icon, label, value),
+    );
+  }
+
+  Future<void> _showStoreEditor(BuildContext context, AuthService auth) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+    final nameController = TextEditingController(text: user.name);
+    final phoneController = TextEditingController(text: user.phone);
+    final addressController = TextEditingController(text: user.address);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Edit store settings',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Store name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneController,
+              decoration: const InputDecoration(labelText: 'Phone'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: addressController,
+              decoration: const InputDecoration(labelText: 'Address'),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final success = await auth.updateProfile(
+                    name: nameController.text,
+                    address: addressController.text,
+                    phone: phoneController.text,
+                    role: user.role,
+                    profileImageUrl: user.profileImageUrl,
+                    location: user.location,
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Store settings updated'
+                            : (auth.errorMessage ?? 'Could not update store settings'),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Save'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRadiusEditor(BuildContext context) async {
+    final orderService = context.read<OrderService>();
+    final auth = context.read<AuthService>();
+    final storeOwner = auth.currentUser;
+    if (storeOwner == null) return;
+    final ownerStore = MockData.stores.firstWhere(
+      (store) => store.ownerId == storeOwner.id,
+      orElse: () => MockData.stores.first,
+    );
+    final currentRadius = orderService.radiusForStore(ownerStore.id);
+    final controller =
+        TextEditingController(text: currentRadius.toStringAsFixed(1));
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Update service radius',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Radius in km',
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  final value = double.tryParse(controller.text.trim());
+                  if (value == null) return;
+                  orderService.updateStoreRadius(ownerStore.id, value);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Service radius updated')),
+                  );
+                },
+                child: const Text('Save radius'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
