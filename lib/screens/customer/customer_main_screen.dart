@@ -282,7 +282,14 @@ class _CustomerProfileScreen extends StatelessWidget {
                       value: preferences.autoLogin,
                       onChanged: preferences.setAutoLogin,
                     ),
-                    _navRow(context, Icons.mail_outline, 'Password login', user?.email.isNotEmpty == true ? user!.email : 'No email password configured yet', 'Manage email-based login after your OTP account is verified.'),
+                    _navRow(
+                      context,
+                      Icons.mail_outline,
+                      'Password login',
+                      user?.email.isNotEmpty == true ? user!.email : 'No email password configured yet',
+                      'Manage email-based login after your OTP account is verified.',
+                      destination: const PasswordLoginSettingsScreen(),
+                    ),
                     _navRow(
                       context,
                       Icons.privacy_tip_outlined,

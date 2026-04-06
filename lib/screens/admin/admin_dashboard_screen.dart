@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../services/admin_auth_service.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
+import 'admin_operations_screens.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -186,6 +187,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 24),
                     _AdminRunbookPanel(snapshot: snapshot),
                     const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ActionLaunchCard(
+                            title: 'Metrics history',
+                            subtitle: 'Inspect recent daily platform totals and payout drift.',
+                            icon: Icons.query_stats_rounded,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AdminMetricsHistoryScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _ActionLaunchCard(
+                            title: 'Operations feed',
+                            subtitle: 'Open the full event stream for recent order movement.',
+                            icon: Icons.feed_outlined,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AdminOperationsLogScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -224,6 +257,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionLaunchCard extends StatelessWidget {
+  const _ActionLaunchCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x12000000),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppTheme.primaryRed),
+            const SizedBox(height: 14),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            const SizedBox(height: 6),
+            Text(subtitle, style: const TextStyle(color: AppTheme.textMedium, height: 1.4)),
           ],
         ),
       ),

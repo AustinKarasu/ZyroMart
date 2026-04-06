@@ -7,6 +7,7 @@ import '../../services/auth_service.dart';
 import '../../services/mock_data.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
+import 'store_operations_tools_screen.dart';
 
 class StoreDashboardScreen extends StatelessWidget {
   const StoreDashboardScreen({super.key});
@@ -212,6 +213,49 @@ class StoreDashboardScreen extends StatelessWidget {
                       backgroundColor: const Color(0xFFE9EDF2),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const StoreAnalyticsDetailScreen(),
+                  ),
+                ),
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: const Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Color(0xFFEAF1F7),
+                        child: Icon(Icons.analytics_outlined, color: AppTheme.info),
+                      ),
+                      SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Open full analytics',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Review payout state, reservation flow, and recent store order movement in one place.',
+                              style: TextStyle(color: AppTheme.textMedium, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 22),

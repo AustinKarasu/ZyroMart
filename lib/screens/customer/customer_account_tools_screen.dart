@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/product.dart';
 import '../../services/app_preferences_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
 import '../../services/order_service.dart';
 import '../../theme/app_theme.dart';
@@ -879,6 +880,101 @@ class PrivacyScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class PasswordLoginSettingsScreen extends StatefulWidget {
+  const PasswordLoginSettingsScreen({super.key});
+
+  @override
+  State<PasswordLoginSettingsScreen> createState() => _PasswordLoginSettingsScreenState();
+}
+
+class _PasswordLoginSettingsScreenState extends State<PasswordLoginSettingsScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _confirmController;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+    _confirmController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    _emailController.text = _emailController.text.isEmpty ? auth.currentUser?.email ?? '' : _emailController.text;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Password login')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _SectionShell(
+              title: 'Email and password access',
+              subtitle: 'Set up a durable password login on top of your OTP-backed account so future sign-ins can use either method.',
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator: (value) => value == null || !value.contains('@') ? 'Enter a valid email' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                    validator: (value) => value == null || value.trim().length < 8 ? 'Minimum 8 characters' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _confirmController,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Confirm password'),
+                    validator: (value) => value != _passwordController.text ? 'Passwords do not match' : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () async {
+                if (!_formKey.currentState!.validate()) return;
+                final success = await auth.setupEmailPassword(
+                  email: _emailController.text.trim(),
+                  password: _passwordController.text,
+                );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success ? 'Password login saved' : (auth.errorMessage ?? 'Could not save password login'),
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Save password login'),
+            ),
+          ],
+        ),
       ),
     );
   }

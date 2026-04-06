@@ -14,6 +14,7 @@ class AdminDashboardSnapshot {
     required this.pendingPlatformBalance,
     required this.paidPlatformBalance,
     required this.latestMetrics,
+    required this.metricsHistory,
     required this.recentOperationalEvents,
     required this.liveSignals,
     required this.orderStatusCounts,
@@ -27,6 +28,7 @@ class AdminDashboardSnapshot {
   final double pendingPlatformBalance;
   final double paidPlatformBalance;
   final Map<String, dynamic>? latestMetrics;
+  final List<Map<String, dynamic>> metricsHistory;
   final List<Map<String, dynamic>> recentOperationalEvents;
   final Map<String, dynamic> liveSignals;
   final Map<String, int> orderStatusCounts;
@@ -88,6 +90,7 @@ class AdminService extends ChangeNotifier {
         pendingPlatformBalance: pending,
         paidPlatformBalance: paid,
         latestMetrics: latest,
+        metricsHistory: List<Map<String, dynamic>>.from(metrics),
         recentOperationalEvents: _buildOperationalEvents(orders),
         liveSignals: {
           'pending_orders': orders
@@ -129,6 +132,17 @@ class AdminService extends ChangeNotifier {
         'cancelled_orders': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
         'pending_orders': pendingOrders,
       },
+      metricsHistory: [
+        {
+          'metric_date': DateTime.now().toIso8601String(),
+          'gross_merchandise_value': grossValue,
+          'platform_commission_earned': grossValue * 0.05,
+          'delivery_payout_due': MockData.sampleOrders.fold<double>(0, (sum, order) => sum + order.deliveryFee + order.deliveryTip),
+          'store_payout_due': grossValue * 0.95,
+          'completed_orders': completedOrders,
+          'cancelled_orders': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
+        },
+      ],
       recentOperationalEvents: MockData.sampleOrders.take(6).map((order) {
         final status = order.statusLabel;
         return {
