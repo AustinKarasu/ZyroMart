@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/biometric_service.dart';
 import '../../theme/app_theme.dart';
 import 'customer_home_screen.dart';
 import 'customer_orders_screen.dart';
@@ -50,7 +51,7 @@ class _CustomerProfileScreen extends StatelessWidget {
     final user = auth.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F1EC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -80,10 +81,15 @@ class _CustomerProfileScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 54,
                   backgroundColor: const Color(0xFF9A6A19),
-                  child: Text(
-                    (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800),
-                  ),
+                  backgroundImage: (user?.profileImageUrl?.isNotEmpty ?? false)
+                      ? NetworkImage(user!.profileImageUrl!)
+                      : null,
+                  child: (user?.profileImageUrl?.isNotEmpty ?? false)
+                      ? null
+                      : Text(
+                          (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800),
+                        ),
                 ),
                 const SizedBox(height: 18),
                 Text(
@@ -144,16 +150,18 @@ class _CustomerProfileScreen extends StatelessWidget {
                   children: [
                     _themeRow(context, preferences),
                     _switchRow(
-                      'Hide sensitive items',
-                      'Hide wellness and restricted products from browse screens.',
-                      preferences.hideSensitiveItems,
-                      preferences.setHideSensitiveItems,
+                      context,
+                      title: 'Hide sensitive items',
+                      subtitle: 'Hide wellness and restricted products from browse screens.',
+                      value: preferences.hideSensitiveItems,
+                      onChanged: preferences.setHideSensitiveItems,
                     ),
                     _switchRow(
-                      'Enable sounds',
-                      'Play a light system bell sound when sounds are enabled.',
-                      preferences.soundEnabled,
-                      preferences.setSoundEnabled,
+                      context,
+                      title: 'Enable sounds',
+                      subtitle: 'Play a light system bell sound when sounds are enabled.',
+                      value: preferences.soundEnabled,
+                      onChanged: preferences.setSoundEnabled,
                     ),
                   ],
                 ),
@@ -161,13 +169,13 @@ class _CustomerProfileScreen extends StatelessWidget {
                 _sectionCard(
                   title: 'Your information',
                   children: [
-                    _navRow(context, Icons.location_on_outlined, 'Address book', user?.address.isNotEmpty == true ? user!.address : 'Manage your saved delivery address'),
-                    _navRow(context, Icons.favorite_border, 'Your wishlist', 'Save products you want to buy later'),
-                    _navRow(context, Icons.payment_outlined, 'Payment methods', 'Manage UPI, COD, and billing preferences'),
-                    _navRow(context, Icons.receipt_long_outlined, 'GST details', 'Saved business invoice details'),
-                    _navRow(context, Icons.redeem_outlined, 'Promo codes', 'Only verified store and platform coupons appear here'),
-                    _navRow(context, Icons.card_giftcard_outlined, 'Claim gift card', 'Apply available gift card balances'),
-                    _navRow(context, Icons.stars_outlined, 'Collected rewards', 'Track loyalty and order rewards'),
+                    _navRow(context, Icons.location_on_outlined, 'Address book', user?.address.isNotEmpty == true ? user!.address : 'Manage your saved delivery address', 'Add, update, and choose saved delivery locations.'),
+                    _navRow(context, Icons.favorite_border, 'Your wishlist', 'Save products you want to buy later', 'Wishlist items stay ready for future baskets.'),
+                    _navRow(context, Icons.payment_outlined, 'Payment methods', 'Manage UPI, COD, and billing preferences', 'Saved payment preferences appear here for faster checkout.'),
+                    _navRow(context, Icons.receipt_long_outlined, 'GST details', 'Saved business invoice details', 'Maintain invoice-ready GST data for eligible orders.'),
+                    _navRow(context, Icons.redeem_outlined, 'Promo codes', 'Only verified store and platform coupons appear here', 'Active verified coupons are listed here once issued.'),
+                    _navRow(context, Icons.card_giftcard_outlined, 'Claim gift card', 'Apply available gift card balances', 'Redeem store credit or gift card balances from this section.'),
+                    _navRow(context, Icons.stars_outlined, 'Collected rewards', 'Track loyalty and order rewards', 'Monitor loyalty, gift balances, and earned rewards.'),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -175,25 +183,28 @@ class _CustomerProfileScreen extends StatelessWidget {
                   title: 'Security and access',
                   children: [
                     _switchRow(
-                      'Two-factor verification',
-                      'Require OTP verification during sensitive account changes.',
-                      preferences.twoFactorEnabled,
-                      preferences.setTwoFactorEnabled,
+                      context,
+                      title: 'Two-factor verification',
+                      subtitle: 'Require OTP verification during sensitive account changes.',
+                      value: preferences.twoFactorEnabled,
+                      onChanged: preferences.setTwoFactorEnabled,
                     ),
                     _switchRow(
-                      'Biometric unlock',
-                      'Use biometric unlock when supported on this device.',
-                      preferences.biometricUnlock,
-                      preferences.setBiometricUnlock,
+                      context,
+                      title: 'Biometric unlock',
+                      subtitle: 'Use biometric unlock when supported on this device.',
+                      value: preferences.biometricUnlock,
+                      onChanged: (value) => _handleBiometricToggle(context, preferences, value),
                     ),
                     _switchRow(
-                      'Auto login',
-                      'Stay signed in on this device until you log out manually.',
-                      preferences.autoLogin,
-                      preferences.setAutoLogin,
+                      context,
+                      title: 'Auto login',
+                      subtitle: 'Stay signed in on this device until you log out manually.',
+                      value: preferences.autoLogin,
+                      onChanged: preferences.setAutoLogin,
                     ),
-                    _navRow(context, Icons.mail_outline, 'Password login', user?.email.isNotEmpty == true ? user!.email : 'No email password configured yet'),
-                    _navRow(context, Icons.privacy_tip_outlined, 'Account privacy', 'Control account safety and personal data preferences'),
+                    _navRow(context, Icons.mail_outline, 'Password login', user?.email.isNotEmpty == true ? user!.email : 'No email password configured yet', 'Manage email-based login after your OTP account is verified.'),
+                    _navRow(context, Icons.privacy_tip_outlined, 'Account privacy', 'Control account safety and personal data preferences', 'Privacy and access behavior for this device and account.'),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -201,26 +212,28 @@ class _CustomerProfileScreen extends StatelessWidget {
                   title: 'Preferences',
                   children: [
                     _switchRow(
-                      'Order notifications',
-                      'Receive preparation, dispatch, and delivery updates.',
-                      preferences.orderNotifications,
-                      preferences.setOrderNotifications,
+                      context,
+                      title: 'Order notifications',
+                      subtitle: 'Receive preparation, dispatch, and delivery updates.',
+                      value: preferences.orderNotifications,
+                      onChanged: preferences.setOrderNotifications,
                     ),
                     _switchRow(
-                      'Marketing updates',
-                      'Receive new launches, store campaigns, and rewards.',
-                      preferences.marketingNotifications,
-                      preferences.setMarketingNotifications,
+                      context,
+                      title: 'Marketing updates',
+                      subtitle: 'Receive new launches, store campaigns, and rewards.',
+                      value: preferences.marketingNotifications,
+                      onChanged: preferences.setMarketingNotifications,
                     ),
-                    _navRow(context, Icons.help_outline, 'Help and support', 'Chat, call, or report an issue'),
-                    _navRow(context, Icons.share_outlined, 'Share the app', 'Share ZyroMart with friends and family'),
-                    _navRow(context, Icons.info_outline, 'About ZyroMart', 'App information and version details'),
+                    _navRow(context, Icons.help_outline, 'Help and support', 'Chat, call, or report an issue', 'Support options, issue reporting, and order help live here.'),
+                    _navRow(context, Icons.share_outlined, 'Share the app', 'Share ZyroMart with friends and family', 'Invite others using your preferred share method.'),
+                    _navRow(context, Icons.info_outline, 'About ZyroMart', 'App information and version details', 'Version, build details, and company information.'),
                   ],
                 ),
                 const SizedBox(height: 16),
                 ListTile(
                   onTap: auth.logout,
-                  tileColor: Colors.white,
+                  tileColor: Theme.of(context).cardColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   leading: const Icon(Icons.logout, color: AppTheme.primaryRed),
                   title: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryRed)),
@@ -244,6 +257,7 @@ class _CustomerProfileScreen extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: const Text('Theme style', style: TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: const Text('Apply Light, Dark, or System theme instantly.'),
       trailing: DropdownButton<String>(
         value: current,
         underline: const SizedBox.shrink(),
@@ -252,14 +266,18 @@ class _CustomerProfileScreen extends StatelessWidget {
           DropdownMenuItem(value: 'Dark', child: Text('Dark')),
           DropdownMenuItem(value: 'System', child: Text('System')),
         ],
-        onChanged: (newValue) {
+        onChanged: (newValue) async {
           if (newValue == null) return;
           final mode = switch (newValue) {
             'Dark' => ThemeMode.dark,
             'System' => ThemeMode.system,
             _ => ThemeMode.light,
           };
-          preferences.setThemeMode(mode);
+          await preferences.setThemeMode(mode);
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Theme changed to $newValue.')),
+          );
         },
       ),
     );
@@ -280,39 +298,86 @@ class _CustomerProfileScreen extends StatelessWidget {
   }
 
   Widget _sectionCard({required String title, required List<Widget> children}) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 10),
-        ...children,
-      ]),
+    return Builder(
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          ...children,
+        ]),
+      ),
     );
   }
 
-  Widget _navRow(BuildContext context, IconData icon, String title, String subtitle) {
+  Widget _navRow(BuildContext context, IconData icon, String title, String subtitle, String body) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: AppTheme.textMedium),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$title is available in this account section.')),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _InfoDetailScreen(title: title, subtitle: subtitle, body: body),
+        ),
+      ),
     );
   }
 
-  Widget _switchRow(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+  Widget _switchRow(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required bool value,
+    required Future<void> Function(bool) onChanged,
+  }) {
     return SwitchListTile.adaptive(
       contentPadding: EdgeInsets.zero,
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle),
       value: value,
-      onChanged: onChanged,
+      onChanged: (next) async {
+        await onChanged(next);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$title ${next ? 'enabled' : 'disabled'}')),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleBiometricToggle(
+    BuildContext context,
+    AppPreferencesService preferences,
+    bool value,
+  ) async {
+    if (value) {
+      final supported = await BiometricService.isSupported();
+      if (!supported) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric authentication is not available on this device.')),
+        );
+        return;
+      }
+      final authenticated = await BiometricService.authenticate(
+        reason: 'Authenticate to enable biometric unlock for ZyroMart',
+      );
+      if (!authenticated) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric verification was not completed.')),
+        );
+        return;
+      }
+    }
+    await preferences.setBiometricUnlock(value);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Biometric unlock ${value ? 'enabled' : 'disabled'}')),
     );
   }
 
@@ -390,6 +455,7 @@ class _CustomerProfileScreen extends StatelessWidget {
     final nameController = TextEditingController(text: user.name);
     final phoneController = TextEditingController(text: user.phone);
     final addressController = TextEditingController(text: user.address);
+    final photoController = TextEditingController(text: user.profileImageUrl ?? '');
 
     await showModalBottomSheet<void>(
       context: context,
@@ -402,14 +468,21 @@ class _CustomerProfileScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 28,
-                  backgroundColor: Color(0xFFE9D4B0),
-                  child: Icon(Icons.camera_alt_outlined, color: AppTheme.textDark),
+                  backgroundColor: const Color(0xFFE9D4B0),
+                  backgroundImage: photoController.text.trim().isNotEmpty
+                      ? NetworkImage(photoController.text.trim())
+                      : null,
+                  child: photoController.text.trim().isNotEmpty
+                      ? null
+                      : const Icon(Icons.camera_alt_outlined, color: AppTheme.textDark),
                 ),
                 const SizedBox(height: 10),
                 const Text('Change profile details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 16),
+                TextField(controller: photoController, decoration: const InputDecoration(labelText: 'Profile photo URL')),
+                const SizedBox(height: 12),
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
                 const SizedBox(height: 12),
                 TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone number')),
@@ -425,6 +498,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                         address: addressController.text,
                         phone: phoneController.text,
                         role: user.role,
+                        profileImageUrl: photoController.text.trim(),
                       );
                       if (!context.mounted) return;
                       Navigator.pop(context);
@@ -440,6 +514,49 @@ class _CustomerProfileScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _InfoDetailScreen extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String body;
+
+  const _InfoDetailScreen({
+    required this.title,
+    required this.subtitle,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(subtitle, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            Text(body, style: const TextStyle(height: 1.6)),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'This section is now connected in-app and opens as its own screen instead of a dead tap target. Extend the stored data here as your live backend records grow.',
+                style: TextStyle(height: 1.5, color: AppTheme.textMedium),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

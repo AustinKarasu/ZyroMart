@@ -12,8 +12,12 @@ class AdminSignInScreen extends StatefulWidget {
 }
 
 class _AdminSignInScreenState extends State<AdminSignInScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _emailController = TextEditingController(
+    text: AdminAuthService.defaultAdminEmail,
+  );
+  final _passwordController = TextEditingController(
+    text: AdminAuthService.defaultAdminPassword,
+  );
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -98,7 +102,7 @@ class _AdminSignInScreenState extends State<AdminSignInScreen> {
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'Use your platform admin email and password. Access is granted only to users present in the platform_admins table.',
+                          'Owner-only access with email and password. The configured owner credentials are preloaded for faster sign in.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.5,
@@ -142,11 +146,19 @@ class _AdminSignInScreenState extends State<AdminSignInScreen> {
                         if (auth.errorMessage != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 14),
-                            child: Text(
-                              auth.errorMessage!,
-                              style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.w600,
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF0EE),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                auth.errorMessage!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.4,
+                                ),
                               ),
                             ),
                           ),

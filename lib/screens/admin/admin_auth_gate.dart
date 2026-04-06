@@ -18,7 +18,15 @@ class AdminAuthGate extends StatelessWidget {
         }
 
         return ChangeNotifierProvider(
-          create: (_) => AdminService()..loadDashboard(),
+          create: (_) {
+            final service = AdminService();
+            if (auth.isLocalAdminMode) {
+              service.loadLocalDashboard();
+            } else {
+              service.loadDashboard();
+            }
+            return service;
+          },
           child: const AdminDashboardScreen(),
         );
       },

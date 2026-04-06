@@ -70,7 +70,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              adminAuth.currentUser?.email ?? 'Signed in admin',
+                              adminAuth.displayEmail,
                               style: const TextStyle(
                                 color: Color(0xFFD4DEEB),
                                 fontSize: 15,

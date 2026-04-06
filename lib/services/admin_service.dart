@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/order.dart';
+import 'mock_data.dart';
 import 'supabase_service.dart';
 
 class AdminDashboardSnapshot {
@@ -86,5 +88,31 @@ class AdminService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void loadLocalDashboard() {
+    _errorMessage = 'Running in local owner mode. Live Supabase admin access is not available for this session.';
+    final completedOrders = MockData.sampleOrders.where((o) => o.status == OrderStatus.delivered).length;
+    final pendingOrders = MockData.sampleOrders.where((o) => o.status != OrderStatus.delivered && o.status != OrderStatus.cancelled).length;
+    final grossValue = MockData.sampleOrders.fold<double>(0, (sum, order) => sum + order.grandTotal);
+    _snapshot = AdminDashboardSnapshot(
+      totalOrders: MockData.sampleOrders.length,
+      totalProducts: MockData.products.length,
+      totalStores: MockData.stores.length,
+      totalCustomers: 1,
+      totalDeliveryPartners: MockData.deliveryPersons.length,
+      pendingPlatformBalance: grossValue * 0.05,
+      paidPlatformBalance: 0,
+      latestMetrics: {
+        'gross_merchandise_value': grossValue,
+        'platform_commission_earned': grossValue * 0.05,
+        'delivery_payout_due': MockData.sampleOrders.fold<double>(0, (sum, order) => sum + order.deliveryFee + order.deliveryTip),
+        'store_payout_due': grossValue * 0.95,
+        'completed_orders': completedOrders,
+        'cancelled_orders': MockData.sampleOrders.where((o) => o.status == OrderStatus.cancelled).length,
+        'pending_orders': pendingOrders,
+      },
+    );
+    notifyListeners();
   }
 }

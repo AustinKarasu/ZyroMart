@@ -4,6 +4,7 @@ import 'theme/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/app_preferences_service.dart';
 import 'services/cart_service.dart';
+import 'services/biometric_service.dart';
 import 'services/catalog_service.dart';
 import 'services/location_service.dart';
 import 'services/order_service.dart';
@@ -38,6 +39,7 @@ class ZyroMartApp extends StatelessWidget {
           update: (_, preferences, auth) =>
               auth!..applyPreferences(preferences),
         ),
+        Provider(create: (_) => BiometricService()),
         ChangeNotifierProxyProvider<AuthService, OrderService>(
           create: (_) => OrderService(),
           update: (_, auth, orderService) => orderService!..bindUser(auth.currentUser),

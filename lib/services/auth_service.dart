@@ -39,6 +39,7 @@ class AuthService extends ChangeNotifier {
     if (!SupabaseService.isInitialized) return;
     if (_preferences != null && !_preferences!.autoLogin) {
       await SupabaseService.signOut();
+      await _preferences?.setUserScope(null);
       return;
     }
     await _hydrateCurrentUser();
@@ -46,6 +47,7 @@ class AuthService extends ChangeNotifier {
 
   void applyPreferences(AppPreferencesService preferences) {
     _preferences = preferences;
+    preferences.setUserScope(_currentUser?.id);
     if (!_initialized) {
       initialize();
       return;
@@ -250,6 +252,7 @@ class AuthService extends ChangeNotifier {
     required String address,
     required String phone,
     required UserRole role,
+    String? profileImageUrl,
   }) async {
     if (_currentUser == null) return false;
 
@@ -264,6 +267,7 @@ class AuthService extends ChangeNotifier {
         email: _currentUser!.email,
         name: name.trim(),
         address: address.trim(),
+        profileImageUrl: profileImageUrl,
       );
       await _hydrateCurrentUser(
         fallbackRole: role,
@@ -294,6 +298,7 @@ class AuthService extends ChangeNotifier {
     _pendingName = null;
     _pendingPassword = null;
     _clearMessages();
+    await _preferences?.setUserScope(null);
     notifyListeners();
   }
 
@@ -307,12 +312,14 @@ class AuthService extends ChangeNotifier {
     if (sessionUser == null) return;
 
     final profile = await SupabaseService.getMyProfile();
-    final dbRole = (profile?['role'] ?? sessionUser.userMetadata?['role'] ?? '').toString();
+    final dbRole =
+        (profile?['role'] ?? sessionUser.userMetadata?['role'] ?? '').toString();
     final role = _roleFromDb(dbRole.isEmpty ? null : dbRole) ??
         fallbackRole ??
         _inferRoleFromEmail(sessionUser.email ?? fallbackEmail ?? '');
 
-    final phone = (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? MockData.defaultCustomer.phone).toString();
+    final phone =
+        (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? MockData.defaultCustomer.phone).toString();
     final email = (profile?['email'] ??
             sessionUser.email ??
             fallbackEmail ??
@@ -331,8 +338,10 @@ class AuthService extends ChangeNotifier {
       role: role,
       address: (profile?['address'] ?? '').toString(),
       location: LatLng(
-        ((profile?['latitude'] ?? _fallbackLocation(role).latitude) as num).toDouble(),
-        ((profile?['longitude'] ?? _fallbackLocation(role).longitude) as num).toDouble(),
+        ((profile?['latitude'] ?? _fallbackLocation(role).latitude) as num)
+            .toDouble(),
+        ((profile?['longitude'] ?? _fallbackLocation(role).longitude) as num)
+            .toDouble(),
       ),
       profileImageUrl: profile?['profile_image_url']?.toString(),
       deliveryRating: profile?['delivery_rating'] == null
@@ -342,6 +351,7 @@ class AuthService extends ChangeNotifier {
       isOnline: profile?['is_online'] ?? true,
     );
     _selectedRole = role;
+    await _preferences?.setUserScope(_currentUser?.id);
   }
 
   Future<void> _upsertCurrentProfile({
@@ -350,6 +360,7 @@ class AuthService extends ChangeNotifier {
     String? email,
     String? name,
     String? address,
+    String? profileImageUrl,
   }) async {
     final sessionUser = SupabaseService.currentUser;
     if (sessionUser == null) return;
@@ -357,11 +368,14 @@ class AuthService extends ChangeNotifier {
     final fallback = _fallbackLocation(role);
     await SupabaseService.upsertProfile({
       'id': sessionUser.id,
-      'name': (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
-      'email': (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone)).toString(),
+      'name':
+          (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
+      'email':
+          (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone)).toString(),
       'phone': phone,
       'role': _roleToDb(role),
       'address': address ?? _currentUser?.address ?? '',
+      'profile_image_url': profileImageUrl ?? _currentUser?.profileImageUrl,
       'latitude': _currentUser?.location.latitude ?? fallback.latitude,
       'longitude': _currentUser?.location.longitude ?? fallback.longitude,
       'is_online': _currentUser?.isOnline ?? true,

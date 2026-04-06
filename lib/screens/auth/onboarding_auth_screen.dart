@@ -443,14 +443,15 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                               ),
                               const SizedBox(height: 14),
                             ],
-                            TextField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: 'Phone Number',
-                                prefixIcon: Icon(Icons.phone_outlined),
+                            if (_isSignUp || !auth.isPasswordLogin)
+                              TextField(
+                                controller: _phoneController,
+                                keyboardType: TextInputType.phone,
+                                decoration: const InputDecoration(
+                                  labelText: 'Phone Number',
+                                  prefixIcon: Icon(Icons.phone_outlined),
+                                ),
                               ),
-                            ),
                             if (_isSignUp || auth.isPasswordLogin) ...[
                               const SizedBox(height: 14),
                               TextField(
