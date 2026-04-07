@@ -697,10 +697,34 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
       }
     } else {
       final success = await auth.verifyOtp(_otpController.text);
-      if (!success && context.mounted && auth.errorMessage == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Could not verify OTP')),
-        );
+      if (!success && context.mounted) {
+        final error = auth.errorMessage;
+        if (error != null &&
+            error.toLowerCase().contains(
+              'already linked with another account',
+            )) {
+          showDialog<void>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Email already in use'),
+              content: const Text(
+                'This email is already associated with another account. Use a different email for signup, or sign in with that existing email.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+        if (error == null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Could not verify OTP')),
+          );
+        }
       }
     }
   }
