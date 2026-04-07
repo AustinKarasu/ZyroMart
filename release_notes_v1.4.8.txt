@@ -1,4 +1,4 @@
-ZyroMart v1.4.15
+ZyroMart v1.4.8
 
 Release focus:
 - Fixed role-aware sign-in so store owner and delivery accounts no longer open the customer app after login.
@@ -8,7 +8,11 @@ Release focus:
 - Updated store owner settings to upsert the actual store record in Supabase so store data stays live.
 
 Validation completed:
-- dart analyze: no issues
+- dart analyze on changed backend/auth/store files: no issues
+
+Assets:
+- zyromart-storefront-v1.4.8.apk
+- zyromart-admin-v1.4.8.apk
 
 Notes:
-- flutter analyze was not run in this environment because Windows Developer Mode / symlink support is disabled.
+- APKs are attached to the GitHub release.
