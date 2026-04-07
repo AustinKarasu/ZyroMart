@@ -186,6 +186,14 @@ class SupabaseService {
     await client.from('orders').update({'status': status}).eq('id', id);
   }
 
+  static Future<void> updateOrder(
+    String id,
+    Map<String, dynamic> updates,
+  ) async {
+    if (!isInitialized || id.isEmpty || updates.isEmpty) return;
+    await client.from('orders').update(updates).eq('id', id);
+  }
+
   static Future<void> insertOrderStatusEvent(Map<String, dynamic> event) async {
     if (!isInitialized) return;
     await client.from('order_status_events').insert(event);

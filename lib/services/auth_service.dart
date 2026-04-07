@@ -260,12 +260,40 @@ class AuthService extends ChangeNotifier {
       }
       await SupabaseService.signIn(normalizedEmail, password);
       await RateLimitService.clear('password:$normalizedEmail');
+      final profile = await SupabaseService.getMyProfile();
+      final profileRole = _roleFromDb(profile?['role']?.toString());
+      final metadataRole = _roleFromDb(
+        SupabaseService.currentUser?.userMetadata?['role']?.toString(),
+      );
+      final effectiveRole = profileRole ?? metadataRole ?? role;
+      if (profileRole != null && profileRole != role) {
+        await SupabaseService.signOut();
+        _errorMessage =
+            'This account is registered as ${_roleLabel(profileRole)}. Sign in with that role to continue.';
+        return false;
+      }
+      if (profile == null || profileRole == null) {
+        await _upsertCurrentProfile(
+          role: effectiveRole,
+          phone: (profile?['phone'] ?? SupabaseService.currentUser?.phone ?? '')
+              .toString(),
+          email: (profile?['email'] ?? normalizedEmail).toString(),
+          name:
+              (profile?['name'] ??
+                      SupabaseService.currentUser?.userMetadata?['name'])
+                  ?.toString(),
+          address: profile?['address']?.toString(),
+        );
+      }
       await AppTelemetryService.trackAuthAttempt(
         route: 'password_sign_in',
         success: true,
         identifierHash: normalizedEmail.hashCode.toString(),
       );
-      await _hydrateCurrentUser(fallbackEmail: normalizedEmail);
+      await _hydrateCurrentUser(
+        fallbackRole: effectiveRole,
+        fallbackEmail: normalizedEmail,
+      );
       _statusMessage = 'Signed in successfully';
       return true;
     } catch (error) {
@@ -578,6 +606,17 @@ class AuthService extends ChangeNotifier {
         return 'store_owner';
       case UserRole.delivery:
         return 'delivery';
+    }
+  }
+
+  String _roleLabel(UserRole role) {
+    switch (role) {
+      case UserRole.customer:
+        return 'Customer';
+      case UserRole.storeOwner:
+        return 'Store Owner';
+      case UserRole.delivery:
+        return 'Delivery Agent';
     }
   }
 

@@ -376,19 +376,22 @@ class _StoreSettingsScreen extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () async {
                   final success = await auth.updateProfile(
-                    name: nameController.text,
+                    name: user.name,
                     address: addressController.text,
                     phone: phoneController.text,
                     role: user.role,
                     profileImageUrl: user.profileImageUrl,
                     location: user.location,
                   );
-                  if (storeId.isNotEmpty && SupabaseService.isInitialized) {
-                    await SupabaseService.updateStore(storeId, {
-                      'name': nameController.text.trim(),
-                      'phone': phoneController.text.trim(),
-                      'address': addressController.text.trim(),
-                    }).catchError((_) {});
+                  if (SupabaseService.isInitialized) {
+                    await SupabaseService.upsertOwnerStore(
+                      ownerId: user.id,
+                      name: nameController.text.trim(),
+                      address: addressController.text.trim(),
+                      latitude: user.location.latitude,
+                      longitude: user.location.longitude,
+                      phone: phoneController.text.trim(),
+                    ).catchError((_) => null);
                   }
                   if (!context.mounted) return;
                   Navigator.pop(context);

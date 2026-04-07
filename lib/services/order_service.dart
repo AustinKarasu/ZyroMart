@@ -554,6 +554,19 @@ class OrderService extends ChangeNotifier {
       _clearHeldSettlement(order);
     }
 
+    if (SupabaseService.isInitialized) {
+      final remoteStatus = switch (status) {
+        OrderStatus.readyForPickup => 'ready_for_pickup',
+        OrderStatus.outForDelivery => 'out_for_delivery',
+        _ => status.name,
+      };
+      SupabaseService.updateOrder(order.id, {
+        'status': remoteStatus,
+        'delivery_person_id': order.deliveryPersonId,
+        'delivery_person_name': order.deliveryPersonName,
+      }).catchError((_) {});
+    }
+
     _notifyStatusChange(order);
 
     _persistLocalState();
@@ -681,6 +694,8 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _syncRemoteOrders() async {
     if (!SupabaseService.isInitialized || _viewer == null) return;
+    await _refreshStoreCatalog();
+    await _refreshDeliveryRoster();
     await _loadRemoteOrders();
     _ordersChannel = SupabaseService.subscribeToOrders((_) {
       _loadRemoteOrders();
@@ -700,6 +715,13 @@ class OrderService extends ChangeNotifier {
         }
       }
       if (rows.isEmpty) {
+        _orders.clear();
+        _statusEventsByOrderId.clear();
+        _inventoryReservationsByOrderId.clear();
+        _routeUpdatesByOrderId.clear();
+        _proofOfDeliveryByOrderId.clear();
+        _completionCodes.clear();
+        _persistLocalState();
         notifyListeners();
         return;
       }

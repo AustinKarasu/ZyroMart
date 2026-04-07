@@ -1,0 +1,14 @@
+ZyroMart v1.4.15
+
+Release focus:
+- Fixed role-aware sign-in so store owner and delivery accounts no longer open the customer app after login.
+- Hardened password login hydration to respect the backend profile role and block incorrect role selection cleanly.
+- Persisted live order status and delivery assignment updates back to Supabase instead of keeping them local-only.
+- Cleared stale local order state when the remote backend has no matching orders, reducing demo-feel behavior.
+- Updated store owner settings to upsert the actual store record in Supabase so store data stays live.
+
+Validation completed:
+- dart analyze: no issues
+
+Notes:
+- flutter analyze was not run in this environment because Windows Developer Mode / symlink support is disabled.
