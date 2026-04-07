@@ -33,7 +33,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       body: FutureBuilder<Map<String, dynamic>>(
         future: OperatorPreferencesService.load(
           appVariant: 'admin',
-          userId: 'singleton',
+          userId: adminAuth.currentUser?.id ?? 'guest',
         ),
         builder: (context, preferenceSnapshot) {
           final preferences = preferenceSnapshot.data ?? const <String, dynamic>{};
@@ -897,3 +897,4 @@ class _MetricsPanel extends StatelessWidget {
     );
   }
 }
+

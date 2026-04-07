@@ -8,8 +8,6 @@ class OperatorPreferencesService {
   static String _localKey(String userId, String appVariant) =>
       'operator::$appVariant::$userId';
 
-  static String get _adminLocalKey => 'operator::admin::singleton';
-
   static Future<Map<String, dynamic>> load({
     required String appVariant,
     required String userId,
@@ -24,9 +22,7 @@ class OperatorPreferencesService {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final localKey =
-        appVariant == 'admin' ? _adminLocalKey : _localKey(userId, appVariant);
-    final raw = prefs.getString(localKey);
+    final raw = prefs.getString(_localKey(userId, appVariant));
     if (raw == null) return const {};
     return Map<String, dynamic>.from(jsonDecode(raw) as Map<String, dynamic>);
   }
@@ -37,9 +33,7 @@ class OperatorPreferencesService {
     required Map<String, dynamic> settings,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final localKey =
-        appVariant == 'admin' ? _adminLocalKey : _localKey(userId, appVariant);
-    await prefs.setString(localKey, jsonEncode(settings));
+    await prefs.setString(_localKey(userId, appVariant), jsonEncode(settings));
     if (SupabaseService.isInitialized) {
       await SupabaseService.upsertOperatorPreferences(
         appVariant: appVariant,
@@ -48,3 +42,4 @@ class OperatorPreferencesService {
     }
   }
 }
+

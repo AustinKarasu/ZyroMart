@@ -13,6 +13,7 @@ import 'services/location_service.dart';
 import 'services/order_service.dart';
 import 'services/supabase_service.dart';
 import 'screens/auth/animated_splash_screen.dart';
+import 'screens/shared/backend_unavailable_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,7 +42,7 @@ void main() async {
       appVariant: 'storefront',
     );
   } catch (e) {
-    debugPrint('Supabase init skipped: $e');
+    debugPrint('Supabase init failed: $e');
   }
   runApp(const ZyroMartApp());
 }
@@ -80,9 +81,16 @@ class ZyroMartApp extends StatelessWidget {
           theme: AppTheme.theme,
           darkTheme: AppTheme.darkTheme,
           themeMode: preferences.themeMode,
-          home: const AnimatedSplashScreen(),
+          home: SupabaseService.isInitialized
+              ? const AnimatedSplashScreen()
+              : BackendUnavailableScreen(
+                  appTitle: 'ZyroMart',
+                  message: SupabaseService.backendStatusMessage,
+                ),
         ),
       ),
     );
   }
 }
+
+

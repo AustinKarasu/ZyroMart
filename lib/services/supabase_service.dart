@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 
 class SupabaseService {
+  static String? _initializationError;
   static bool _initialized = false;
 
   static SupabaseClient get client {
@@ -23,19 +24,30 @@ class SupabaseService {
 
   static Future<void> initialize() async {
     if (_initialized) return;
+    _initializationError = null;
     final url = SupabaseConfig.supabaseUrl;
     final anonKey = SupabaseConfig.supabaseAnonKey;
     if (url.isEmpty || anonKey.isEmpty) {
-      // Skip Supabase initialization if no key is configured.
-      // The app will use local/offline data instead.
       _initialized = false;
+      _initializationError =
+          'Supabase URL or anon key is missing in this build configuration.';
       return;
     }
-    await Supabase.initialize(url: url, anonKey: anonKey);
-    _initialized = true;
+    try {
+      await Supabase.initialize(url: url, anonKey: anonKey);
+      _initialized = true;
+    } catch (error) {
+      _initialized = false;
+      _initializationError = error.toString();
+      rethrow;
+    }
   }
 
   static bool get isInitialized => _initialized;
+  static String? get initializationError => _initializationError;
+  static String get backendStatusMessage =>
+      _initializationError ??
+      'Supabase is not initialized. Verify SUPABASE_URL and SUPABASE_ANON_KEY.';
 
   // ─── Products ────────────────────────────────────────────
 
@@ -738,3 +750,6 @@ class SupabaseService {
         .subscribe();
   }
 }
+
+
+

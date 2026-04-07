@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/order.dart';
 import '../../services/location_service.dart';
 import '../../services/order_service.dart';
+import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 
 class DeliveryDetailScreen extends StatelessWidget {
@@ -38,7 +39,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.zyromart.app',
                     ),
                     PolylineLayer(
@@ -62,13 +64,21 @@ class DeliveryDetailScreen extends StatelessWidget {
                           point: currentOrder.storeLocation,
                           width: 40,
                           height: 40,
-                          child: const Icon(Icons.store, color: AppTheme.primaryRed, size: 36),
+                          child: const Icon(
+                            Icons.store,
+                            color: AppTheme.primaryRed,
+                            size: 36,
+                          ),
                         ),
                         Marker(
                           point: currentOrder.customerLocation,
                           width: 40,
                           height: 40,
-                          child: const Icon(Icons.home, color: AppTheme.info, size: 36),
+                          child: const Icon(
+                            Icons.home,
+                            color: AppTheme.info,
+                            size: 36,
+                          ),
                         ),
                         if (currentOrder.deliveryPersonLocation != null)
                           Marker(
@@ -79,9 +89,16 @@ class DeliveryDetailScreen extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: AppTheme.primaryRed,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
+                                ),
                               ),
-                              child: const Icon(Icons.delivery_dining, color: Colors.white, size: 24),
+                              child: const Icon(
+                                Icons.delivery_dining,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
                           ),
                       ],
@@ -103,7 +120,13 @@ class DeliveryDetailScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.cardShadow,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,9 +134,20 @@ class DeliveryDetailScreen extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('#${currentOrder.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                                Text(currentOrder.statusLabel,
-                                    style: TextStyle(color: AppTheme.primaryRed, fontWeight: FontWeight.bold)),
+                                Text(
+                                  '#${currentOrder.id}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                Text(
+                                  currentOrder.statusLabel,
+                                  style: TextStyle(
+                                    color: AppTheme.primaryRed,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             const Divider(height: 24),
@@ -149,26 +183,46 @@ class DeliveryDetailScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Order Items (${currentOrder.itemCount})',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(
+                              'Order Items (${currentOrder.itemCount})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
                             const SizedBox(height: 12),
-                            ...currentOrder.items.map((item) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text('${item.product.name} x${item.quantity}'),
-                                      Text('₹${item.totalPrice.toInt()}'),
-                                    ],
-                                  ),
-                                )),
+                            ...currentOrder.items.map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '${item.product.name} x${item.quantity}',
+                                    ),
+                                    Text('₹${item.totalPrice.toInt()}'),
+                                  ],
+                                ),
+                              ),
+                            ),
                             const Divider(),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
-                                Text('₹${currentOrder.grandTotal.toInt()}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryRed)),
+                                const Text(
+                                  'Total',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  '₹${currentOrder.grandTotal.toInt()}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryRed,
+                                  ),
+                                ),
                               ],
                             ),
                             if (currentOrder.notes != null) ...[
@@ -176,14 +230,25 @@ class DeliveryDetailScreen extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.warning.withValues(alpha: 0.1),
+                                  color: AppTheme.warning.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.note, color: AppTheme.warning, size: 20),
+                                    const Icon(
+                                      Icons.note,
+                                      color: AppTheme.warning,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 8),
-                                    Expanded(child: Text(currentOrder.notes!, style: const TextStyle(fontSize: 13))),
+                                    Expanded(
+                                      child: Text(
+                                        currentOrder.notes!,
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -197,8 +262,11 @@ class DeliveryDetailScreen extends StatelessWidget {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.route_rounded,
-                                      color: AppTheme.info, size: 20),
+                                  const Icon(
+                                    Icons.route_rounded,
+                                    color: AppTheme.info,
+                                    size: 20,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -227,20 +295,37 @@ class DeliveryDetailScreen extends StatelessWidget {
                           children: [
                             CircleAvatar(
                               backgroundColor: AppTheme.primaryRed,
-                              child: Text(currentOrder.customerName[0], style: const TextStyle(color: Colors.white)),
+                              child: Text(
+                                currentOrder.customerName[0],
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(currentOrder.customerName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text(currentOrder.customerPhone, style: const TextStyle(color: AppTheme.textMedium, fontSize: 12)),
+                                  Text(
+                                    currentOrder.customerName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    currentOrder.customerPhone,
+                                    style: const TextStyle(
+                                      color: AppTheme.textMedium,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.phone, color: AppTheme.primaryRed),
+                              icon: const Icon(
+                                Icons.phone,
+                                color: AppTheme.primaryRed,
+                              ),
                               onPressed: () => _launchContactAction(
                                 context,
                                 Uri.parse('tel:${currentOrder.customerPhone}'),
@@ -248,7 +333,10 @@ class DeliveryDetailScreen extends StatelessWidget {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.message, color: AppTheme.primaryRed),
+                              icon: const Icon(
+                                Icons.message,
+                                color: AppTheme.primaryRed,
+                              ),
                               onPressed: () => _launchContactAction(
                                 context,
                                 Uri.parse('sms:${currentOrder.customerPhone}'),
@@ -285,52 +373,58 @@ class DeliveryDetailScreen extends StatelessWidget {
                                 ),
                               )
                             else
-                              ...routeUpdates.take(4).map(
-                                (update) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 34,
-                                        height: 34,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFEAF4FF),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: const Icon(
-                                          Icons.route_rounded,
-                                          color: AppTheme.info,
-                                          size: 18,
-                                        ),
+                              ...routeUpdates
+                                  .take(4)
+                                  .map(
+                                    (update) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 10,
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _routeHeadline(update),
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Container(
+                                            width: 34,
+                                            height: 34,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEAF4FF),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              _routeSubtitle(update),
-                                              style: const TextStyle(
-                                                color: AppTheme.textMedium,
-                                                height: 1.35,
-                                              ),
+                                            child: const Icon(
+                                              Icons.route_rounded,
+                                              color: AppTheme.info,
+                                              size: 18,
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  _routeHeadline(update),
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  _routeSubtitle(update),
+                                                  style: const TextStyle(
+                                                    color: AppTheme.textMedium,
+                                                    height: 1.35,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ),
                           ],
                         ),
                       ),
@@ -385,7 +479,13 @@ class DeliveryDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, -2))],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
             ),
             child: SizedBox(
               height: 50,
@@ -410,6 +510,19 @@ class DeliveryDetailScreen extends StatelessWidget {
                           }
                           return;
                         }
+                        if (!SupabaseService.isInitialized) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  SupabaseService.backendStatusMessage,
+                                ),
+                                backgroundColor: AppTheme.primaryRed,
+                              ),
+                            );
+                          }
+                          return;
+                        }
                         await orderService.updateDeliveryLocation(
                           orderId: currentOrder.id,
                           location: liveLocation,
@@ -417,7 +530,9 @@ class DeliveryDetailScreen extends StatelessWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Live route updated for this delivery.'),
+                              content: Text(
+                                'Live route updated for this delivery.',
+                              ),
                               backgroundColor: AppTheme.info,
                             ),
                           );
@@ -432,17 +547,32 @@ class DeliveryDetailScreen extends StatelessWidget {
                     flex: 2,
                     child: ElevatedButton(
                       onPressed: () async {
+                        if (!SupabaseService.isInitialized) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                SupabaseService.backendStatusMessage,
+                              ),
+                              backgroundColor: AppTheme.primaryRed,
+                            ),
+                          );
+                          return;
+                        }
                         if (currentOrder.status == OrderStatus.readyForPickup) {
-                          orderService.updateOrderStatus(
+                          final pickedUp = orderService.updateOrderStatus(
                             currentOrder.id,
                             OrderStatus.outForDelivery,
                           );
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Order picked up. Collect the customer OTP at handoff to complete delivery.',
+                                pickedUp
+                                    ? 'Order picked up. Collect the customer OTP at handoff to complete delivery.'
+                                    : 'This order cannot move to pickup right now.',
                               ),
-                              backgroundColor: AppTheme.success,
+                              backgroundColor: pickedUp
+                                  ? AppTheme.success
+                                  : AppTheme.primaryRed,
                             ),
                           );
                           return;
@@ -456,7 +586,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                               left: 20,
                               right: 20,
                               top: 20,
-                              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                              bottom:
+                                  MediaQuery.of(context).viewInsets.bottom + 20,
                             ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -505,12 +636,15 @@ class DeliveryDetailScreen extends StatelessWidget {
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     onPressed: () {
-                                      final success = orderService.completeDeliveryWithCode(
-                                        currentOrder.id,
-                                        otpController.text,
-                                        handedToName: recipientController.text,
-                                        proofNotes: proofNotesController.text,
-                                      );
+                                      final success = orderService
+                                          .completeDeliveryWithCode(
+                                            currentOrder.id,
+                                            otpController.text,
+                                            handedToName:
+                                                recipientController.text,
+                                            proofNotes:
+                                                proofNotesController.text,
+                                          );
                                       Navigator.pop(context, success);
                                     },
                                     child: const Text('Verify and complete'),
@@ -533,7 +667,9 @@ class DeliveryDetailScreen extends StatelessWidget {
                         } else if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Incorrect delivery OTP.'),
+                              content: Text(
+                                'Incorrect delivery OTP or delivery could not be completed.',
+                              ),
                               backgroundColor: AppTheme.primaryRed,
                             ),
                           );
@@ -557,7 +693,12 @@ class DeliveryDetailScreen extends StatelessWidget {
   }
 
   Widget _buildLocationRow(
-      IconData icon, String label, String name, String address, Color color) {
+    IconData icon,
+    String label,
+    String name,
+    String address,
+    Color color,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -575,9 +716,15 @@ class DeliveryDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: AppTheme.textLight, fontSize: 12)),
+              Text(
+                label,
+                style: TextStyle(color: AppTheme.textLight, fontSize: 12),
+              ),
               Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(address, style: TextStyle(color: AppTheme.textMedium, fontSize: 13)),
+              Text(
+                address,
+                style: TextStyle(color: AppTheme.textMedium, fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -590,8 +737,7 @@ class DeliveryDetailScreen extends StatelessWidget {
     Uri uri,
     String fallbackMessage,
   ) async {
-    final launched =
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -611,8 +757,9 @@ class DeliveryDetailScreen extends StatelessWidget {
   }
 
   String _routeSubtitle(Map<String, dynamic> update) {
-    final capturedAt =
-        DateTime.tryParse((update['captured_at'] ?? '').toString());
+    final capturedAt = DateTime.tryParse(
+      (update['captured_at'] ?? '').toString(),
+    );
     final speed = (update['speed_kmph'] as num?)?.toDouble();
     final pieces = <String>[
       if (capturedAt != null) DateFormat('dd MMM, hh:mm a').format(capturedAt),

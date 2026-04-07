@@ -15,16 +15,21 @@ class StoreOrdersScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Store Orders')),
       body: Consumer<OrderService>(
         builder: (context, orderService, _) {
+          if (orderService.syncError != null && orderService.storeOrders.isEmpty) {
+            return _StoreOrdersState(
+              icon: Icons.cloud_off_rounded,
+              title: 'Live store orders unavailable',
+              subtitle: orderService.syncError!,
+            );
+          }
+          if (orderService.isSyncing && orderService.storeOrders.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
           if (orderService.storeOrders.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.receipt_long, size: 80, color: AppTheme.textLight),
-                  SizedBox(height: 16),
-                  Text('No orders yet', style: TextStyle(fontSize: 18, color: AppTheme.textMedium)),
-                ],
-              ),
+            return const _StoreOrdersState(
+              icon: Icons.receipt_long,
+              title: 'No orders yet',
+              subtitle: 'New live customer orders will appear here for this store.',
             );
           }
 
@@ -226,5 +231,44 @@ class StoreOrdersScreen extends StatelessWidget {
       default:
         return status.name;
     }
+  }
+}
+
+class _StoreOrdersState extends StatelessWidget {
+  const _StoreOrdersState({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 80, color: AppTheme.textLight),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 18, color: AppTheme.textMedium),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppTheme.textLight, height: 1.4),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

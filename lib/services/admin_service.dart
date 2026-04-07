@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/order.dart';
-import 'mock_data.dart';
 import 'supabase_service.dart';
 
 class AdminDashboardSnapshot {
@@ -44,7 +42,12 @@ class AdminService extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   Future<void> loadDashboard() async {
-    if (!SupabaseService.isInitialized) return;
+    if (!SupabaseService.isInitialized) {
+      _snapshot = null;
+      _errorMessage = SupabaseService.backendStatusMessage;
+      notifyListeners();
+      return;
+    }
 
     _isLoading = true;
     _errorMessage = null;
@@ -139,100 +142,9 @@ class AdminService extends ChangeNotifier {
   }
 
   void loadLocalDashboard() {
+    _snapshot = null;
     _errorMessage =
-        'Running in local owner mode. Live Supabase admin access is not available for this session.';
-    final completedOrders = MockData.sampleOrders
-        .where((o) => o.status == OrderStatus.delivered)
-        .length;
-    final pendingOrders = MockData.sampleOrders
-        .where(
-          (o) =>
-              o.status != OrderStatus.delivered &&
-              o.status != OrderStatus.cancelled,
-        )
-        .length;
-    final grossValue = MockData.sampleOrders.fold<double>(
-      0,
-      (sum, order) => sum + order.grandTotal,
-    );
-    _snapshot = AdminDashboardSnapshot(
-      totalOrders: MockData.sampleOrders.length,
-      totalProducts: MockData.products.length,
-      totalStores: MockData.stores.length,
-      totalCustomers: 1,
-      totalDeliveryPartners: MockData.deliveryPersons.length,
-      pendingPlatformBalance: grossValue * 0.05,
-      paidPlatformBalance: 0,
-      latestMetrics: {
-        'gross_merchandise_value': grossValue,
-        'platform_commission_earned': grossValue * 0.05,
-        'delivery_payout_due': MockData.sampleOrders.fold<double>(
-          0,
-          (sum, order) => sum + order.deliveryFee + order.deliveryTip,
-        ),
-        'store_payout_due': grossValue * 0.95,
-        'completed_orders': completedOrders,
-        'cancelled_orders': MockData.sampleOrders
-            .where((o) => o.status == OrderStatus.cancelled)
-            .length,
-        'pending_orders': pendingOrders,
-      },
-      metricsHistory: [
-        {
-          'metric_date': DateTime.now().toIso8601String(),
-          'gross_merchandise_value': grossValue,
-          'platform_commission_earned': grossValue * 0.05,
-          'delivery_payout_due': MockData.sampleOrders.fold<double>(
-            0,
-            (sum, order) => sum + order.deliveryFee + order.deliveryTip,
-          ),
-          'store_payout_due': grossValue * 0.95,
-          'completed_orders': completedOrders,
-          'cancelled_orders': MockData.sampleOrders
-              .where((o) => o.status == OrderStatus.cancelled)
-              .length,
-        },
-      ],
-      recentOperationalEvents: MockData.sampleOrders.take(8).map((order) {
-        final status = order.statusLabel;
-        return {
-          'title': 'Order ${order.id}',
-          'subtitle': '$status • ${order.customerName}',
-          'color': _eventColorForStatus(order.status.name),
-          'timestamp': order.placedAt.toIso8601String(),
-          'source': 'order',
-        };
-      }).toList(),
-      liveSignals: {
-        'pending_orders': pendingOrders,
-        'proof_of_delivery_ready': completedOrders,
-        'active_route_pings': 0,
-        'active_customers': 1,
-        'active_delivery_partners':
-            MockData.deliveryPersons.where((item) => item.isOnline).length,
-      },
-      orderStatusCounts: {
-        'placed': MockData.sampleOrders
-            .where((o) => o.status == OrderStatus.placed)
-            .length,
-        'confirmed': MockData.sampleOrders
-            .where((o) => o.status == OrderStatus.confirmed)
-            .length,
-        'preparing': MockData.sampleOrders
-            .where((o) => o.status == OrderStatus.preparing)
-            .length,
-        'ready_for_pickup': MockData.sampleOrders
-            .where((o) => o.status == OrderStatus.readyForPickup)
-            .length,
-        'out_for_delivery': MockData.sampleOrders
-            .where((o) => o.status == OrderStatus.outForDelivery)
-            .length,
-        'delivered': completedOrders,
-        'cancelled': MockData.sampleOrders
-            .where((o) => o.status == OrderStatus.cancelled)
-            .length,
-      },
-    );
+        'Live admin backend is not available. Connect Supabase and sign in with a platform admin account.';
     notifyListeners();
   }
 
@@ -404,3 +316,6 @@ class AdminService extends ChangeNotifier {
     }).length;
   }
 }
+
+
+

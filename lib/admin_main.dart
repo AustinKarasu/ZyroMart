@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/admin/admin_auth_gate.dart';
+import 'screens/shared/backend_unavailable_screen.dart';
 import 'services/app_telemetry_service.dart';
 import 'services/admin_auth_service.dart';
 import 'services/supabase_service.dart';
@@ -36,7 +37,7 @@ void main() async {
       appVariant: 'admin',
     );
   } catch (error) {
-    debugPrint('Supabase init skipped: $error');
+    debugPrint('Supabase init failed: $error');
   }
   runApp(const ZyroMartAdminApp());
 }
@@ -52,8 +53,16 @@ class ZyroMartAdminApp extends StatelessWidget {
         title: 'ZyroMart Admin',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
-        home: const AdminAuthGate(),
+        home: SupabaseService.isInitialized
+            ? const AdminAuthGate()
+            : BackendUnavailableScreen(
+                appTitle: 'ZyroMart Admin',
+                message: SupabaseService.backendStatusMessage,
+                accentColor: const Color(0xFF163250),
+              ),
       ),
     );
   }
 }
+
+

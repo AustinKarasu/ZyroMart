@@ -149,6 +149,11 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
     );
     final deliveries = user.completedDeliveries ?? 0;
     final rating = user.deliveryRating ?? 0.0;
+    final activeAssignments = orderService.activeOrders.where(
+      (order) => order.deliveryPersonId == user.id,
+    ).length;
+    final pendingProof = orderService.pendingProofCountForDeliveryPartner(user.id);
+    final routePings = orderService.routePingCountForDeliveryPartner(user.id);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FA),
@@ -225,7 +230,7 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
-                                      user.isOnline ? '🟢 Online' : '⚫ Offline',
+                                      user.isOnline ? 'Online' : 'Offline',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 11,
@@ -292,6 +297,17 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
                     ),
                   ],
                   const SizedBox(height: 8),
+                  _sectionLabel('Delivery Snapshot'),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _statCard('Active', '$activeAssignments', Icons.local_shipping_outlined),
+                      _statCard('Pending Proof', '$pendingProof', Icons.verified_outlined),
+                      _statCard('Route Pings', '$routePings', Icons.route_outlined),
+                      _statCard('Held', 'Rs ${earnings.held.toInt()}', Icons.savings_outlined),
+                    ],
+                  ),
                   _sectionLabel('Availability'),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -434,6 +450,38 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
     ],
   );
 
+
+  Widget _statCard(String label, String value, IconData icon) => Container(
+    width: 160,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: const [
+        BoxShadow(
+          color: AppTheme.cardShadow,
+          blurRadius: 6,
+          offset: Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF1565C0), size: 20),
+        const SizedBox(height: 10),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(color: AppTheme.textMedium, fontSize: 12),
+        ),
+      ],
+    ),
+  );
   Widget _buildEditForm(BuildContext context, AuthService auth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,3 +681,10 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
     if (confirmed == true) auth.logout();
   }
 }
+
+
+
+
+
+
+

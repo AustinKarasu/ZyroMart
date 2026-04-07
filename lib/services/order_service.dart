@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -43,6 +45,8 @@ class OrderService extends ChangeNotifier {
   RealtimeChannel? _ordersChannel;
   AppUser? _viewer;
   String _scope = 'guest';
+  bool _isSyncing = false;
+  String? _syncError;
 
   OrderService() {
     // Live data only — no mock/demo orders
@@ -76,6 +80,8 @@ class OrderService extends ChangeNotifier {
   }
 
   List<Order> get orders => List.unmodifiable(_visibleOrders);
+  bool get isSyncing => _isSyncing;
+  String? get syncError => _syncError;
   List<Order> get allOrders => List.unmodifiable(_orders);
   List<AppNotification> get notifications {
     if (_viewer == null) return const [];
@@ -119,6 +125,44 @@ class OrderService extends ChangeNotifier {
   List<Order> get storeOrders => _visibleOrders
       .where((order) => order.status != OrderStatus.cancelled)
       .toList();
+
+  Future<void> syncOrders() async {
+    if (_viewer == null) {
+      _syncError = SupabaseService.backendStatusMessage;
+      notifyListeners();
+      return;
+    }
+    await _syncRemoteOrders();
+  }
+
+  void _setSyncError(String message, {bool notify = true}) {
+    _syncError = message;
+    if (notify) {
+      notifyListeners();
+    }
+  }
+
+  void _clearSyncError({bool notify = false}) {
+    if (_syncError == null) {
+      return;
+    }
+    _syncError = null;
+    if (notify) {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _runRemoteWrite(
+    Future<void> Function() action,
+    String failurePrefix,
+  ) async {
+    try {
+      await action();
+      _clearSyncError(notify: true);
+    } catch (error) {
+      _setSyncError('$failurePrefix ${error.toString()}');
+    }
+  }
 
   bool canCustomerCancel(Order order) {
     if (_viewer?.role != UserRole.customer || _viewer?.id != order.customerId) {
@@ -288,12 +332,17 @@ class OrderService extends ChangeNotifier {
   void updateStoreRadius(String storeId, double radiusKm) {
     _serviceRadiusByStoreId[storeId] = radiusKm.clamp(1, 15);
     if (SupabaseService.isInitialized) {
-      SupabaseService.upsertStoreServiceArea({
-        'store_id': storeId,
-        'radius_km': _serviceRadiusByStoreId[storeId],
-        'minimum_order_amount': 0,
-        'is_active': true,
-      }).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.upsertStoreServiceArea({
+            'store_id': storeId,
+            'radius_km': _serviceRadiusByStoreId[storeId],
+            'minimum_order_amount': 0,
+            'is_active': true,
+          }),
+          'Could not update the live service radius.',
+        ),
+      );
     }
     notifyListeners();
   }
@@ -545,11 +594,16 @@ class OrderService extends ChangeNotifier {
         OrderStatus.outForDelivery => 'out_for_delivery',
         _ => status.name,
       };
-      SupabaseService.updateOrder(order.id, {
-        'status': remoteStatus,
-        'delivery_person_id': order.deliveryPersonId,
-        'delivery_person_name': order.deliveryPersonName,
-      }).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.updateOrder(order.id, {
+            'status': remoteStatus,
+            'delivery_person_id': order.deliveryPersonId,
+            'delivery_person_name': order.deliveryPersonName,
+          }),
+          'Could not update the live order status.',
+        ),
+      );
     }
 
     _notifyStatusChange(order);
@@ -621,9 +675,10 @@ class OrderService extends ChangeNotifier {
     final bucket = _routeUpdatesByOrderId.putIfAbsent(orderId, () => []);
     bucket.insert(0, payload);
     if (SupabaseService.isInitialized) {
-      await SupabaseService.insertDeliveryRouteUpdate(
-        payload,
-      ).catchError((_) {});
+      await _runRemoteWrite(
+        () => SupabaseService.insertDeliveryRouteUpdate(payload),
+        'Could not sync the live delivery route.',
+      );
     }
     _persistLocalState();
     notifyListeners();
@@ -678,7 +733,11 @@ class OrderService extends ChangeNotifier {
   }
 
   Future<void> _syncRemoteOrders() async {
-    if (!SupabaseService.isInitialized || _viewer == null) return;
+    if (!SupabaseService.isInitialized || _viewer == null) {
+      _syncError = SupabaseService.backendStatusMessage;
+      notifyListeners();
+      return;
+    }
     await _refreshStoreCatalog();
     await _refreshDeliveryRoster();
     await _loadRemoteOrders();
@@ -688,6 +747,9 @@ class OrderService extends ChangeNotifier {
   }
 
   Future<void> _loadRemoteOrders() async {
+    _isSyncing = true;
+    _syncError = null;
+    notifyListeners();
     try {
       final rows = await SupabaseService.getOrders();
       final serviceAreas = await SupabaseService.getStoreServiceAreas();
@@ -725,8 +787,12 @@ class OrderService extends ChangeNotifier {
       await Future.wait(remoteOrders.map(_loadRemoteOrderDetails));
       _persistLocalState();
       notifyListeners();
-    } catch (_) {
-      // Keep local state when remote sync fails.
+    } catch (error) {
+      _syncError = 'Could not sync live orders. ${error.toString()}';
+      notifyListeners();
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
     }
   }
 
@@ -927,7 +993,12 @@ class OrderService extends ChangeNotifier {
     if (notification.isEmpty) return;
     notification.first.isRead = true;
     if (SupabaseService.isInitialized) {
-      SupabaseService.markNotificationRead(notificationId).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.markNotificationRead(notificationId),
+          'Could not update the live notification state.',
+        ),
+      );
     }
     notifyListeners();
   }
@@ -1003,9 +1074,14 @@ class OrderService extends ChangeNotifier {
       orderId: order.id,
     );
     if (SupabaseService.isInitialized) {
-      SupabaseService.updateOrder(order.id, {
-        'status': OrderStatus.cancelled.name,
-      }).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.updateOrder(order.id, {
+            'status': OrderStatus.cancelled.name,
+          }),
+          'Could not cancel the live order.',
+        ),
+      );
     }
     _persistLocalState();
     notifyListeners();
@@ -1157,18 +1233,21 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _refreshStoreCatalog() async {
     if (!SupabaseService.isInitialized) return;
-    final rows = await SupabaseService.getStores().catchError(
-      (_) => <Map<String, dynamic>>[],
-    );
-    if (rows.isEmpty) return;
-    _storeCatalog = rows.map(_mapStore).toList();
-    for (final store in _storeCatalog) {
-      _serviceRadiusByStoreId.putIfAbsent(
-        store.id,
-        () => _defaultServiceRadiusKm,
-      );
+    try {
+      final rows = await SupabaseService.getStores();
+      if (rows.isEmpty) return;
+      _storeCatalog = rows.map(_mapStore).toList();
+      for (final store in _storeCatalog) {
+        _serviceRadiusByStoreId.putIfAbsent(
+          store.id,
+          () => _defaultServiceRadiusKm,
+        );
+      }
+      _clearSyncError();
+      notifyListeners();
+    } catch (error) {
+      _setSyncError('Could not load live store data. ${error.toString()}');
     }
-    notifyListeners();
   }
 
   Store _mapStore(Map<String, dynamic> row) {
@@ -1194,18 +1273,21 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _refreshDeliveryRoster() async {
     if (!SupabaseService.isInitialized) return;
-    final rows = await SupabaseService.getProfiles().catchError(
-      (_) => <Map<String, dynamic>>[],
-    );
-    if (rows.isEmpty) return;
-    _deliveryRoster
-      ..clear()
-      ..addAll(
-        rows
-            .where((row) => (row['role'] ?? '').toString() == 'delivery')
-            .map(_mapDeliveryProfile),
-      );
-    notifyListeners();
+    try {
+      final rows = await SupabaseService.getProfiles();
+      if (rows.isEmpty) return;
+      _deliveryRoster
+        ..clear()
+        ..addAll(
+          rows
+              .where((row) => (row['role'] ?? '').toString() == 'delivery')
+              .map(_mapDeliveryProfile),
+        );
+      _clearSyncError();
+      notifyListeners();
+    } catch (error) {
+      _setSyncError('Could not load live delivery roster. ${error.toString()}');
+    }
   }
 
   AppUser _mapDeliveryProfile(Map<String, dynamic> row) {
@@ -1289,16 +1371,22 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _syncRemoteNotifications() async {
     if (!SupabaseService.isInitialized || _viewer == null) return;
-    await SupabaseService.upsertNotificationDevice(
-      deviceToken: 'local-${_viewer!.id}-${_viewer!.role.name}',
-      platform: 'android',
-      appVariant: 'storefront',
-    ).catchError((_) {});
-    final rows = await SupabaseService.getNotifications().catchError(
-      (_) => <Map<String, dynamic>>[],
+    await _runRemoteWrite(
+      () => SupabaseService.upsertNotificationDevice(
+        deviceToken: 'local-${_viewer!.id}-${_viewer!.role.name}',
+        platform: 'android',
+        appVariant: 'storefront',
+      ),
+      'Could not register this device for live notifications.',
     );
-    for (final row in rows) {
-      _mergeNotification(AppNotification.fromMap(row));
+    try {
+      final rows = await SupabaseService.getNotifications();
+      for (final row in rows) {
+        _mergeNotification(AppNotification.fromMap(row));
+      }
+      _clearSyncError();
+    } catch (error) {
+      _setSyncError('Could not load live notifications. ${error.toString()}');
     }
     _notificationChannel = SupabaseService.subscribeToNotifications((row) {
       final remote = AppNotification.fromMap(row);
@@ -1433,7 +1521,12 @@ class OrderService extends ChangeNotifier {
     final bucket = _statusEventsByOrderId.putIfAbsent(order.id, () => []);
     bucket.insert(0, event);
     if (SupabaseService.isInitialized) {
-      SupabaseService.insertOrderStatusEvent(event).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.insertOrderStatusEvent(event),
+          'Could not save the live status history.',
+        ),
+      );
     }
     _persistLocalState();
   }
@@ -1459,7 +1552,12 @@ class OrderService extends ChangeNotifier {
         .toList();
     _inventoryReservationsByOrderId[order.id] = reservations;
     if (SupabaseService.isInitialized) {
-      SupabaseService.reserveInventory(reservations).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.reserveInventory(reservations),
+          'Could not reserve live inventory.',
+        ),
+      );
     }
     _persistLocalState();
   }
@@ -1472,10 +1570,15 @@ class OrderService extends ChangeNotifier {
       reservation['released_at'] = DateTime.now().toIso8601String();
     }
     if (SupabaseService.isInitialized) {
-      SupabaseService.updateInventoryReservationStatus(
-        orderId: orderId,
-        status: 'released',
-      ).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.updateInventoryReservationStatus(
+            orderId: orderId,
+            status: 'released',
+          ),
+          'Could not release live inventory reservations.',
+        ),
+      );
     }
     _persistLocalState();
   }
@@ -1487,10 +1590,15 @@ class OrderService extends ChangeNotifier {
       reservation['reservation_status'] = 'consumed';
     }
     if (SupabaseService.isInitialized) {
-      SupabaseService.updateInventoryReservationStatus(
-        orderId: orderId,
-        status: 'consumed',
-      ).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.updateInventoryReservationStatus(
+            orderId: orderId,
+            status: 'consumed',
+          ),
+          'Could not consume live inventory reservations.',
+        ),
+      );
     }
     _persistLocalState();
   }
@@ -1510,7 +1618,12 @@ class OrderService extends ChangeNotifier {
     };
     _proofOfDeliveryByOrderId[order.id] = proof;
     if (SupabaseService.isInitialized) {
-      SupabaseService.saveProofOfDelivery(proof).catchError((_) {});
+      unawaited(
+        _runRemoteWrite(
+          () => SupabaseService.saveProofOfDelivery(proof),
+          'Could not save the live proof of delivery.',
+        ),
+      );
     }
     _persistLocalState();
   }

@@ -18,6 +18,7 @@ class AuthService extends ChangeNotifier {
   String? _pendingEmail;
   String? _pendingName;
   String? _pendingPassword;
+  bool _pendingIsSignUpFlow = false;
   String? _pendingStoreName;
   String? _pendingStoreAddress;
   LatLng? _pendingStoreLocation;
@@ -92,6 +93,7 @@ class AuthService extends ChangeNotifier {
     _pendingEmail = email?.trim().toLowerCase();
     _pendingName = name.trim();
     _pendingPassword = password;
+    _pendingIsSignUpFlow = isSignUpFlow;
     _pendingStoreName = storeName?.trim();
     _pendingStoreAddress = storeAddress?.trim();
     _pendingStoreLocation = storeLocation;
@@ -186,12 +188,23 @@ class AuthService extends ChangeNotifier {
         phone: _pendingPhone!,
         otpCode: otpCode.trim(),
       );
-      // ALWAYS upsert the profile with the role the user selected — do not
-      // inherit a stale role from DB on first-time signup paths.
       final existingProfile = await SupabaseService.getMyProfile();
       final existingRole = _roleFromDb(existingProfile?['role']?.toString());
-      // Only trust existing DB role if it was already set (not null/empty).
-      final effectiveRole = existingRole ?? _selectedRole!;
+      final metadataRole = _roleFromDb(
+        SupabaseService.currentUser?.userMetadata?['role']?.toString(),
+      );
+      final effectiveRole = await _resolveEffectiveRole(
+        existingRole: existingRole,
+        selectedRole: _selectedRole,
+        metadataRole: metadataRole,
+        allowRoleRepair: !_pendingIsSignUpFlow,
+      );
+      if (effectiveRole != _selectedRole && existingRole != null) {
+        await SupabaseService.signOut();
+        _errorMessage =
+            'This account is registered as ${_roleLabel(effectiveRole)}. Please select the correct role to sign in.';
+        return false;
+      }
       await _upsertCurrentProfile(
         role: effectiveRole,
         phone: _pendingPhone!,
@@ -258,28 +271,26 @@ class AuthService extends ChangeNotifier {
       await SupabaseService.signIn(normalizedEmail, password);
       await RateLimitService.clear('password:$normalizedEmail');
 
-      // Fetch profile immediately after sign-in to get the stored role.
       final profile = await SupabaseService.getMyProfile();
       final profileRole = _roleFromDb(profile?['role']?.toString());
       final metadataRole = _roleFromDb(
         SupabaseService.currentUser?.userMetadata?['role']?.toString(),
       );
+      final effectiveRole = await _resolveEffectiveRole(
+        existingRole: profileRole,
+        selectedRole: role,
+        metadataRole: metadataRole,
+        allowRoleRepair: true,
+      );
 
-      // FIX: If profile exists and has a role, enforce it — don't let
-      // the selected role override what's stored in the database.
-      // Only block if the profile role doesn't match the selected role.
-      if (profileRole != null && profileRole != role) {
+      if (profileRole != null && effectiveRole != role) {
         await SupabaseService.signOut();
         _errorMessage =
-            'This account is registered as ${_roleLabel(profileRole)}. Please select the correct role to sign in.';
+            'This account is registered as ${_roleLabel(effectiveRole)}. Please select the correct role to sign in.';
         return false;
       }
 
-      // Use the definitive role: DB profile > metadata > selected role (in that order).
-      final effectiveRole = profileRole ?? metadataRole ?? role;
-
-      if (profile == null || profileRole == null) {
-        // New account — write the selected role to DB now.
+      if (profile == null || profileRole == null || effectiveRole != profileRole) {
         await _upsertCurrentProfile(
           role: effectiveRole,
           phone: (profile?['phone'] ?? SupabaseService.currentUser?.phone ?? '').toString(),
@@ -295,8 +306,6 @@ class AuthService extends ChangeNotifier {
         identifierHash: normalizedEmail.hashCode.toString(),
       );
 
-      // FIX: Pass effectiveRole explicitly so _hydrateCurrentUser never
-      // falls back to email-based role inference.
       await _hydrateCurrentUser(
         fallbackRole: effectiveRole,
         fallbackEmail: normalizedEmail,
@@ -447,6 +456,7 @@ class AuthService extends ChangeNotifier {
     _pendingEmail = null;
     _pendingName = null;
     _pendingPassword = null;
+    _pendingIsSignUpFlow = false;
     _pendingStoreName = null;
     _pendingStoreAddress = null;
     _pendingStoreLocation = null;
@@ -558,6 +568,40 @@ class AuthService extends ChangeNotifier {
     });
   }
 
+  Future<UserRole> _resolveEffectiveRole({
+    required UserRole? existingRole,
+    required UserRole? selectedRole,
+    required UserRole? metadataRole,
+    required bool allowRoleRepair,
+  }) async {
+    final requestedRole = selectedRole ?? metadataRole;
+    if (existingRole == null) {
+      return requestedRole ?? UserRole.customer;
+    }
+    if (requestedRole == null || existingRole == requestedRole) {
+      return existingRole;
+    }
+    if (!allowRoleRepair) {
+      return existingRole;
+    }
+    if (metadataRole == requestedRole) {
+      return requestedRole;
+    }
+    if (requestedRole == UserRole.storeOwner &&
+        await _hasStoreForCurrentUser()) {
+      return requestedRole;
+    }
+    return existingRole;
+  }
+
+  Future<bool> _hasStoreForCurrentUser() async {
+    final sessionUser = SupabaseService.currentUser;
+    if (sessionUser == null || !SupabaseService.isInitialized) {
+      return false;
+    }
+    final store = await SupabaseService.getStoreByOwner(sessionUser.id);
+    return store != null;
+  }
   Future<void> _upsertOwnerStoreIfNeeded({required UserRole role}) async {
     if (role != UserRole.storeOwner) return;
     final sessionUser = SupabaseService.currentUser;
@@ -667,3 +711,6 @@ class AuthService extends ChangeNotifier {
         : 'Could not send OTP. $message';
   }
 }
+
+
+

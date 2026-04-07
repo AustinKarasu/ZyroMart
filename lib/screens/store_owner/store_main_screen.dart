@@ -180,6 +180,8 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
         final storeName = (storeRow?['name'] ?? user.name).toString();
         final storeAddress = (storeRow?['address'] ?? user.address).toString();
         final isOpen = storeRow?['is_open'] as bool? ?? true;
+        final totalOrders = (storeRow?['total_orders'] ?? 0) as int;
+        final totalRevenue = ((storeRow?['total_revenue'] ?? 0) as num).toDouble();
 
         return Scaffold(
           backgroundColor: const Color(0xFFF6F7FA),
@@ -260,7 +262,7 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
                                           ),
                                         ),
                                         child: Text(
-                                          isOpen ? '🟢 Open' : '🔴 Closed',
+                                          isOpen ? 'Open' : 'Closed',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 11,
@@ -324,6 +326,17 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
                         ),
                       ],
                       const SizedBox(height: 8),
+                      _sectionHeader('Store Performance'),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          _statCard('Orders', '$totalOrders', Icons.receipt_long_outlined),
+                          _statCard('Revenue', 'Rs ${totalRevenue.toInt()}', Icons.payments_outlined),
+                          _statCard('Status', isOpen ? 'Open' : 'Closed', Icons.storefront_outlined),
+                          _statCard('Owner', user.name, Icons.person_outline),
+                        ],
+                      ),
                       _sectionHeader('Store Settings'),
                       _settingsTile(
                         context,
@@ -420,6 +433,41 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
           ),
         );
       },
+    );
+  }
+
+
+  Widget _statCard(String label, String value, IconData icon) {
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(
+            color: AppTheme.cardShadow,
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppTheme.primaryRed, size: 20),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(color: AppTheme.textMedium, fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 
@@ -649,3 +697,6 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
     if (confirmed == true) auth.logout();
   }
 }
+
+
+

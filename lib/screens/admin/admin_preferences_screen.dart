@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../services/admin_auth_service.dart';
 import '../../services/operator_preferences_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -27,7 +29,7 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
   Future<void> _load() async {
     final settings = await OperatorPreferencesService.load(
       appVariant: 'admin',
-      userId: 'singleton',
+      userId: context.read<AdminAuthService>().currentUser?.id ?? 'guest',
     );
     if (settings.isNotEmpty) {
       _highlightCancelled = settings['highlight_cancelled'] as bool? ?? true;
@@ -43,7 +45,7 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
   Future<void> _persist() async {
     await OperatorPreferencesService.save(
       appVariant: 'admin',
-      userId: 'singleton',
+      userId: context.read<AdminAuthService>().currentUser?.id ?? 'guest',
       settings: {
         'highlight_cancelled': _highlightCancelled,
         'highlight_payout_drift': _highlightPayoutDrift,
@@ -178,3 +180,4 @@ class _AdminCard extends StatelessWidget {
     );
   }
 }
+

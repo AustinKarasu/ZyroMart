@@ -1,0 +1,7 @@
+ZyroMart v1.4.9
+
+- fixed the store owner and delivery sign-in routing bug that could open the customer shell
+- removed more demo-like backend fallbacks and added clear backend-unavailable states
+- tightened live order, route, proof-of-delivery, inventory, and notification sync handling
+- made account tools and auto-restock stop pretending local-only saves succeeded when Supabase is unavailable
+- refreshed storefront and admin APKs from the validated release build

@@ -5,6 +5,7 @@ import '../../models/order.dart';
 import '../../models/user.dart';
 import '../../services/auth_service.dart';
 import '../../services/order_service.dart';
+import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/order_card.dart';
 import 'delivery_detail_screen.dart';
@@ -35,16 +36,21 @@ class DeliveryDashboardScreen extends StatelessWidget {
             builder: (context, orders, _) => Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.notifications_active_outlined,
-                        color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.notifications_active_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       '${orders.unreadNotificationCount}',
@@ -63,11 +69,25 @@ class DeliveryDashboardScreen extends StatelessWidget {
       body: Consumer<OrderService>(
         builder: (context, orderService, _) {
           final availableOrders = orderService.allOrders
-              .where((order) =>
-                  order.status == OrderStatus.readyForPickup ||
-                  (order.status == OrderStatus.outForDelivery &&
-                      order.deliveryPersonId == rider?.id))
+              .where(
+                (order) =>
+                    order.status == OrderStatus.readyForPickup ||
+                    (order.status == OrderStatus.outForDelivery &&
+                        order.deliveryPersonId == rider?.id),
+              )
               .toList();
+          final recentDeliveries = orderService.allOrders
+              .where(
+                (order) =>
+                    order.status == OrderStatus.delivered &&
+                    order.deliveryPersonId == rider?.id,
+              )
+              .toList();
+          final hasVisibleOrders = orderService.orders.isNotEmpty;
+          final showBackendError =
+              orderService.syncError != null && !hasVisibleOrders;
+          final showInitialLoading =
+              orderService.isSyncing && !hasVisibleOrders;
           final earnings = orderService.earningsFor(UserRole.delivery);
           final routePings = rider == null
               ? 0
@@ -79,6 +99,28 @@ class DeliveryDashboardScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (showBackendError) ...[
+                _DashboardStateMessage(
+                  icon: Icons.cloud_off_rounded,
+                  title: 'Live delivery data is unavailable',
+                  subtitle:
+                      orderService.syncError ??
+                      SupabaseService.backendStatusMessage,
+                  tone: const Color(0xFFFDEBE8),
+                  actionLabel: 'Retry',
+                  onAction: orderService.syncOrders,
+                ),
+                const SizedBox(height: 16),
+              ] else if (showInitialLoading) ...[
+                const _DashboardStateMessage(
+                  icon: Icons.sync_rounded,
+                  title: 'Syncing live delivery data',
+                  subtitle:
+                      'Fetching rider queue, route updates, and delivery history from the backend.',
+                  loading: true,
+                ),
+                const SizedBox(height: 16),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -121,8 +163,10 @@ class DeliveryDashboardScreen extends StatelessWidget {
                   children: [
                     const Text(
                       'Settlement logic',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -142,7 +186,7 @@ class DeliveryDashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '$routePings live route pings recorded • $pendingProof deliveries still need handoff proof',
+                      '$routePings live route pings recorded - $pendingProof deliveries still need handoff proof',
                       style: const TextStyle(
                         color: AppTheme.textMedium,
                         fontWeight: FontWeight.w600,
@@ -218,7 +262,22 @@ class DeliveryDashboardScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
-              if (availableOrders.isEmpty)
+              if (showBackendError && availableOrders.isEmpty)
+                _DashboardStateMessage(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'Queue unavailable until backend sync returns',
+                  subtitle: orderService.syncError!,
+                  tone: const Color(0xFFFDF3E7),
+                )
+              else if (showInitialLoading && availableOrders.isEmpty)
+                const _DashboardStateMessage(
+                  icon: Icons.local_shipping_outlined,
+                  title: 'Loading rider queue',
+                  subtitle:
+                      'Ready-for-pickup and assigned deliveries will appear here once the sync completes.',
+                  loading: true,
+                )
+              else if (availableOrders.isEmpty)
                 _EmptyDeliveryState()
               else
                 ...availableOrders.map(
@@ -226,21 +285,25 @@ class DeliveryDashboardScreen extends StatelessWidget {
                     order: order,
                     showActions: true,
                     onAccept: () {
-                      final nextStatus = order.status == OrderStatus.readyForPickup
+                      final nextStatus =
+                          order.status == OrderStatus.readyForPickup
                           ? OrderStatus.outForDelivery
                           : OrderStatus.delivered;
-                      final success =
-                          orderService.updateOrderStatus(order.id, nextStatus);
+                      final success = orderService.updateOrderStatus(
+                        order.id,
+                        nextStatus,
+                      );
                       final message = success
                           ? (nextStatus == OrderStatus.outForDelivery
-                              ? 'Pickup confirmed. Navigate to customer.'
-                              : 'Delivery complete. Earnings are now released.')
+                                ? 'Pickup confirmed. Navigate to customer.'
+                                : 'Delivery complete. Earnings are now released.')
                           : 'This order cannot move to that state yet.';
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(message),
-                          backgroundColor:
-                              success ? AppTheme.success : AppTheme.primaryRed,
+                          backgroundColor: success
+                              ? AppTheme.success
+                              : AppTheme.primaryRed,
                         ),
                       );
                     },
@@ -258,11 +321,22 @@ class DeliveryDashboardScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
-              ...orderService.allOrders
-                  .where((order) =>
-                      order.status == OrderStatus.delivered &&
-                      order.deliveryPersonId == rider?.id)
-                  .map((order) => OrderCard(order: order)),
+              if (showBackendError && recentDeliveries.isEmpty)
+                _DashboardStateMessage(
+                  icon: Icons.history_rounded,
+                  title: 'Recent delivery history is unavailable',
+                  subtitle: orderService.syncError!,
+                  tone: const Color(0xFFFDF3E7),
+                )
+              else if (recentDeliveries.isEmpty)
+                const _DashboardStateMessage(
+                  icon: Icons.check_circle_outline_rounded,
+                  title: 'No completed deliveries yet',
+                  subtitle:
+                      'Finished orders will appear here once this rider completes active assignments.',
+                )
+              else
+                ...recentDeliveries.map((order) => OrderCard(order: order)),
             ],
           );
         },
@@ -271,7 +345,11 @@ class DeliveryDashboardScreen extends StatelessWidget {
   }
 
   Widget _buildStatCard(
-      String label, String value, IconData icon, Color accent) {
+    String label,
+    String value,
+    IconData icon,
+    Color accent,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -303,6 +381,69 @@ class DeliveryDashboardScreen extends StatelessWidget {
   }
 }
 
+class _DashboardStateMessage extends StatelessWidget {
+  const _DashboardStateMessage({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.loading = false,
+    this.tone = Colors.white,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool loading;
+  final Color tone;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: tone,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          if (loading)
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            )
+          else
+            Icon(icon, size: 40, color: AppTheme.textMedium),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppTheme.textMedium, height: 1.45),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: onAction,
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(actionLabel!),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyDeliveryState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -314,8 +455,11 @@ class _EmptyDeliveryState extends StatelessWidget {
       ),
       child: const Column(
         children: [
-          Icon(Icons.delivery_dining_rounded,
-              size: 62, color: AppTheme.textLight),
+          Icon(
+            Icons.delivery_dining_rounded,
+            size: 62,
+            color: AppTheme.textLight,
+          ),
           SizedBox(height: 14),
           Text(
             'No active tasks right now',
