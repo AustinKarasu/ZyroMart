@@ -11,7 +11,6 @@ import '../models/product.dart';
 import '../models/store.dart';
 import '../models/user.dart';
 import 'local_state_service.dart';
-import 'mock_data.dart';
 import 'supabase_service.dart';
 
 class OrderService extends ChangeNotifier {
@@ -20,12 +19,8 @@ class OrderService extends ChangeNotifier {
 
   final Distance _distance = const Distance();
   final List<Order> _orders = [];
-  List<Store> _storeCatalog = SupabaseService.isInitialized
-      ? <Store>[]
-      : List.of(MockData.stores);
-  final List<AppUser> _deliveryRoster = SupabaseService.isInitialized
-      ? <AppUser>[]
-      : List.of(MockData.deliveryPersons);
+  List<Store> _storeCatalog = <Store>[];
+  final List<AppUser> _deliveryRoster = <AppUser>[];
   final Map<String, DeliveryFeedback> _feedbackByOrderId = {};
   final List<AppNotification> _notifications = [];
   final Map<String, double> _heldStoreEarnings = {};
@@ -50,19 +45,7 @@ class OrderService extends ChangeNotifier {
   String _scope = 'guest';
 
   OrderService() {
-    if (!SupabaseService.isInitialized) {
-      _orders.addAll(MockData.sampleOrders);
-    }
-    for (final store in _storeCatalog) {
-      _serviceRadiusByStoreId[store.id] = _defaultServiceRadiusKm;
-    }
-    for (final order in _orders) {
-      _completionCodes[order.id] = order.deliveryVerificationCode;
-      _initializeLedgerForOrder(order);
-      if (order.status == OrderStatus.delivered) {
-        _releaseSettlement(order);
-      }
-    }
+    // Live data only — no mock/demo orders
     _restoreLocalState();
     _refreshStoreCatalog();
     _refreshDeliveryRoster();
@@ -81,6 +64,7 @@ class OrderService extends ChangeNotifier {
     _ordersChannel = null;
     _viewer = user;
     _scope = nextScope;
+    _clearScopedOrderState(notify: false);
     _restoreLocalState();
     _refreshStoreCatalog();
     _refreshDeliveryRoster();
@@ -141,7 +125,8 @@ class OrderService extends ChangeNotifier {
       return false;
     }
     if (order.status != OrderStatus.placed &&
-        order.status != OrderStatus.confirmed) {
+        order.status != OrderStatus.confirmed &&
+        order.status != OrderStatus.preparing) {
       return false;
     }
     return DateTime.now().difference(order.placedAt) <=
@@ -715,12 +700,7 @@ class OrderService extends ChangeNotifier {
         }
       }
       if (rows.isEmpty) {
-        _orders.clear();
-        _statusEventsByOrderId.clear();
-        _inventoryReservationsByOrderId.clear();
-        _routeUpdatesByOrderId.clear();
-        _proofOfDeliveryByOrderId.clear();
-        _completionCodes.clear();
+        _clearScopedOrderState(notify: false);
         _persistLocalState();
         notifyListeners();
         return;
@@ -730,6 +710,11 @@ class OrderService extends ChangeNotifier {
           .whereType<Order>()
           .toList();
       if (remoteOrders.isNotEmpty) {
+        _statusEventsByOrderId.clear();
+        _inventoryReservationsByOrderId.clear();
+        _routeUpdatesByOrderId.clear();
+        _proofOfDeliveryByOrderId.clear();
+        _completionCodes.clear();
         _orders
           ..clear()
           ..addAll(remoteOrders);
@@ -1017,6 +1002,12 @@ class OrderService extends ChangeNotifier {
       body: 'Order ${order.id} was cancelled before fulfillment.',
       orderId: order.id,
     );
+    if (SupabaseService.isInitialized) {
+      SupabaseService.updateOrder(order.id, {
+        'status': OrderStatus.cancelled.name,
+      }).catchError((_) {});
+    }
+    _persistLocalState();
     notifyListeners();
     return true;
   }
@@ -1351,7 +1342,10 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _restoreLocalState() async {
     final cached = await LocalStateService.loadOrders(_scope);
-    if (cached == null) return;
+    if (cached == null) {
+      _clearScopedOrderState(notify: true);
+      return;
+    }
     final cachedOrders = (cached['orders'] as List? ?? const [])
         .map(
           (entry) => LocalStateService.orderFromMap(
@@ -1359,11 +1353,9 @@ class OrderService extends ChangeNotifier {
           ),
         )
         .toList();
-    if (cachedOrders.isNotEmpty) {
-      _orders
-        ..clear()
-        ..addAll(cachedOrders);
-    }
+    _orders
+      ..clear()
+      ..addAll(cachedOrders);
     _statusEventsByOrderId
       ..clear()
       ..addAll(_decodeMapOfLists(cached['status_events']));
@@ -1388,6 +1380,18 @@ class OrderService extends ChangeNotifier {
       routeUpdates: _routeUpdatesByOrderId,
       proofByOrderId: _proofOfDeliveryByOrderId,
     );
+  }
+
+  void _clearScopedOrderState({bool notify = false}) {
+    _orders.clear();
+    _statusEventsByOrderId.clear();
+    _inventoryReservationsByOrderId.clear();
+    _routeUpdatesByOrderId.clear();
+    _proofOfDeliveryByOrderId.clear();
+    _completionCodes.clear();
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   Map<String, List<Map<String, dynamic>>> _decodeMapOfLists(Object? raw) {
