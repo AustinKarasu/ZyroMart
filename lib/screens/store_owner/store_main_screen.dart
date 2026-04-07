@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/app_preferences_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/order_service.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 import '../shared/notification_center_screen.dart';
@@ -122,7 +123,7 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
     final user = auth.currentUser!;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await auth.updateProfile(
+      final savedProfile = await auth.updateProfile(
         name: _nameCtrl.text.trim(),
         address: _addressCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
@@ -130,10 +131,17 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
         profileImageUrl: user.profileImageUrl,
         location: user.location,
       );
-      if (SupabaseService.isInitialized && storeId.isNotEmpty) {
+      if (!savedProfile) {
+        throw StateError(
+          auth.errorMessage ?? 'Could not save store owner profile.',
+        );
+      }
+      if (SupabaseService.isInitialized) {
         await SupabaseService.upsertOwnerStore(
           ownerId: user.id,
-          name: _storeNameCtrl.text.trim(),
+          name: _storeNameCtrl.text.trim().isEmpty
+              ? user.name
+              : _storeNameCtrl.text.trim(),
           address: _addressCtrl.text.trim(),
           latitude: user.location.latitude,
           longitude: user.location.longitude,
@@ -167,6 +175,7 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final prefs = context.watch<AppPreferencesService>();
+    final orderService = context.watch<OrderService>();
     final user = auth.currentUser;
     if (user == null) return const SizedBox.shrink();
 
@@ -181,7 +190,14 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
         final storeAddress = (storeRow?['address'] ?? user.address).toString();
         final isOpen = storeRow?['is_open'] as bool? ?? true;
         final totalOrders = (storeRow?['total_orders'] ?? 0) as int;
-        final totalRevenue = ((storeRow?['total_revenue'] ?? 0) as num).toDouble();
+        final totalRevenue = ((storeRow?['total_revenue'] ?? 0) as num)
+            .toDouble();
+        final liveStoreRating = storeId.isEmpty
+            ? ((storeRow?['rating'] ?? 0) as num).toDouble()
+            : orderService.storeRatingForStore(storeId);
+        final liveStoreRatingCount = storeId.isEmpty
+            ? 0
+            : orderService.storeRatingCountForStore(storeId);
 
         return Scaffold(
           backgroundColor: const Color(0xFFF6F7FA),
@@ -331,12 +347,42 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
                         spacing: 12,
                         runSpacing: 12,
                         children: [
-                          _statCard('Orders', '$totalOrders', Icons.receipt_long_outlined),
-                          _statCard('Revenue', 'Rs ${totalRevenue.toInt()}', Icons.payments_outlined),
-                          _statCard('Status', isOpen ? 'Open' : 'Closed', Icons.storefront_outlined),
+                          _statCard(
+                            'Orders',
+                            '$totalOrders',
+                            Icons.receipt_long_outlined,
+                          ),
+                          _statCard(
+                            'Revenue',
+                            'Rs ${totalRevenue.toInt()}',
+                            Icons.payments_outlined,
+                          ),
+                          _statCard(
+                            'Status',
+                            isOpen ? 'Open' : 'Closed',
+                            Icons.storefront_outlined,
+                          ),
+                          _statCard(
+                            'Rating',
+                            liveStoreRating <= 0
+                                ? 'New'
+                                : liveStoreRating.toStringAsFixed(1),
+                            Icons.star_outline_rounded,
+                          ),
                           _statCard('Owner', user.name, Icons.person_outline),
                         ],
                       ),
+                      if (liveStoreRatingCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 4),
+                          child: Text(
+                            '$liveStoreRatingCount live customer rating${liveStoreRatingCount == 1 ? '' : 's'}',
+                            style: const TextStyle(
+                              color: AppTheme.textMedium,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       _sectionHeader('Store Settings'),
                       _settingsTile(
                         context,
@@ -435,7 +481,6 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
       },
     );
   }
-
 
   Widget _statCard(String label, String value, IconData icon) {
     return Container(
@@ -697,6 +742,3 @@ class _StoreAccountScreenState extends State<_StoreAccountScreen> {
     if (confirmed == true) auth.logout();
   }
 }
-
-
-

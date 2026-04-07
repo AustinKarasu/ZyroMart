@@ -33,9 +33,11 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
     );
     if (settings.isNotEmpty) {
       _highlightCancelled = settings['highlight_cancelled'] as bool? ?? true;
-      _highlightPayoutDrift = settings['highlight_payout_drift'] as bool? ?? true;
+      _highlightPayoutDrift =
+          settings['highlight_payout_drift'] as bool? ?? true;
       _focusLiveSignals = settings['focus_live_signals'] as bool? ?? true;
-      _defaultOpsFocus = (settings['default_ops_focus'] ?? _defaultOpsFocus).toString();
+      _defaultOpsFocus = (settings['default_ops_focus'] ?? _defaultOpsFocus)
+          .toString();
       _metricsWindowDays = settings['metrics_window_days'] as int? ?? 7;
     }
     if (!mounted) return;
@@ -67,29 +69,39 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
               children: [
                 _AdminCard(
                   title: 'Operational emphasis',
-                  subtitle: 'Tune what the admin app should surface first when watching the platform.',
+                  subtitle:
+                      'Tune what the admin app should surface first when watching the platform.',
                   child: Column(
                     children: [
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Highlight cancelled orders'),
-                        subtitle: const Text('Keep cancellation-heavy behavior visually prominent in the control room.'),
+                        subtitle: const Text(
+                          'Keep cancellation-heavy behavior visually prominent in the control room.',
+                        ),
                         value: _highlightCancelled,
-                        onChanged: (value) => setState(() => _highlightCancelled = value),
+                        onChanged: (value) =>
+                            setState(() => _highlightCancelled = value),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Highlight payout drift'),
-                        subtitle: const Text('Call out larger held-vs-released payout gaps.'),
+                        subtitle: const Text(
+                          'Call out larger held-vs-released payout gaps.',
+                        ),
                         value: _highlightPayoutDrift,
-                        onChanged: (value) => setState(() => _highlightPayoutDrift = value),
+                        onChanged: (value) =>
+                            setState(() => _highlightPayoutDrift = value),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Focus live signals'),
-                        subtitle: const Text('Keep real-time customer and rider activity front and center.'),
+                        subtitle: const Text(
+                          'Keep real-time customer and rider activity front and center.',
+                        ),
                         value: _focusLiveSignals,
-                        onChanged: (value) => setState(() => _focusLiveSignals = value),
+                        onChanged: (value) =>
+                            setState(() => _focusLiveSignals = value),
                       ),
                     ],
                   ),
@@ -97,19 +109,36 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
                 const SizedBox(height: 16),
                 _AdminCard(
                   title: 'Dashboard defaults',
-                  subtitle: 'Choose how the control room should bias operational monitoring for this admin account.',
+                  subtitle:
+                      'Choose how the control room should bias operational monitoring for this admin account.',
                   child: Column(
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: _defaultOpsFocus,
-                        decoration: const InputDecoration(labelText: 'Default operations focus'),
+                        decoration: const InputDecoration(
+                          labelText: 'Default operations focus',
+                        ),
                         items: const [
-                          DropdownMenuItem(value: 'placed', child: Text('Placed orders')),
-                          DropdownMenuItem(value: 'preparing', child: Text('Preparing orders')),
-                          DropdownMenuItem(value: 'out_for_delivery', child: Text('Out for delivery')),
-                          DropdownMenuItem(value: 'cancelled', child: Text('Cancelled orders')),
+                          DropdownMenuItem(
+                            value: 'placed',
+                            child: Text('Placed orders'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'preparing',
+                            child: Text('Preparing orders'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'out_for_delivery',
+                            child: Text('Out for delivery'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'cancelled',
+                            child: Text('Cancelled orders'),
+                          ),
                         ],
-                        onChanged: (value) => setState(() => _defaultOpsFocus = value ?? 'out_for_delivery'),
+                        onChanged: (value) => setState(
+                          () => _defaultOpsFocus = value ?? 'out_for_delivery',
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -120,7 +149,10 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),
-                          Text('$_metricsWindowDays days', style: const TextStyle(color: AppTheme.textMedium)),
+                          Text(
+                            '$_metricsWindowDays days',
+                            style: const TextStyle(color: AppTheme.textMedium),
+                          ),
                         ],
                       ),
                       Slider(
@@ -128,7 +160,8 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
                         max: 30,
                         divisions: 27,
                         value: _metricsWindowDays.toDouble(),
-                        onChanged: (value) => setState(() => _metricsWindowDays = value.round()),
+                        onChanged: (value) =>
+                            setState(() => _metricsWindowDays = value.round()),
                       ),
                     ],
                   ),
@@ -136,11 +169,25 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () async {
-                    await _persist();
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Admin preferences saved')),
-                    );
+                    try {
+                      await _persist();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Admin preferences saved'),
+                        ),
+                      );
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error.toString().replaceFirst('Bad state: ', ''),
+                          ),
+                          backgroundColor: AppTheme.primaryRed,
+                        ),
+                      );
+                    }
                   },
                   child: const Text('Save admin preferences'),
                 ),
@@ -169,9 +216,15 @@ class _AdminCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: AppTheme.textMedium, height: 1.45)),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppTheme.textMedium, height: 1.45),
+            ),
             const SizedBox(height: 12),
             child,
           ],
@@ -180,4 +233,3 @@ class _AdminCard extends StatelessWidget {
     );
   }
 }
-

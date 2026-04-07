@@ -96,6 +96,9 @@ class CatalogService extends ChangeNotifier {
         SupabaseService.getCategories(),
         SupabaseService.getProducts(),
         SupabaseService.getStores(),
+        SupabaseService.getStoreFeedback().catchError(
+          (_) => <Map<String, dynamic>>[],
+        ),
       ]);
 
       _categories = List<Map<String, dynamic>>.from(
@@ -104,9 +107,26 @@ class CatalogService extends ChangeNotifier {
       _products = List<Map<String, dynamic>>.from(
         results[1] as List,
       ).map(_mapProduct).toList();
-      _stores = List<Map<String, dynamic>>.from(
-        results[2] as List,
-      ).map(_mapStore).toList();
+      final storeFeedbackRows = List<Map<String, dynamic>>.from(
+        results[3] as List,
+      );
+      final ratingTotals = <String, int>{};
+      final ratingCounts = <String, int>{};
+      for (final row in storeFeedbackRows) {
+        final storeId = (row['store_id'] ?? '').toString();
+        if (storeId.isEmpty) continue;
+        ratingTotals[storeId] =
+            (ratingTotals[storeId] ?? 0) +
+            ((row['rating'] ?? 0) as num).toInt();
+        ratingCounts[storeId] = (ratingCounts[storeId] ?? 0) + 1;
+      }
+      _stores = List<Map<String, dynamic>>.from(results[2] as List).map((row) {
+        final storeId = (row['id'] ?? '').toString();
+        final count = ratingCounts[storeId] ?? 0;
+        if (count == 0) return _mapStore(row);
+        final average = (ratingTotals[storeId] ?? 0) / count;
+        return _mapStore({...row, 'rating': average});
+      }).toList();
       _searchCache.clear();
     } catch (e) {
       _loadError = 'Failed to load catalog: ${e.toString()}';

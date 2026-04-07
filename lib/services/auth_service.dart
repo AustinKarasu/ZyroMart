@@ -69,6 +69,23 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void resetTransientAuthState({bool resetPasswordMode = false}) {
+    _otpRequested = false;
+    _pendingPhone = null;
+    _pendingEmail = null;
+    _pendingName = null;
+    _pendingPassword = null;
+    _pendingIsSignUpFlow = false;
+    _pendingStoreName = null;
+    _pendingStoreAddress = null;
+    _pendingStoreLocation = null;
+    if (resetPasswordMode) {
+      _isPasswordLogin = false;
+    }
+    _clearMessages();
+    notifyListeners();
+  }
+
   void setPasswordMode(bool value) {
     _isPasswordLogin = value;
     _clearMessages();
@@ -144,7 +161,9 @@ class AuthService extends ChangeNotifier {
       await SupabaseService.requestPhoneOtp(
         phone: _pendingPhone!,
         email: _pendingEmail,
-        userName: (_pendingName ?? '').isEmpty ? 'ZyroMart User' : _pendingName!,
+        userName: (_pendingName ?? '').isEmpty
+            ? 'ZyroMart User'
+            : _pendingName!,
         role: _roleToDb(role),
       );
       await RateLimitService.clear('otp:${_pendingPhone!}');
@@ -199,10 +218,11 @@ class AuthService extends ChangeNotifier {
         metadataRole: metadataRole,
         allowRoleRepair: !_pendingIsSignUpFlow,
       );
-      if (effectiveRole != _selectedRole && existingRole != null) {
+      if (existingRole != null &&
+          !_canAccessRole(existingRole, _selectedRole ?? UserRole.customer)) {
         await SupabaseService.signOut();
         _errorMessage =
-            'This account is registered as ${_roleLabel(effectiveRole)}. Please select the correct role to sign in.';
+            'This account is registered as ${_roleLabel(existingRole)} and cannot open ${_roleLabel(_selectedRole ?? UserRole.customer)} from this profile.';
         return false;
       }
       await _upsertCurrentProfile(
@@ -210,8 +230,12 @@ class AuthService extends ChangeNotifier {
         phone: _pendingPhone!,
         email: _pendingEmail,
         name: _pendingName,
-        address: effectiveRole == UserRole.storeOwner ? _pendingStoreAddress : null,
-        location: effectiveRole == UserRole.storeOwner ? _pendingStoreLocation : null,
+        address: effectiveRole == UserRole.storeOwner
+            ? _pendingStoreAddress
+            : null,
+        location: effectiveRole == UserRole.storeOwner
+            ? _pendingStoreLocation
+            : null,
       );
       if ((_pendingEmail?.isNotEmpty ?? false) &&
           (_pendingPassword?.isNotEmpty ?? false)) {
@@ -283,19 +307,25 @@ class AuthService extends ChangeNotifier {
         allowRoleRepair: true,
       );
 
-      if (profileRole != null && effectiveRole != role) {
+      if (profileRole != null && !_canAccessRole(profileRole, role)) {
         await SupabaseService.signOut();
         _errorMessage =
-            'This account is registered as ${_roleLabel(effectiveRole)}. Please select the correct role to sign in.';
+            'This account is registered as ${_roleLabel(profileRole)} and cannot open ${_roleLabel(role)} from this profile.';
         return false;
       }
 
-      if (profile == null || profileRole == null || effectiveRole != profileRole) {
+      if (profile == null ||
+          profileRole == null ||
+          effectiveRole != profileRole) {
         await _upsertCurrentProfile(
           role: effectiveRole,
-          phone: (profile?['phone'] ?? SupabaseService.currentUser?.phone ?? '').toString(),
+          phone: (profile?['phone'] ?? SupabaseService.currentUser?.phone ?? '')
+              .toString(),
           email: (profile?['email'] ?? normalizedEmail).toString(),
-          name: (profile?['name'] ?? SupabaseService.currentUser?.userMetadata?['name'])?.toString(),
+          name:
+              (profile?['name'] ??
+                      SupabaseService.currentUser?.userMetadata?['name'])
+                  ?.toString(),
           address: profile?['address']?.toString(),
         );
       }
@@ -364,7 +394,8 @@ class AuthService extends ChangeNotifier {
         fallbackPhone: _currentUser?.phone,
         fallbackEmail: normalizedEmail,
       );
-      _statusMessage = 'Email and password updated. You can now use password login.';
+      _statusMessage =
+          'Email and password updated. You can now use password login.';
       return true;
     } catch (error) {
       _errorMessage = 'Could not save password login. ${error.toString()}';
@@ -477,32 +508,39 @@ class AuthService extends ChangeNotifier {
 
     final profile = await SupabaseService.getMyProfile();
     final dbRoleStr = (profile?['role'] ?? '').toString().trim();
-    final metadataRoleStr =
-        (sessionUser.userMetadata?['role'] ?? '').toString().trim();
+    final metadataRoleStr = (sessionUser.userMetadata?['role'] ?? '')
+        .toString()
+        .trim();
 
     // FIX: Role resolution priority:
     //   1. DB profile role (most authoritative — written on every auth action)
     //   2. Auth metadata role
     //   3. Explicit fallbackRole passed by callers (e.g. the selected role at login)
     //   4. Never infer from email — that was the bug
-    final role = _roleFromDb(dbRoleStr.isNotEmpty ? dbRoleStr : null) ??
+    final role =
+        _roleFromDb(dbRoleStr.isNotEmpty ? dbRoleStr : null) ??
         _roleFromDb(metadataRoleStr.isNotEmpty ? metadataRoleStr : null) ??
         fallbackRole ??
         UserRole.customer;
 
     final phone =
-        (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? '').toString();
+        (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? '')
+            .toString();
     final email =
-        (profile?['email'] ?? sessionUser.email ?? fallbackEmail ?? _fallbackEmailForPhone(phone))
+        (profile?['email'] ??
+                sessionUser.email ??
+                fallbackEmail ??
+                _fallbackEmailForPhone(phone))
             .toString();
 
     _currentUser = AppUser(
       id: sessionUser.id,
-      name: (profile?['name'] ??
-              sessionUser.userMetadata?['name'] ??
-              fallbackName ??
-              'ZyroMart User')
-          .toString(),
+      name:
+          (profile?['name'] ??
+                  sessionUser.userMetadata?['name'] ??
+                  fallbackName ??
+                  'ZyroMart User')
+              .toString(),
       email: email,
       phone: phone,
       role: role,
@@ -510,11 +548,13 @@ class AuthService extends ChangeNotifier {
       location: LatLng(
         ((profile?['latitude'] ??
                     fallbackLocation?.latitude ??
-                    _fallbackLocation(role).latitude) as num)
+                    _fallbackLocation(role).latitude)
+                as num)
             .toDouble(),
         ((profile?['longitude'] ??
                     fallbackLocation?.longitude ??
-                    _fallbackLocation(role).longitude) as num)
+                    _fallbackLocation(role).longitude)
+                as num)
             .toDouble(),
       ),
       profileImageUrl: profile?['profile_image_url']?.toString(),
@@ -542,26 +582,34 @@ class AuthService extends ChangeNotifier {
     if (sessionUser == null) return;
 
     final fallback = _fallbackLocation(role);
+    final existingProfile = await SupabaseService.getMyProfile();
+    final storedRole = _canonicalStoredRole(
+      _roleFromDb(existingProfile?['role']?.toString()),
+      role,
+    );
     await SupabaseService.upsertProfile({
       'id': sessionUser.id,
       'name': InputSecurityService.sanitizePlainText(
-        (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
+        (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User')
+            .toString(),
         maxLength: InputSecurityService.nameMaxLength,
       ),
-      'email':
-          (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone)).toString(),
+      'email': (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone))
+          .toString(),
       'phone': phone,
-      'role': _roleToDb(role), // Always write the role explicitly
+      'role': _roleToDb(storedRole),
       'address': InputSecurityService.sanitizePlainText(
         address ?? _currentUser?.address ?? '',
         maxLength: InputSecurityService.addressMaxLength,
         allowNewLines: true,
       ),
       'profile_image_url': profileImageUrl ?? _currentUser?.profileImageUrl,
-      'latitude': location?.latitude ??
+      'latitude':
+          location?.latitude ??
           _currentUser?.location.latitude ??
           fallback.latitude,
-      'longitude': location?.longitude ??
+      'longitude':
+          location?.longitude ??
           _currentUser?.location.longitude ??
           fallback.longitude,
       'is_online': isOnline ?? _currentUser?.isOnline ?? true,
@@ -581,6 +629,9 @@ class AuthService extends ChangeNotifier {
     if (requestedRole == null || existingRole == requestedRole) {
       return existingRole;
     }
+    if (_canAccessRole(existingRole, requestedRole)) {
+      return requestedRole;
+    }
     if (!allowRoleRepair) {
       return existingRole;
     }
@@ -594,6 +645,33 @@ class AuthService extends ChangeNotifier {
     return existingRole;
   }
 
+  bool _canAccessRole(UserRole primaryRole, UserRole requestedRole) {
+    switch (primaryRole) {
+      case UserRole.customer:
+        return requestedRole == UserRole.customer;
+      case UserRole.storeOwner:
+        return requestedRole == UserRole.storeOwner ||
+            requestedRole == UserRole.customer;
+      case UserRole.delivery:
+        return true;
+    }
+  }
+
+  UserRole _canonicalStoredRole(UserRole? existingRole, UserRole nextRole) {
+    final existingRank = _roleRank(existingRole);
+    final nextRank = _roleRank(nextRole);
+    return existingRank >= nextRank ? (existingRole ?? nextRole) : nextRole;
+  }
+
+  int _roleRank(UserRole? role) {
+    return switch (role) {
+      UserRole.customer => 1,
+      UserRole.storeOwner => 2,
+      UserRole.delivery => 3,
+      null => 0,
+    };
+  }
+
   Future<bool> _hasStoreForCurrentUser() async {
     final sessionUser = SupabaseService.currentUser;
     if (sessionUser == null || !SupabaseService.isInitialized) {
@@ -602,6 +680,7 @@ class AuthService extends ChangeNotifier {
     final store = await SupabaseService.getStoreByOwner(sessionUser.id);
     return store != null;
   }
+
   Future<void> _upsertOwnerStoreIfNeeded({required UserRole role}) async {
     if (role != UserRole.storeOwner) return;
     final sessionUser = SupabaseService.currentUser;
@@ -609,7 +688,8 @@ class AuthService extends ChangeNotifier {
     final storeName = (_pendingStoreName ?? '').trim();
     final storeAddress = (_pendingStoreAddress ?? '').trim();
     if (storeName.isEmpty || storeAddress.isEmpty) return;
-    final fallback = _pendingStoreLocation ??
+    final fallback =
+        _pendingStoreLocation ??
         _currentUser?.location ??
         _fallbackLocation(UserRole.storeOwner);
     await SupabaseService.upsertOwnerStore(
@@ -711,6 +791,3 @@ class AuthService extends ChangeNotifier {
         : 'Could not send OTP. $message';
   }
 }
-
-
-

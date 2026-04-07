@@ -25,6 +25,8 @@ class AppPreferencesService extends ChangeNotifier {
   bool _twoFactorEnabled = true;
   bool _ready = false;
   String _scope = 'guest';
+  String? _lastSyncError;
+  bool _lastRemoteSyncSucceeded = true;
 
   ThemeMode get themeMode => _themeMode;
   bool get autoLogin => _autoLogin;
@@ -36,6 +38,8 @@ class AppPreferencesService extends ChangeNotifier {
   bool get twoFactorEnabled => _twoFactorEnabled;
   bool get ready => _ready;
   String get scope => _scope;
+  String? get lastSyncError => _lastSyncError;
+  bool get lastRemoteSyncSucceeded => _lastRemoteSyncSucceeded;
 
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
@@ -67,66 +71,41 @@ class AppPreferencesService extends ChangeNotifier {
         _prefs?.getBool(_scopedKey(_hideSensitiveKey)) ?? false;
     _biometricUnlock = _prefs?.getBool(_scopedKey(_biometricKey)) ?? false;
     _twoFactorEnabled = _prefs?.getBool(_scopedKey(_twoFactorKey)) ?? true;
+    _lastSyncError = null;
+    _lastRemoteSyncSucceeded = true;
     await _loadRemoteSnapshot();
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    _themeMode = mode;
-    await _prefs?.setString(_scopedKey(_themeKey), mode.name);
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _themeMode = mode);
   }
 
   Future<void> setAutoLogin(bool value) async {
-    _autoLogin = value;
-    await _prefs?.setBool(_scopedKey(_autoLoginKey), value);
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _autoLogin = value);
   }
 
   Future<void> setOrderNotifications(bool value) async {
-    _orderNotifications = value;
-    await _prefs?.setBool(_scopedKey(_orderNotificationsKey), value);
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _orderNotifications = value);
   }
 
   Future<void> setMarketingNotifications(bool value) async {
-    _marketingNotifications = value;
-    await _prefs?.setBool(_scopedKey(_marketingNotificationsKey), value);
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _marketingNotifications = value);
   }
 
   Future<void> setHideSensitiveItems(bool value) async {
-    _hideSensitiveItems = value;
-    await _prefs?.setBool(_scopedKey(_hideSensitiveKey), value);
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _hideSensitiveItems = value);
   }
 
   Future<void> setTwoFactorEnabled(bool value) async {
-    _twoFactorEnabled = value;
-    await _prefs?.setBool(_scopedKey(_twoFactorKey), value);
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _twoFactorEnabled = value);
   }
 
   Future<void> setBiometricUnlock(bool value) async {
-    _biometricUnlock = value;
-    await _prefs?.setBool(_scopedKey(_biometricKey), value);
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _biometricUnlock = value);
   }
 
   Future<void> setSoundEnabled(bool value) async {
-    _soundEnabled = value;
-    await _prefs?.setBool(_scopedKey(_soundEnabledKey), value);
-    if (value) {
-      SystemSound.play(SystemSoundType.alert);
-    }
-    await _syncRemoteSnapshot();
-    notifyListeners();
+    await _commitChange(() => _soundEnabled = value, playSystemSound: value);
   }
 
   String _scopedKey(String key) => '$_scope::$key';
@@ -144,6 +123,58 @@ class AppPreferencesService extends ChangeNotifier {
     };
   }
 
+  void _restoreSnapshot(Map<String, dynamic> snapshot) {
+    _themeMode = _themeModeFromString(snapshot['theme_mode']?.toString());
+    _autoLogin = snapshot['auto_login'] as bool? ?? true;
+    _orderNotifications = snapshot['order_notifications'] as bool? ?? true;
+    _marketingNotifications =
+        snapshot['marketing_notifications'] as bool? ?? true;
+    _soundEnabled = snapshot['sound_enabled'] as bool? ?? true;
+    _hideSensitiveItems = snapshot['hide_sensitive_items'] as bool? ?? false;
+    _biometricUnlock = snapshot['biometric_unlock'] as bool? ?? false;
+    _twoFactorEnabled = snapshot['two_factor_enabled'] as bool? ?? true;
+  }
+
+  Future<void> _commitChange(
+    VoidCallback applyChange, {
+    bool playSystemSound = false,
+  }) async {
+    final previous = _snapshot();
+    applyChange();
+
+    if (_scope == 'guest') {
+      await _persistLocalSnapshot();
+      if (playSystemSound) {
+        SystemSound.play(SystemSoundType.alert);
+      }
+      _lastSyncError = null;
+      _lastRemoteSyncSucceeded = true;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      if (!SupabaseService.isInitialized) {
+        throw StateError(SupabaseService.backendStatusMessage);
+      }
+      await SupabaseService.upsertUserAccountState({
+        'app_preferences': _snapshot(),
+      });
+      await _persistLocalSnapshot();
+      if (playSystemSound) {
+        SystemSound.play(SystemSoundType.alert);
+      }
+      _lastSyncError = null;
+      _lastRemoteSyncSucceeded = true;
+    } catch (error) {
+      _restoreSnapshot(previous);
+      _lastSyncError =
+          'Could not save settings to the backend. ${error.toString()}';
+      _lastRemoteSyncSucceeded = false;
+    }
+    notifyListeners();
+  }
+
   Future<void> _loadRemoteSnapshot() async {
     if (_scope == 'guest' || !SupabaseService.isInitialized) return;
     try {
@@ -151,23 +182,14 @@ class AppPreferencesService extends ChangeNotifier {
       final payload = remote?['app_preferences'];
       if (payload is! Map || payload.isEmpty) return;
       final snapshot = Map<String, dynamic>.from(payload);
-      _themeMode = _themeModeFromString(snapshot['theme_mode']?.toString());
-      _autoLogin = snapshot['auto_login'] as bool? ?? _autoLogin;
-      _orderNotifications =
-          snapshot['order_notifications'] as bool? ?? _orderNotifications;
-      _marketingNotifications =
-          snapshot['marketing_notifications'] as bool? ??
-          _marketingNotifications;
-      _soundEnabled = snapshot['sound_enabled'] as bool? ?? _soundEnabled;
-      _hideSensitiveItems =
-          snapshot['hide_sensitive_items'] as bool? ?? _hideSensitiveItems;
-      _biometricUnlock =
-          snapshot['biometric_unlock'] as bool? ?? _biometricUnlock;
-      _twoFactorEnabled =
-          snapshot['two_factor_enabled'] as bool? ?? _twoFactorEnabled;
+      _restoreSnapshot(snapshot);
       await _persistLocalSnapshot();
-    } catch (_) {
-      // Keep local cache when remote profile state is unavailable.
+      _lastSyncError = null;
+      _lastRemoteSyncSucceeded = true;
+    } catch (error) {
+      _lastSyncError =
+          'Could not load settings from the backend. ${error.toString()}';
+      _lastRemoteSyncSucceeded = false;
     }
   }
 
@@ -186,17 +208,6 @@ class AppPreferencesService extends ChangeNotifier {
     await _prefs?.setBool(_scopedKey(_hideSensitiveKey), _hideSensitiveItems);
     await _prefs?.setBool(_scopedKey(_biometricKey), _biometricUnlock);
     await _prefs?.setBool(_scopedKey(_twoFactorKey), _twoFactorEnabled);
-  }
-
-  Future<void> _syncRemoteSnapshot() async {
-    if (_scope == 'guest' || !SupabaseService.isInitialized) return;
-    try {
-      await SupabaseService.upsertUserAccountState({
-        'app_preferences': _snapshot(),
-      });
-    } catch (_) {
-      // Local cache is still persisted above.
-    }
   }
 
   ThemeMode _themeModeFromString(String? value) {

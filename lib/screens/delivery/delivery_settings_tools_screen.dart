@@ -6,16 +6,15 @@ import '../../theme/app_theme.dart';
 class DeliveryOperationsPreferencesScreen extends StatefulWidget {
   final String userId;
 
-  const DeliveryOperationsPreferencesScreen({
-    super.key,
-    required this.userId,
-  });
+  const DeliveryOperationsPreferencesScreen({super.key, required this.userId});
 
   @override
-  State<DeliveryOperationsPreferencesScreen> createState() => _DeliveryOperationsPreferencesScreenState();
+  State<DeliveryOperationsPreferencesScreen> createState() =>
+      _DeliveryOperationsPreferencesScreenState();
 }
 
-class _DeliveryOperationsPreferencesScreenState extends State<DeliveryOperationsPreferencesScreen> {
+class _DeliveryOperationsPreferencesScreenState
+    extends State<DeliveryOperationsPreferencesScreen> {
   bool _isLoading = true;
   bool _shareLiveLocation = true;
   bool _proofChecklist = true;
@@ -38,8 +37,10 @@ class _DeliveryOperationsPreferencesScreenState extends State<DeliveryOperations
       _shareLiveLocation = remote['share_live_location'] as bool? ?? true;
       _proofChecklist = remote['proof_checklist'] as bool? ?? true;
       _emergencyShortcut = remote['emergency_shortcut'] as bool? ?? true;
-      _preferredMapMode = (remote['preferred_map_mode'] ?? _preferredMapMode).toString();
-      _handoffTemplate = (remote['handoff_template'] ?? _handoffTemplate).toString();
+      _preferredMapMode = (remote['preferred_map_mode'] ?? _preferredMapMode)
+          .toString();
+      _handoffTemplate = (remote['handoff_template'] ?? _handoffTemplate)
+          .toString();
     }
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -70,29 +71,39 @@ class _DeliveryOperationsPreferencesScreenState extends State<DeliveryOperations
               children: [
                 _DeliveryCard(
                   title: 'On-road controls',
-                  subtitle: 'Tune location sharing, proof-of-delivery guidance, and emergency shortcuts for the rider app.',
+                  subtitle:
+                      'Tune location sharing, proof-of-delivery guidance, and emergency shortcuts for the rider app.',
                   child: Column(
                     children: [
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Share live location'),
-                        subtitle: const Text('Continuously update order tracking when a delivery is active.'),
+                        subtitle: const Text(
+                          'Continuously update order tracking when a delivery is active.',
+                        ),
                         value: _shareLiveLocation,
-                        onChanged: (value) => setState(() => _shareLiveLocation = value),
+                        onChanged: (value) =>
+                            setState(() => _shareLiveLocation = value),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Proof checklist'),
-                        subtitle: const Text('Show reminder guidance before confirming delivered handoff.'),
+                        subtitle: const Text(
+                          'Show reminder guidance before confirming delivered handoff.',
+                        ),
                         value: _proofChecklist,
-                        onChanged: (value) => setState(() => _proofChecklist = value),
+                        onChanged: (value) =>
+                            setState(() => _proofChecklist = value),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Emergency shortcut'),
-                        subtitle: const Text('Keep the emergency help action highlighted on active routes.'),
+                        subtitle: const Text(
+                          'Keep the emergency help action highlighted on active routes.',
+                        ),
                         value: _emergencyShortcut,
-                        onChanged: (value) => setState(() => _emergencyShortcut = value),
+                        onChanged: (value) =>
+                            setState(() => _emergencyShortcut = value),
                       ),
                     ],
                   ),
@@ -100,25 +111,41 @@ class _DeliveryOperationsPreferencesScreenState extends State<DeliveryOperations
                 const SizedBox(height: 16),
                 _DeliveryCard(
                   title: 'Route and handoff',
-                  subtitle: 'Choose a routing style and define the default handoff note riders should see while completing orders.',
+                  subtitle:
+                      'Choose a routing style and define the default handoff note riders should see while completing orders.',
                   child: Column(
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: _preferredMapMode,
-                        decoration: const InputDecoration(labelText: 'Preferred route mode'),
+                        decoration: const InputDecoration(
+                          labelText: 'Preferred route mode',
+                        ),
                         items: const [
-                          DropdownMenuItem(value: 'balanced', child: Text('Balanced')),
-                          DropdownMenuItem(value: 'fastest', child: Text('Fastest')),
-                          DropdownMenuItem(value: 'safer', child: Text('Safer streets')),
+                          DropdownMenuItem(
+                            value: 'balanced',
+                            child: Text('Balanced'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'fastest',
+                            child: Text('Fastest'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'safer',
+                            child: Text('Safer streets'),
+                          ),
                         ],
-                        onChanged: (value) => setState(() => _preferredMapMode = value ?? 'balanced'),
+                        onChanged: (value) => setState(
+                          () => _preferredMapMode = value ?? 'balanced',
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         initialValue: _handoffTemplate,
                         minLines: 2,
                         maxLines: 3,
-                        decoration: const InputDecoration(labelText: 'Default handoff note'),
+                        decoration: const InputDecoration(
+                          labelText: 'Default handoff note',
+                        ),
                         onChanged: (value) => _handoffTemplate = value,
                       ),
                     ],
@@ -127,11 +154,25 @@ class _DeliveryOperationsPreferencesScreenState extends State<DeliveryOperations
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () async {
-                    await _persist();
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Delivery preferences saved')),
-                    );
+                    try {
+                      await _persist();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Delivery preferences saved'),
+                        ),
+                      );
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error.toString().replaceFirst('Bad state: ', ''),
+                          ),
+                          backgroundColor: AppTheme.primaryRed,
+                        ),
+                      );
+                    }
                   },
                   child: const Text('Save rider preferences'),
                 ),
@@ -160,9 +201,15 @@ class _DeliveryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: AppTheme.textMedium, height: 1.45)),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppTheme.textMedium, height: 1.45),
+            ),
             const SizedBox(height: 12),
             child,
           ],

@@ -575,6 +575,16 @@ CREATE TABLE IF NOT EXISTS delivery_feedback (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS store_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  feedback_text TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS notification_preferences (
   user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
   order_updates BOOLEAN DEFAULT TRUE,
@@ -788,6 +798,7 @@ CREATE INDEX IF NOT EXISTS idx_earnings_ledger_order ON earnings_ledger(order_id
 CREATE INDEX IF NOT EXISTS idx_earnings_ledger_beneficiary ON earnings_ledger(beneficiary_user_id, settlement_state);
 CREATE INDEX IF NOT EXISTS idx_payouts_beneficiary ON payouts(beneficiary_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_delivery_feedback_delivery ON delivery_feedback(delivery_person_id);
+CREATE INDEX IF NOT EXISTS idx_store_feedback_store ON store_feedback(store_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_activity_events_user ON user_activity_events(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_product_recommendations_user ON product_recommendations(user_id, score DESC);
@@ -861,6 +872,7 @@ ALTER TABLE payout_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE earnings_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE delivery_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE store_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE store_service_areas ENABLE ROW LEVEL SECURITY;
@@ -883,6 +895,7 @@ ALTER TABLE payout_accounts FORCE ROW LEVEL SECURITY;
 ALTER TABLE earnings_ledger FORCE ROW LEVEL SECURITY;
 ALTER TABLE payouts FORCE ROW LEVEL SECURITY;
 ALTER TABLE delivery_feedback FORCE ROW LEVEL SECURITY;
+ALTER TABLE store_feedback FORCE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences FORCE ROW LEVEL SECURITY;
 ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
 ALTER TABLE store_service_areas FORCE ROW LEVEL SECURITY;
@@ -909,6 +922,9 @@ DROP POLICY IF EXISTS "Users read own payouts" ON payouts;
 DROP POLICY IF EXISTS "Admins manage payouts" ON payouts;
 DROP POLICY IF EXISTS "Users read related feedback" ON delivery_feedback;
 DROP POLICY IF EXISTS "Customers insert delivery feedback" ON delivery_feedback;
+DROP POLICY IF EXISTS "Users read related store feedback" ON store_feedback;
+DROP POLICY IF EXISTS "Customers insert store feedback" ON store_feedback;
+DROP POLICY IF EXISTS "Public read store feedback" ON store_feedback;
 DROP POLICY IF EXISTS "Users manage own notification preferences" ON notification_preferences;
 DROP POLICY IF EXISTS "Users read own notifications" ON notifications;
 DROP POLICY IF EXISTS "Admins insert notifications" ON notifications;
@@ -987,6 +1003,31 @@ CREATE POLICY "Customers insert delivery feedback" ON delivery_feedback FOR INSE
       WHERE orders.id = delivery_feedback.order_id
         AND orders.customer_id = auth.uid()
         AND orders.delivery_person_id = delivery_feedback.delivery_person_id
+        AND orders.status = 'delivered'
+    )
+  );
+
+CREATE POLICY "Public read store feedback" ON store_feedback FOR SELECT USING (true);
+
+CREATE POLICY "Users read related store feedback" ON store_feedback FOR SELECT
+  USING (
+    auth.uid() = customer_id
+    OR EXISTS (
+      SELECT 1 FROM orders
+      JOIN stores ON stores.id = orders.store_id
+      WHERE orders.id = store_feedback.order_id
+        AND (orders.delivery_person_id = auth.uid() OR stores.owner_id = auth.uid())
+    )
+  );
+
+CREATE POLICY "Customers insert store feedback" ON store_feedback FOR INSERT
+  WITH CHECK (
+    auth.uid() = customer_id
+    AND EXISTS (
+      SELECT 1 FROM orders
+      WHERE orders.id = store_feedback.order_id
+        AND orders.customer_id = auth.uid()
+        AND orders.store_id = store_feedback.store_id
         AND orders.status = 'delivered'
     )
   );

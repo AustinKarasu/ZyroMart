@@ -18,12 +18,15 @@ import 'supabase_service.dart';
 class OrderService extends ChangeNotifier {
   static const double _platformCommissionRate = 0.05;
   static const double _defaultServiceRadiusKm = 5;
+  static const double _defaultDeliveryPickupRadiusKm = 7;
+  static const int _maxActiveAssignmentsPerDeliveryPartner = 2;
 
   final Distance _distance = const Distance();
   final List<Order> _orders = [];
   List<Store> _storeCatalog = <Store>[];
   final List<AppUser> _deliveryRoster = <AppUser>[];
   final Map<String, DeliveryFeedback> _feedbackByOrderId = {};
+  final Map<String, Map<String, dynamic>> _storeFeedbackByOrderId = {};
   final List<AppNotification> _notifications = [];
   final Map<String, double> _heldStoreEarnings = {};
   final Map<String, double> _releasedStoreEarnings = {};
@@ -185,11 +188,54 @@ class OrderService extends ChangeNotifier {
   DeliveryFeedback? feedbackForOrder(String orderId) =>
       _feedbackByOrderId[orderId];
 
+  Map<String, dynamic>? storeFeedbackForOrder(String orderId) =>
+      _storeFeedbackByOrderId[orderId];
+
+  double deliveryRatingForPartner(String deliveryPersonId) {
+    final feedback = _feedbackByOrderId.values
+        .where((entry) => entry.deliveryPersonId == deliveryPersonId)
+        .toList();
+    if (feedback.isEmpty) {
+      final roster = _deliveryRoster.where(
+        (partner) => partner.id == deliveryPersonId,
+      );
+      return roster.isEmpty ? 0 : (roster.first.deliveryRating ?? 0);
+    }
+    final total = feedback.fold<int>(0, (sum, entry) => sum + entry.rating);
+    return total / feedback.length;
+  }
+
+  int deliveryRatingCountForPartner(String deliveryPersonId) =>
+      _feedbackByOrderId.values
+          .where((entry) => entry.deliveryPersonId == deliveryPersonId)
+          .length;
+
+  double storeRatingForStore(String storeId) {
+    final feedback = _storeFeedbackByOrderId.values
+        .where((entry) => (entry['store_id'] ?? '').toString() == storeId)
+        .toList();
+    if (feedback.isEmpty) {
+      final stores = _storeCatalog.where((store) => store.id == storeId);
+      return stores.isEmpty ? 0 : stores.first.rating;
+    }
+    final total = feedback.fold<int>(
+      0,
+      (sum, entry) => sum + ((entry['rating'] ?? 0) as num).toInt(),
+    );
+    return total / feedback.length;
+  }
+
+  int storeRatingCountForStore(String storeId) => _storeFeedbackByOrderId.values
+      .where((entry) => (entry['store_id'] ?? '').toString() == storeId)
+      .length;
+
   bool shouldPromptCustomerForRating(String orderId) {
     if (_viewer?.role != UserRole.customer) return false;
     final order = getOrder(orderId);
     if (order == null || order.status != OrderStatus.delivered) return false;
-    if (_feedbackByOrderId.containsKey(orderId)) return false;
+    final hasDeliveryFeedback = _feedbackByOrderId.containsKey(orderId);
+    final hasStoreFeedback = _storeFeedbackByOrderId.containsKey(orderId);
+    if (hasDeliveryFeedback && hasStoreFeedback) return false;
     if (order.customerId != _viewer?.id) return false;
     if (_customerPromptedByOrderId[orderId] == true) return false;
     return true;
@@ -776,6 +822,8 @@ class OrderService extends ChangeNotifier {
         _inventoryReservationsByOrderId.clear();
         _routeUpdatesByOrderId.clear();
         _proofOfDeliveryByOrderId.clear();
+        _feedbackByOrderId.clear();
+        _storeFeedbackByOrderId.clear();
         _completionCodes.clear();
         _orders
           ..clear()
@@ -808,6 +856,12 @@ class OrderService extends ChangeNotifier {
         order.id,
       ).catchError((_) => <Map<String, dynamic>>[]),
       SupabaseService.getProofOfDelivery(order.id).catchError((_) => null),
+      SupabaseService.getDeliveryFeedbackForOrder(
+        order.id,
+      ).catchError((_) => null),
+      SupabaseService.getStoreFeedbackForOrder(
+        order.id,
+      ).catchError((_) => null),
     ]);
     _statusEventsByOrderId[order.id] = List<Map<String, dynamic>>.from(
       results[0] as List,
@@ -821,6 +875,28 @@ class OrderService extends ChangeNotifier {
     final proof = results[3];
     if (proof is Map<String, dynamic>) {
       _proofOfDeliveryByOrderId[order.id] = proof;
+    }
+    final deliveryFeedback = results[4];
+    if (deliveryFeedback is Map<String, dynamic>) {
+      _feedbackByOrderId[order.id] = DeliveryFeedback(
+        orderId: (deliveryFeedback['order_id'] ?? order.id).toString(),
+        customerId: (deliveryFeedback['customer_id'] ?? '').toString(),
+        deliveryPersonId: (deliveryFeedback['delivery_person_id'] ?? '')
+            .toString(),
+        rating: ((deliveryFeedback['rating'] ?? 0) as num).toInt(),
+        feedback: (deliveryFeedback['feedback_text'] ?? '').toString(),
+        createdAt:
+            DateTime.tryParse(
+              (deliveryFeedback['created_at'] ?? '').toString(),
+            ) ??
+            DateTime.now(),
+      );
+    }
+    final storeFeedback = results[5];
+    if (storeFeedback is Map<String, dynamic>) {
+      _storeFeedbackByOrderId[order.id] = Map<String, dynamic>.from(
+        storeFeedback,
+      );
     }
   }
 
@@ -951,39 +1027,92 @@ class OrderService extends ChangeNotifier {
     }
   }
 
-  bool submitDeliveryFeedback({
+  Future<bool> submitOrderRatings({
     required String orderId,
-    required int rating,
-    required String feedback,
-  }) {
+    required int deliveryRating,
+    required String deliveryFeedback,
+    required int storeRating,
+    required String storeFeedback,
+  }) async {
     final order = getOrder(orderId);
     final viewer = _viewer;
     if (order == null ||
         viewer == null ||
         viewer.role != UserRole.customer ||
         order.status != OrderStatus.delivered ||
-        order.customerId != viewer.id ||
-        order.deliveryPersonId == null) {
+        order.customerId != viewer.id) {
+      return false;
+    }
+    if (!SupabaseService.isInitialized) {
+      _setSyncError(SupabaseService.backendStatusMessage);
       return false;
     }
 
-    _feedbackByOrderId[orderId] = DeliveryFeedback(
-      orderId: orderId,
-      customerId: viewer.id,
-      deliveryPersonId: order.deliveryPersonId!,
-      rating: rating,
-      feedback: feedback.trim(),
-      createdAt: DateTime.now(),
-    );
-    _createNotification(
-      recipientUserId: order.deliveryPersonId!,
-      category: 'system',
-      title: 'New delivery feedback',
-      body: 'You received a $rating-star rating for order ${order.id}.',
-      orderId: order.id,
-    );
-    notifyListeners();
-    return true;
+    final now = DateTime.now();
+    try {
+      if (order.deliveryPersonId != null &&
+          order.deliveryPersonId!.isNotEmpty &&
+          !_feedbackByOrderId.containsKey(orderId)) {
+        final deliveryPayload = <String, dynamic>{
+          'order_id': orderId,
+          'customer_id': viewer.id,
+          'delivery_person_id': order.deliveryPersonId,
+          'rating': deliveryRating.clamp(1, 5),
+          'feedback_text': deliveryFeedback.trim(),
+          'tags': <String>[],
+        };
+        await SupabaseService.insertDeliveryFeedback(deliveryPayload);
+        _feedbackByOrderId[orderId] = DeliveryFeedback(
+          orderId: orderId,
+          customerId: viewer.id,
+          deliveryPersonId: order.deliveryPersonId!,
+          rating: deliveryRating.clamp(1, 5),
+          feedback: deliveryFeedback.trim(),
+          createdAt: now,
+        );
+        _createNotification(
+          recipientUserId: order.deliveryPersonId!,
+          category: 'system',
+          title: 'New delivery feedback',
+          body:
+              'You received a ${deliveryRating.clamp(1, 5)}-star rating for order ${order.id}.',
+          orderId: order.id,
+        );
+      }
+
+      if (!_storeFeedbackByOrderId.containsKey(orderId)) {
+        final storePayload = <String, dynamic>{
+          'order_id': orderId,
+          'customer_id': viewer.id,
+          'store_id': order.storeId,
+          'rating': storeRating.clamp(1, 5),
+          'feedback_text': storeFeedback.trim(),
+        };
+        await SupabaseService.insertStoreFeedback(storePayload);
+        _storeFeedbackByOrderId[orderId] = {
+          ...storePayload,
+          'created_at': now.toIso8601String(),
+        };
+        final store = _storeForOrder(order);
+        if (store.ownerId.isNotEmpty) {
+          _createNotification(
+            recipientUserId: store.ownerId,
+            category: 'system',
+            title: 'New store rating',
+            body:
+                'Your store received a ${storeRating.clamp(1, 5)}-star rating for order ${order.id}.',
+            orderId: order.id,
+          );
+        }
+      }
+
+      _clearSyncError(notify: false);
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _setSyncError('Could not save the live rating. ${error.toString()}');
+      return false;
+    }
   }
 
   void markNotificationRead(String notificationId) {
@@ -1311,23 +1440,79 @@ class OrderService extends ChangeNotifier {
 
   AppUser? _assignDeliveryPartner(Order order) {
     if (_deliveryRoster.isEmpty) {
+      _setSyncError('No live delivery partners are registered yet.');
       return null;
     }
-    final nearest = [..._deliveryRoster]
-      ..sort((a, b) {
-        final distanceA = _distance.as(
-          LengthUnit.Kilometer,
-          a.location,
-          order.storeLocation,
-        );
-        final distanceB = _distance.as(
-          LengthUnit.Kilometer,
-          b.location,
-          order.storeLocation,
-        );
-        return distanceA.compareTo(distanceB);
-      });
-    return nearest.first;
+
+    final pickupRadiusKm = _pickupRadiusForOrder(order);
+    final candidates = _deliveryRoster.where((partner) {
+      if (!partner.isOnline || !_hasUsableLocation(partner.location)) {
+        return false;
+      }
+      if (_activeAssignmentsForDeliveryPartner(partner.id) >=
+          _maxActiveAssignmentsPerDeliveryPartner) {
+        return false;
+      }
+      final distanceToStore = _distance.as(
+        LengthUnit.Kilometer,
+        partner.location,
+        order.storeLocation,
+      );
+      return distanceToStore <= pickupRadiusKm;
+    }).toList();
+
+    if (candidates.isEmpty) {
+      _setSyncError(
+        'No nearby delivery partner is currently available within ${pickupRadiusKm.toStringAsFixed(1)} km of ${order.storeName}.',
+      );
+      return null;
+    }
+
+    candidates.sort((a, b) {
+      final loadCompare = _activeAssignmentsForDeliveryPartner(
+        a.id,
+      ).compareTo(_activeAssignmentsForDeliveryPartner(b.id));
+      if (loadCompare != 0) return loadCompare;
+
+      final distanceA = _distance.as(
+        LengthUnit.Kilometer,
+        a.location,
+        order.storeLocation,
+      );
+      final distanceB = _distance.as(
+        LengthUnit.Kilometer,
+        b.location,
+        order.storeLocation,
+      );
+      final distanceCompare = distanceA.compareTo(distanceB);
+      if (distanceCompare != 0) return distanceCompare;
+
+      return (b.deliveryRating ?? 0).compareTo(a.deliveryRating ?? 0);
+    });
+
+    _clearSyncError(notify: false);
+    return candidates.first;
+  }
+
+  bool _hasUsableLocation(LatLng location) =>
+      location.latitude.abs() > 0.0001 || location.longitude.abs() > 0.0001;
+
+  int _activeAssignmentsForDeliveryPartner(String deliveryPersonId) {
+    return _orders
+        .where(
+          (order) =>
+              order.deliveryPersonId == deliveryPersonId &&
+              order.status != OrderStatus.delivered &&
+              order.status != OrderStatus.cancelled,
+        )
+        .length;
+  }
+
+  double _pickupRadiusForOrder(Order order) {
+    final storeRadius =
+        _serviceRadiusByStoreId[order.storeId] ?? _defaultServiceRadiusKm;
+    final candidateRadius = storeRadius + 2;
+    return candidateRadius.clamp(3, _defaultDeliveryPickupRadiusKm);
   }
 
   Store _storeForOrder(Order order) {
@@ -1476,6 +1661,8 @@ class OrderService extends ChangeNotifier {
     _inventoryReservationsByOrderId.clear();
     _routeUpdatesByOrderId.clear();
     _proofOfDeliveryByOrderId.clear();
+    _feedbackByOrderId.clear();
+    _storeFeedbackByOrderId.clear();
     _completionCodes.clear();
     if (notify) {
       notifyListeners();

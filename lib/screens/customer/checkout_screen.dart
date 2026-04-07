@@ -7,6 +7,7 @@ import '../../services/auth_service.dart';
 import '../../services/cart_service.dart';
 import '../../services/location_service.dart';
 import '../../services/order_service.dart';
+import '../../services/payment_gateway_service.dart';
 import '../../theme/app_theme.dart';
 import 'order_tracking_screen.dart';
 
@@ -40,6 +41,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.watch<CartService>();
     final location = context.watch<LocationService>();
     final auth = context.watch<AuthService>();
+    final razorpayReady = PaymentGatewayService.isRazorpayReady;
 
     if (location.hasUsableLocation &&
         auth.currentUser != null &&
@@ -213,6 +215,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     'Collected only after successful handoff. Order settlement and payout release happen only after delivery completion.',
                     Icons.payments_outlined,
                   ),
+                  const SizedBox(height: 12),
+                  _paymentOption(
+                    'razorpay',
+                    razorpayReady
+                        ? 'Razorpay (integration ready)'
+                        : 'Razorpay (coming soon)',
+                    PaymentGatewayService.razorpayStatusMessage,
+                    Icons.account_balance_wallet_outlined,
+                    enabled: razorpayReady,
+                  ),
                 ],
               ),
             ),
@@ -374,16 +386,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     String value,
     String title,
     String subtitle,
-    IconData icon,
-  ) {
+    IconData icon, {
+    bool enabled = true,
+  }) {
     final selected = _paymentMethod == value;
     return GestureDetector(
-      onTap: () => setState(() => _paymentMethod = value),
+      onTap: enabled ? () => setState(() => _paymentMethod = value) : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF1FAF2) : const Color(0xFFF8F8F8),
+          color: !enabled
+              ? const Color(0xFFF3F4F6)
+              : selected
+              ? const Color(0xFFF1FAF2)
+              : const Color(0xFFF8F8F8),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected ? const Color(0xFF1D8C3A) : AppTheme.divider,
@@ -395,7 +412,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Icon(
               icon,
-              color: selected ? const Color(0xFF1D8C3A) : AppTheme.textMedium,
+              color: !enabled
+                  ? AppTheme.textLight
+                  : selected
+                  ? const Color(0xFF1D8C3A)
+                  : AppTheme.textMedium,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -406,7 +427,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: selected
+                      color: !enabled
+                          ? AppTheme.textMedium
+                          : selected
                           ? const Color(0xFF1D8C3A)
                           : AppTheme.textDark,
                     ),
@@ -422,7 +445,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
               ),
             ),
-            if (selected)
+            if (!enabled)
+              const Icon(Icons.lock_outline, color: AppTheme.textLight)
+            else if (selected)
               const Icon(Icons.check_circle, color: Color(0xFF1D8C3A)),
           ],
         ),
@@ -469,6 +494,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final orderService = context.read<OrderService>();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+
+    if (_paymentMethod == 'razorpay') {
+      messenger.showSnackBar(
+        SnackBar(content: Text(PaymentGatewayService.razorpayStatusMessage)),
+      );
+      return;
+    }
 
     if (cart.items.isEmpty) {
       messenger.showSnackBar(

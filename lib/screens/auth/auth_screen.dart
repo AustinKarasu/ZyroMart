@@ -18,6 +18,14 @@ class _AuthScreenState extends State<AuthScreen> {
   final _otpController = TextEditingController();
   UserRole _selectedRole = UserRole.customer;
 
+  void _resetForm() {
+    _nameController.clear();
+    _emailController.clear();
+    _phoneController.clear();
+    _otpController.clear();
+    context.read<AuthService>().resetTransientAuthState();
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -103,6 +111,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           setState(() {
                             _selectedRole = role;
                           });
+                          _resetForm();
+                          context.read<AuthService>().selectRole(role);
                         },
                       ),
                       const SizedBox(height: 20),

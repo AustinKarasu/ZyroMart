@@ -6,16 +6,15 @@ import '../../theme/app_theme.dart';
 class StoreOperationsPreferencesScreen extends StatefulWidget {
   final String userId;
 
-  const StoreOperationsPreferencesScreen({
-    super.key,
-    required this.userId,
-  });
+  const StoreOperationsPreferencesScreen({super.key, required this.userId});
 
   @override
-  State<StoreOperationsPreferencesScreen> createState() => _StoreOperationsPreferencesScreenState();
+  State<StoreOperationsPreferencesScreen> createState() =>
+      _StoreOperationsPreferencesScreenState();
 }
 
-class _StoreOperationsPreferencesScreenState extends State<StoreOperationsPreferencesScreen> {
+class _StoreOperationsPreferencesScreenState
+    extends State<StoreOperationsPreferencesScreen> {
   bool _isLoading = true;
   bool _substitutionsEnabled = true;
   bool _pickupAlerts = true;
@@ -70,29 +69,39 @@ class _StoreOperationsPreferencesScreenState extends State<StoreOperationsPrefer
               children: [
                 _OpsCard(
                   title: 'Fulfillment preferences',
-                  subtitle: 'These settings control how this store handles substitutions, pickup timing, and stock attention.',
+                  subtitle:
+                      'These settings control how this store handles substitutions, pickup timing, and stock attention.',
                   child: Column(
                     children: [
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Enable substitutions'),
-                        subtitle: const Text('Allow replacement proposals when an ordered item is unavailable.'),
+                        subtitle: const Text(
+                          'Allow replacement proposals when an ordered item is unavailable.',
+                        ),
                         value: _substitutionsEnabled,
-                        onChanged: (value) => setState(() => _substitutionsEnabled = value),
+                        onChanged: (value) =>
+                            setState(() => _substitutionsEnabled = value),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Pickup alerts'),
-                        subtitle: const Text('Push reminders when orders are ready for rider pickup.'),
+                        subtitle: const Text(
+                          'Push reminders when orders are ready for rider pickup.',
+                        ),
                         value: _pickupAlerts,
-                        onChanged: (value) => setState(() => _pickupAlerts = value),
+                        onChanged: (value) =>
+                            setState(() => _pickupAlerts = value),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Inventory warnings'),
-                        subtitle: const Text('Highlight low-stock items during active demand spikes.'),
+                        subtitle: const Text(
+                          'Highlight low-stock items during active demand spikes.',
+                        ),
                         value: _inventoryWarnings,
-                        onChanged: (value) => setState(() => _inventoryWarnings = value),
+                        onChanged: (value) =>
+                            setState(() => _inventoryWarnings = value),
                       ),
                     ],
                   ),
@@ -100,7 +109,8 @@ class _StoreOperationsPreferencesScreenState extends State<StoreOperationsPrefer
                 const SizedBox(height: 16),
                 _OpsCard(
                   title: 'Timing controls',
-                  subtitle: 'Set realistic packing and buffer windows so the operational timeline reflects the store floor.',
+                  subtitle:
+                      'Set realistic packing and buffer windows so the operational timeline reflects the store floor.',
                   child: Column(
                     children: [
                       _SliderTile(
@@ -108,14 +118,16 @@ class _StoreOperationsPreferencesScreenState extends State<StoreOperationsPrefer
                         value: _prepBufferMinutes,
                         min: 2,
                         max: 25,
-                        onChanged: (value) => setState(() => _prepBufferMinutes = value),
+                        onChanged: (value) =>
+                            setState(() => _prepBufferMinutes = value),
                       ),
                       _SliderTile(
                         label: 'Packing lead',
                         value: _packingLeadMinutes,
                         min: 1,
                         max: 15,
-                        onChanged: (value) => setState(() => _packingLeadMinutes = value),
+                        onChanged: (value) =>
+                            setState(() => _packingLeadMinutes = value),
                       ),
                     ],
                   ),
@@ -123,11 +135,25 @@ class _StoreOperationsPreferencesScreenState extends State<StoreOperationsPrefer
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () async {
-                    await _persist();
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Store operation settings saved')),
-                    );
+                    try {
+                      await _persist();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Store operation settings saved'),
+                        ),
+                      );
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error.toString().replaceFirst('Bad state: ', ''),
+                          ),
+                          backgroundColor: AppTheme.primaryRed,
+                        ),
+                      );
+                    }
                   },
                   child: const Text('Save store preferences'),
                 ),
@@ -156,9 +182,15 @@ class _OpsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: AppTheme.textMedium, height: 1.45)),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppTheme.textMedium, height: 1.45),
+            ),
             const SizedBox(height: 12),
             child,
           ],
@@ -190,8 +222,16 @@ class _SliderTile extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
-            Text('$value min', style: const TextStyle(color: AppTheme.textMedium)),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            Text(
+              '$value min',
+              style: const TextStyle(color: AppTheme.textMedium),
+            ),
           ],
         ),
         Slider(

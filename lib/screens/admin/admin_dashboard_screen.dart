@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../services/admin_auth_service.dart';
 import '../../services/admin_service.dart';
 import '../../services/operator_preferences_service.dart';
+import '../../services/payment_gateway_service.dart';
 import '../../theme/app_theme.dart';
 import 'admin_operations_screens.dart';
 import 'admin_preferences_screen.dart';
@@ -36,267 +37,326 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           userId: adminAuth.currentUser?.id ?? 'guest',
         ),
         builder: (context, preferenceSnapshot) {
-          final preferences = preferenceSnapshot.data ?? const <String, dynamic>{};
+          final preferences =
+              preferenceSnapshot.data ?? const <String, dynamic>{};
           return RefreshIndicator(
-        onRefresh: () => context.read<AdminService>().loadDashboard(),
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 64, 24, 28),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF091525), Color(0xFF163250), Color(0xFF1D507B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            onRefresh: () => context.read<AdminService>().loadDashboard(),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 64, 24, 28),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFF091525),
+                        Color(0xFF163250),
+                        Color(0xFF1D507B),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ZyroMart Control Room',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ZyroMart Control Room',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  adminAuth.displayEmail,
+                                  style: const TextStyle(
+                                    color: Color(0xFFD4DEEB),
+                                    fontSize: 15,
                                   ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              adminAuth.displayEmail,
-                              style: const TextStyle(
-                                color: Color(0xFFD4DEEB),
-                                fontSize: 15,
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: adminAuth.signOut,
+                            icon: const Icon(Icons.logout_rounded),
+                            label: const Text('Sign Out'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.14,
+                              ),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _HeroStatCard(
+                              title: 'Pending Platform Share',
+                              value: snapshot == null
+                                  ? '--'
+                                  : currency.format(
+                                      snapshot.pendingPlatformBalance,
+                                    ),
+                              icon: Icons.account_balance_wallet_rounded,
+                              tint: const Color(0xFF0CBA86),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _HeroStatCard(
+                              title: 'Paid Out Platform Share',
+                              value: snapshot == null
+                                  ? '--'
+                                  : currency.format(
+                                      snapshot.paidPlatformBalance,
+                                    ),
+                              icon: Icons.payments_rounded,
+                              tint: const Color(0xFFFFB23E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (admin.errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            admin.errorMessage!,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      if (admin.isLoading && snapshot == null)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else ...[
+                        const Text(
+                          'Platform Snapshot',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F1824),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: [
+                            _InfoTile(
+                              label: 'Orders',
+                              value: '${snapshot?.totalOrders ?? 0}',
+                              icon: Icons.receipt_long_rounded,
+                            ),
+                            _InfoTile(
+                              label: 'Products',
+                              value: '${snapshot?.totalProducts ?? 0}',
+                              icon: Icons.inventory_2_rounded,
+                            ),
+                            _InfoTile(
+                              label: 'Stores',
+                              value: '${snapshot?.totalStores ?? 0}',
+                              icon: Icons.storefront_rounded,
+                            ),
+                            _InfoTile(
+                              label: 'Customers',
+                              value: '${snapshot?.totalCustomers ?? 0}',
+                              icon: Icons.groups_rounded,
+                            ),
+                            _InfoTile(
+                              label: 'Delivery Partners',
+                              value: '${snapshot?.totalDeliveryPartners ?? 0}',
+                              icon: Icons.delivery_dining_rounded,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        _MetricsPanel(snapshot: snapshot, currency: currency),
+                        const SizedBox(height: 24),
+                        _AnalyticsOverviewPanel(
+                          snapshot: snapshot,
+                          currency: currency,
+                        ),
+                        const SizedBox(height: 24),
+                        if (preferences['focus_live_signals'] as bool? ?? true)
+                          _LiveSignalsPanel(snapshot: snapshot),
+                        if (preferences['focus_live_signals'] as bool? ?? true)
+                          const SizedBox(height: 24),
+                        _StatusBreakdownPanel(
+                          snapshot: snapshot,
+                          highlightCancelled:
+                              preferences['highlight_cancelled'] as bool? ??
+                              true,
+                        ),
+                        const SizedBox(height: 24),
+                        _OperationsPanel(
+                          snapshot: snapshot,
+                          defaultFocus:
+                              (preferences['default_ops_focus'] ??
+                                      'out_for_delivery')
+                                  .toString(),
+                        ),
+                        const SizedBox(height: 24),
+                        _AdminRunbookPanel(
+                          snapshot: snapshot,
+                          emphasizeCancelled:
+                              preferences['highlight_cancelled'] as bool? ??
+                              true,
+                          emphasizePayoutDrift:
+                              preferences['highlight_payout_drift'] as bool? ??
+                              true,
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ActionLaunchCard(
+                                title: 'Metrics history',
+                                subtitle:
+                                    'Inspect recent daily platform totals and payout drift.',
+                                icon: Icons.query_stats_rounded,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const AdminMetricsHistoryScreen(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _ActionLaunchCard(
+                                title: 'Operations feed',
+                                subtitle:
+                                    'Open the full event stream for recent order movement.',
+                                icon: Icons.feed_outlined,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const AdminOperationsLogScreen(),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      FilledButton.tonalIcon(
-                        onPressed: adminAuth.signOut,
-                        icon: const Icon(Icons.logout_rounded),
-                        label: const Text('Sign Out'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.14),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _HeroStatCard(
-                          title: 'Pending Platform Share',
-                          value: snapshot == null
-                              ? '--'
-                              : currency.format(snapshot.pendingPlatformBalance),
-                          icon: Icons.account_balance_wallet_rounded,
-                          tint: const Color(0xFF0CBA86),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _HeroStatCard(
-                          title: 'Paid Out Platform Share',
-                          value: snapshot == null
-                              ? '--'
-                              : currency.format(snapshot.paidPlatformBalance),
-                          icon: Icons.payments_rounded,
-                          tint: const Color(0xFFFFB23E),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (admin.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        admin.errorMessage!,
-                        style: const TextStyle(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  if (admin.isLoading && snapshot == null)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else ...[
-                    const Text(
-                      'Platform Snapshot',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F1824),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      children: [
-                        _InfoTile(
-                          label: 'Orders',
-                          value: '${snapshot?.totalOrders ?? 0}',
-                          icon: Icons.receipt_long_rounded,
-                        ),
-                        _InfoTile(
-                          label: 'Products',
-                          value: '${snapshot?.totalProducts ?? 0}',
-                          icon: Icons.inventory_2_rounded,
-                        ),
-                        _InfoTile(
-                          label: 'Stores',
-                          value: '${snapshot?.totalStores ?? 0}',
-                          icon: Icons.storefront_rounded,
-                        ),
-                        _InfoTile(
-                          label: 'Customers',
-                          value: '${snapshot?.totalCustomers ?? 0}',
-                          icon: Icons.groups_rounded,
-                        ),
-                        _InfoTile(
-                          label: 'Delivery Partners',
-                          value: '${snapshot?.totalDeliveryPartners ?? 0}',
-                          icon: Icons.delivery_dining_rounded,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    _MetricsPanel(snapshot: snapshot, currency: currency),
-                    const SizedBox(height: 24),
-                    if (preferences['focus_live_signals'] as bool? ?? true)
-                      _LiveSignalsPanel(snapshot: snapshot),
-                    if (preferences['focus_live_signals'] as bool? ?? true)
-                      const SizedBox(height: 24),
-                    _StatusBreakdownPanel(
-                      snapshot: snapshot,
-                      highlightCancelled:
-                          preferences['highlight_cancelled'] as bool? ?? true,
-                    ),
-                    const SizedBox(height: 24),
-                    _OperationsPanel(
-                      snapshot: snapshot,
-                      defaultFocus:
-                          (preferences['default_ops_focus'] ?? 'out_for_delivery').toString(),
-                    ),
-                    const SizedBox(height: 24),
-                    _AdminRunbookPanel(
-                      snapshot: snapshot,
-                      emphasizeCancelled:
-                          preferences['highlight_cancelled'] as bool? ?? true,
-                      emphasizePayoutDrift:
-                          preferences['highlight_payout_drift'] as bool? ?? true,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ActionLaunchCard(
-                            title: 'Metrics history',
-                            subtitle: 'Inspect recent daily platform totals and payout drift.',
-                            icon: Icons.query_stats_rounded,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AdminMetricsHistoryScreen(),
-                              ),
+                        const SizedBox(height: 24),
+                        _ActionLaunchCard(
+                          title: 'Admin preferences',
+                          subtitle:
+                              'Configure how this control-room account prioritizes signals, metrics windows, and cancellation emphasis.',
+                          icon: Icons.tune_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AdminPreferencesScreen(),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _ActionLaunchCard(
-                            title: 'Operations feed',
-                            subtitle: 'Open the full event stream for recent order movement.',
-                            icon: Icons.feed_outlined,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AdminOperationsLogScreen(),
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x12000000),
+                                blurRadius: 18,
+                                offset: Offset(0, 8),
                               ),
-                            ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Separate Admin APK',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'This target is isolated from customer, store owner, and delivery flows. Build it with flutter build apk --flavor admin -t lib/admin_main.dart for a dedicated admin application package.',
+                                style: TextStyle(
+                                  color: AppTheme.textMedium,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF4F7FB),
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      PaymentGatewayService.isRazorpayReady
+                                          ? Icons.verified_outlined
+                                          : Icons.pending_actions_outlined,
+                                      color:
+                                          PaymentGatewayService.isRazorpayReady
+                                          ? const Color(0xFF1E8D39)
+                                          : const Color(0xFFD58A09),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        PaymentGatewayService
+                                            .razorpayStatusMessage,
+                                        style: const TextStyle(
+                                          color: AppTheme.textMedium,
+                                          height: 1.45,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 24),
-                    _ActionLaunchCard(
-                      title: 'Admin preferences',
-                      subtitle: 'Configure how this control-room account prioritizes signals, metrics windows, and cancellation emphasis.',
-                      icon: Icons.tune_rounded,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AdminPreferencesScreen(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x12000000),
-                            blurRadius: 18,
-                            offset: Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Separate Admin APK',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'This target is isolated from customer, store owner, and delivery flows. Build it with flutter build apk --flavor admin -t lib/admin_main.dart for a dedicated admin application package.',
-                            style: TextStyle(
-                              color: AppTheme.textMedium,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          );
         },
       ),
     );
@@ -339,9 +399,15 @@ class _ActionLaunchCard extends StatelessWidget {
           children: [
             Icon(icon, color: AppTheme.primaryRed),
             const SizedBox(height: 14),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: AppTheme.textMedium, height: 1.4)),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppTheme.textMedium, height: 1.4),
+            ),
           ],
         ),
       ),
@@ -363,7 +429,8 @@ class _AdminRunbookPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final counts = snapshot?.orderStatusCounts ?? const <String, int>{};
-    final delayed = (counts['preparing'] ?? 0) + (counts['ready_for_pickup'] ?? 0);
+    final delayed =
+        (counts['preparing'] ?? 0) + (counts['ready_for_pickup'] ?? 0);
     final onRoad = counts['out_for_delivery'] ?? 0;
     final cancelled = counts['cancelled'] ?? 0;
     return Container(
@@ -390,13 +457,15 @@ class _AdminRunbookPanel extends StatelessWidget {
           _focusRow(
             color: const Color(0xFFD58A09),
             title: 'Store-side delays',
-            subtitle: '$delayed orders are still being prepared or waiting for pickup.',
+            subtitle:
+                '$delayed orders are still being prepared or waiting for pickup.',
           ),
           const SizedBox(height: 10),
           _focusRow(
             color: const Color(0xFF255E96),
             title: 'On-road handoffs',
-            subtitle: '$onRoad orders are with riders and should be watched for OTP completion.',
+            subtitle:
+                '$onRoad orders are with riders and should be watched for OTP completion.',
           ),
           const SizedBox(height: 10),
           _focusRow(
@@ -404,14 +473,16 @@ class _AdminRunbookPanel extends StatelessWidget {
                 ? const Color(0xFFBE342A)
                 : const Color(0xFF6F7F8E),
             title: 'Cancellation watch',
-            subtitle: '$cancelled orders cancelled today. Review trends if this keeps climbing.',
+            subtitle:
+                '$cancelled orders cancelled today. Review trends if this keeps climbing.',
           ),
           if (emphasizePayoutDrift) ...[
             const SizedBox(height: 10),
             _focusRow(
               color: const Color(0xFF7A4AC7),
               title: 'Payout drift watch',
-              subtitle: 'Keep an eye on held vs released platform balances when order completion or proof-of-delivery lags.',
+              subtitle:
+                  'Keep an eye on held vs released platform balances when order completion or proof-of-delivery lags.',
             ),
           ],
         ],
@@ -532,6 +603,226 @@ class _StatusBreakdownPanel extends StatelessWidget {
   }
 }
 
+class _AnalyticsOverviewPanel extends StatelessWidget {
+  const _AnalyticsOverviewPanel({
+    required this.snapshot,
+    required this.currency,
+  });
+
+  final AdminDashboardSnapshot? snapshot;
+  final NumberFormat currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = snapshot?.orderStatusCounts ?? const <String, int>{};
+    final delivered = counts['delivered'] ?? 0;
+    final cancelled = counts['cancelled'] ?? 0;
+    final total = snapshot?.totalOrders ?? 0;
+    final latest = snapshot?.latestMetrics;
+    final history = snapshot?.metricsHistory ?? const <Map<String, dynamic>>[];
+    final completionRate = total == 0 ? 0 : (delivered / total) * 100;
+    final avgOrderValue =
+        latest == null || (latest['completed_orders'] ?? 0) == 0
+        ? 0.0
+        : ((latest['gross_merchandise_value'] ?? 0) as num).toDouble() /
+              ((latest['completed_orders'] ?? 1) as num).toDouble();
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Analytics pulse',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'A quick operator read on conversion, basket quality, payout posture, and metric momentum.',
+            style: TextStyle(color: AppTheme.textMedium, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _AnalyticsMetricCard(
+                label: 'Completion rate',
+                value: '${completionRate.toStringAsFixed(0)}%',
+                tone: const Color(0xFFE9F7ED),
+                accent: const Color(0xFF1E8D39),
+              ),
+              _AnalyticsMetricCard(
+                label: 'Cancellation load',
+                value: '$cancelled',
+                tone: const Color(0xFFFFEEEA),
+                accent: const Color(0xFFBE342A),
+              ),
+              _AnalyticsMetricCard(
+                label: 'Avg order value',
+                value: currency.format(avgOrderValue),
+                tone: const Color(0xFFEAF2FF),
+                accent: const Color(0xFF255E96),
+              ),
+              _AnalyticsMetricCard(
+                label: 'Proof-ready orders',
+                value:
+                    '${snapshot?.liveSignals['proof_of_delivery_ready'] ?? 0}',
+                tone: const Color(0xFFF4EEFF),
+                accent: const Color(0xFF7A4AC7),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _TrendBarChart(history: history),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnalyticsMetricCard extends StatelessWidget {
+  const _AnalyticsMetricCard({
+    required this.label,
+    required this.value,
+    required this.tone,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final Color tone;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 162,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tone,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: accent, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF101927),
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendBarChart extends StatelessWidget {
+  const _TrendBarChart({required this.history});
+
+  final List<Map<String, dynamic>> history;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = history.take(7).toList().reversed.toList();
+    if (rows.isEmpty) {
+      return const Text(
+        'Daily trend bars will appear once platform_daily_metrics starts receiving live rows.',
+        style: TextStyle(color: AppTheme.textMedium, height: 1.45),
+      );
+    }
+    final peak = rows.fold<double>(0, (maxValue, row) {
+      final gmv = ((row['gross_merchandise_value'] ?? 0) as num).toDouble();
+      return gmv > maxValue ? gmv : maxValue;
+    });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'GMV momentum',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 146,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: rows.map((row) {
+              final gmv = ((row['gross_merchandise_value'] ?? 0) as num)
+                  .toDouble();
+              final date = DateTime.tryParse(
+                (row['metric_date'] ?? '').toString(),
+              );
+              final heightFactor = peak == 0
+                  ? 0.12
+                  : (gmv / peak).clamp(0.12, 1.0);
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: FractionallySizedBox(
+                            heightFactor: heightFactor,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Color(0xFF163250),
+                                    Color(0xFF2E74B6),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        date == null ? '--' : DateFormat('dd MMM').format(date),
+                        style: const TextStyle(
+                          color: AppTheme.textMedium,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _LiveSignalsPanel extends StatelessWidget {
   const _LiveSignalsPanel({required this.snapshot});
 
@@ -566,10 +857,22 @@ class _LiveSignalsPanel extends StatelessWidget {
             runSpacing: 12,
             children: [
               _signalChip('Pending', '${signals['pending_orders'] ?? 0}'),
-              _signalChip('Proof Ready', '${signals['proof_of_delivery_ready'] ?? 0}'),
-              _signalChip('Route Pings', '${signals['active_route_pings'] ?? 0}'),
-              _signalChip('Active Customers', '${signals['active_customers'] ?? 0}'),
-              _signalChip('Riders Online', '${signals['active_delivery_partners'] ?? 0}'),
+              _signalChip(
+                'Proof Ready',
+                '${signals['proof_of_delivery_ready'] ?? 0}',
+              ),
+              _signalChip(
+                'Route Pings',
+                '${signals['active_route_pings'] ?? 0}',
+              ),
+              _signalChip(
+                'Active Customers',
+                '${signals['active_customers'] ?? 0}',
+              ),
+              _signalChip(
+                'Riders Online',
+                '${signals['active_delivery_partners'] ?? 0}',
+              ),
               _signalChip('Top Feature', '${signals['top_feature'] ?? 'n/a'}'),
               _signalChip('Crashes 24h', '${signals['crashes_24h'] ?? 0}'),
             ],
@@ -595,10 +898,7 @@ class _LiveSignalsPanel extends StatelessWidget {
 }
 
 class _OperationsPanel extends StatelessWidget {
-  const _OperationsPanel({
-    required this.snapshot,
-    required this.defaultFocus,
-  });
+  const _OperationsPanel({required this.snapshot, required this.defaultFocus});
 
   final AdminDashboardSnapshot? snapshot;
   final String defaultFocus;
@@ -608,10 +908,12 @@ class _OperationsPanel extends StatelessWidget {
     final events = [...(snapshot?.recentOperationalEvents ?? const [])];
     final normalizedFocus = defaultFocus.replaceAll('_', ' ').toLowerCase();
     events.sort((a, b) {
-      final aMatches =
-          (a['subtitle'] ?? '').toString().toLowerCase().contains(normalizedFocus);
-      final bMatches =
-          (b['subtitle'] ?? '').toString().toLowerCase().contains(normalizedFocus);
+      final aMatches = (a['subtitle'] ?? '').toString().toLowerCase().contains(
+        normalizedFocus,
+      );
+      final bMatches = (b['subtitle'] ?? '').toString().toLowerCase().contains(
+        normalizedFocus,
+      );
       if (aMatches == bMatches) return 0;
       return aMatches ? -1 : 1;
     });
@@ -777,10 +1079,7 @@ class _InfoTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            label,
-            style: const TextStyle(color: AppTheme.textMedium),
-          ),
+          Text(label, style: const TextStyle(color: AppTheme.textMedium)),
         ],
       ),
     );
@@ -788,10 +1087,7 @@ class _InfoTile extends StatelessWidget {
 }
 
 class _MetricsPanel extends StatelessWidget {
-  const _MetricsPanel({
-    required this.snapshot,
-    required this.currency,
-  });
+  const _MetricsPanel({required this.snapshot, required this.currency});
 
   final AdminDashboardSnapshot? snapshot;
   final NumberFormat currency;
@@ -817,10 +1113,7 @@ class _MetricsPanel extends StatelessWidget {
         children: [
           const Text(
             'Latest Daily Metrics',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 14),
           if (latest == null)
@@ -834,7 +1127,8 @@ class _MetricsPanel extends StatelessWidget {
                 _metricRow(
                   'GMV',
                   currency.format(
-                    ((latest['gross_merchandise_value'] ?? 0) as num).toDouble(),
+                    ((latest['gross_merchandise_value'] ?? 0) as num)
+                        .toDouble(),
                   ),
                 ),
                 _metricRow(
@@ -897,4 +1191,3 @@ class _MetricsPanel extends StatelessWidget {
     );
   }
 }
-

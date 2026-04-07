@@ -1,0 +1,11 @@
+ZyroMart v1.4.10
+
+- enabled intentional multi-role access so store-owner and delivery accounts can safely open the customer flow from the same account without losing their operational access
+- fixed store-owner profile saving so the store record is created or updated correctly, which also unblocks product publishing for owner accounts
+- reset sign-in form state correctly when switching roles or auth modes so OTP/password values do not leak between customer, store owner, and delivery flows
+- fixed dark-theme customer home chips and product cards that were showing blank white sections or unreadable content
+- tightened customer, store, delivery, and admin settings persistence so save actions require live backend success instead of silent local-only success
+- added admin analytics pulse cards and daily GMV momentum view for a more professional control-room dashboard
+- added Razorpay-ready payment configuration scaffolding for future backend order creation and checkout enablement
+- live rider assignment now only dispatches online nearby delivery partners with valid coordinates and manageable active load
+- delivered orders now save both delivery and store ratings to the backend, and live rating summaries feed store/delivery dashboards

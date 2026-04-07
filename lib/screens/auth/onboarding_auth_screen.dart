@@ -283,6 +283,37 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
   UserRole _selectedRole = UserRole.customer;
   bool _isSignUp = false;
 
+  void _resetAuthInputs({bool resetPasswordMode = false}) {
+    _nameController.clear();
+    _emailController.clear();
+    _phoneController.clear();
+    _otpController.clear();
+    _passwordController.clear();
+    _confirmPasswordController.clear();
+    _storeNameController.clear();
+    _storeAddressController.clear();
+    context.read<AuthService>().resetTransientAuthState(
+      resetPasswordMode: resetPasswordMode,
+    );
+  }
+
+  void _handleRoleChange(UserRole role) {
+    if (_selectedRole == role) return;
+    setState(() => _selectedRole = role);
+    _resetAuthInputs();
+    context.read<AuthService>().selectRole(role);
+  }
+
+  void _handleAuthModeChange(bool isSignUp) {
+    setState(() => _isSignUp = isSignUp);
+    _resetAuthInputs(resetPasswordMode: isSignUp);
+  }
+
+  void _handleSignInMethodChange(bool usePassword) {
+    _resetAuthInputs();
+    context.read<AuthService>().setPasswordMode(usePassword);
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -370,16 +401,12 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                           const SizedBox(height: 20),
                           _AuthModeSwitch(
                             isSignUp: _isSignUp,
-                            onChanged: (value) =>
-                                setState(() => _isSignUp = value),
+                            onChanged: _handleAuthModeChange,
                           ),
                           const SizedBox(height: 18),
                           _RoleGrid(
                             selectedRole: _selectedRole,
-                            onChanged: (role) {
-                              setState(() => _selectedRole = role);
-                              context.read<AuthService>().selectRole(role);
-                            },
+                            onChanged: _handleRoleChange,
                           ),
                           const SizedBox(height: 18),
                           if (!_isSignUp)
@@ -395,18 +422,16 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                     child: _ModeChip(
                                       label: 'OTP Login',
                                       selected: !auth.isPasswordLogin,
-                                      onTap: () => context
-                                          .read<AuthService>()
-                                          .setPasswordMode(false),
+                                      onTap: () =>
+                                          _handleSignInMethodChange(false),
                                     ),
                                   ),
                                   Expanded(
                                     child: _ModeChip(
                                       label: 'Password',
                                       selected: auth.isPasswordLogin,
-                                      onTap: () => context
-                                          .read<AuthService>()
-                                          .setPasswordMode(true),
+                                      onTap: () =>
+                                          _handleSignInMethodChange(true),
                                     ),
                                   ),
                                 ],

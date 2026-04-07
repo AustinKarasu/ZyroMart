@@ -296,6 +296,51 @@ class SupabaseService {
     return response == null ? null : Map<String, dynamic>.from(response);
   }
 
+  static Future<Map<String, dynamic>?> getDeliveryFeedbackForOrder(
+    String orderId,
+  ) async {
+    if (!isInitialized || orderId.isEmpty) return null;
+    final response = await client
+        .from('delivery_feedback')
+        .select()
+        .eq('order_id', orderId)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<void> insertDeliveryFeedback(
+    Map<String, dynamic> payload,
+  ) async {
+    if (!isInitialized) return;
+    await client.from('delivery_feedback').insert(payload);
+  }
+
+  static Future<Map<String, dynamic>?> getStoreFeedbackForOrder(
+    String orderId,
+  ) async {
+    if (!isInitialized || orderId.isEmpty) return null;
+    final response = await client
+        .from('store_feedback')
+        .select()
+        .eq('order_id', orderId)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<void> insertStoreFeedback(Map<String, dynamic> payload) async {
+    if (!isInitialized) return;
+    await client.from('store_feedback').insert(payload);
+  }
+
+  static Future<List<Map<String, dynamic>>> getStoreFeedback() async {
+    if (!isInitialized) return [];
+    final response = await client
+        .from('store_feedback')
+        .select()
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   // ─── Stores ──────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getStores() async {
@@ -750,6 +795,3 @@ class SupabaseService {
         .subscribe();
   }
 }
-
-
-

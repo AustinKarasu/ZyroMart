@@ -268,10 +268,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        _dietChip('Vegetarian'),
-                        _dietChip('Vegan'),
-                        _dietChip('High-Protein'),
-                        _dietChip('Snacks'),
+                        _dietChip(context, 'Vegetarian'),
+                        _dietChip(context, 'Vegan'),
+                        _dietChip(context, 'High-Protein'),
+                        _dietChip(context, 'Snacks'),
                       ],
                     ),
                   ),
@@ -549,13 +549,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Widget _dietChip(String label) {
+  Widget _dietChip(BuildContext context, String label) {
     final selected = _dietFilters.contains(label);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = isDark ? const Color(0xFF1B2126) : Colors.white;
+    final selectedBackground = isDark
+        ? const Color(0xFF173A20)
+        : const Color(0xFFD9F0DF);
+    final textColor = isDark ? Colors.white : AppTheme.textDark;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
         selected: selected,
-        label: Text(label),
+        showCheckmark: true,
+        label: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF145C28) : textColor,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         onSelected: (value) {
           setState(() {
             if (value) {
@@ -565,12 +578,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             }
           });
         },
-        backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFD9F0DF),
+        backgroundColor: background,
+        selectedColor: selectedBackground,
         checkmarkColor: const Color(0xFF1D8C3A),
         side: BorderSide(
-          color: selected ? const Color(0xFF1D8C3A) : const Color(0xFFE4E8EC),
+          color: selected
+              ? const Color(0xFF1D8C3A)
+              : (isDark ? const Color(0xFF2B333B) : const Color(0xFFE4E8EC)),
         ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

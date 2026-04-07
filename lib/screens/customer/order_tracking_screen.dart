@@ -255,6 +255,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   Widget _buildPartnerCard(Order order, OrderService orderService) {
     final feedback = orderService.feedbackForOrder(order.id);
+    final storeFeedback = orderService.storeFeedbackForOrder(order.id);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -308,7 +309,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               const Icon(Icons.phone_outlined, color: AppTheme.primaryRed),
             ],
           ),
-          if (feedback != null) ...[
+
+          if (feedback != null || storeFeedback != null) ...[
             const SizedBox(height: 14),
             Container(
               width: double.infinity,
@@ -317,12 +319,28 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 color: const Color(0xFFEFF8F0),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(
-                'You rated this delivery ${feedback.rating}/5${feedback.feedback.isEmpty ? '' : ' • ${feedback.feedback}'}',
-                style: const TextStyle(
-                  color: Color(0xFF196F2A),
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (feedback != null)
+                    Text(
+                      'Delivery rated ${feedback.rating}/5${feedback.feedback.isEmpty ? '' : ' • ${feedback.feedback}'}',
+                      style: const TextStyle(
+                        color: Color(0xFF196F2A),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  if (feedback != null && storeFeedback != null)
+                    const SizedBox(height: 8),
+                  if (storeFeedback != null)
+                    Text(
+                      'Store rated ${((storeFeedback['rating'] ?? 0) as num).toInt()}/5${((storeFeedback['feedback_text'] ?? '') as String).isEmpty ? '' : ' • ${(storeFeedback['feedback_text'] ?? '').toString()}'}',
+                      style: const TextStyle(
+                        color: Color(0xFF196F2A),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
@@ -572,8 +590,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     OrderService orderService,
     Order order,
   ) async {
-    final feedbackController = TextEditingController();
-    var rating = 5;
+    final deliveryFeedbackController = TextEditingController();
+    final storeFeedbackController = TextEditingController();
+    var deliveryRating = 5;
+    var storeRating = 5;
+    var isSaving = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -584,6 +605,25 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            Widget starRow({
+              required int value,
+              required ValueChanged<int> onChanged,
+            }) {
+              return Row(
+                children: List.generate(
+                  5,
+                  (index) => IconButton(
+                    onPressed: () => onChanged(index + 1),
+                    icon: Icon(
+                      index < value ? Icons.star : Icons.star_border,
+                      color: const Color(0xFFFFB627),
+                      size: 32,
+                    ),
+                  ),
+                ),
+              );
+            }
+
             return Padding(
               padding: EdgeInsets.only(
                 left: 20,
@@ -596,50 +636,95 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Rate your delivery',
+                    'Rate your order experience',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'How was ${order.deliveryPersonName ?? 'your delivery partner'} on order ${order.id}?',
+                    'Share quick feedback for both the store and your delivery partner.',
                     style: const TextStyle(color: AppTheme.textMedium),
                   ),
                   const SizedBox(height: 18),
-                  Row(
-                    children: List.generate(
-                      5,
-                      (index) => IconButton(
-                        onPressed: () =>
-                            setModalState(() => rating = index + 1),
-                        icon: Icon(
-                          index < rating ? Icons.star : Icons.star_border,
-                          color: const Color(0xFFFFB627),
-                          size: 32,
-                        ),
-                      ),
+                  Text(
+                    'Delivery partner',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.deliveryPersonName ?? 'Your delivery partner',
+                    style: const TextStyle(color: AppTheme.textMedium),
+                  ),
+                  starRow(
+                    value: deliveryRating,
+                    onChanged: (value) =>
+                        setModalState(() => deliveryRating = value),
+                  ),
                   TextField(
-                    controller: feedbackController,
-                    maxLines: 3,
+                    controller: deliveryFeedbackController,
+                    maxLines: 2,
                     decoration: const InputDecoration(
                       hintText: 'Share quick feedback for the rider',
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Store',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.storeName,
+                    style: const TextStyle(color: AppTheme.textMedium),
+                  ),
+                  starRow(
+                    value: storeRating,
+                    onChanged: (value) =>
+                        setModalState(() => storeRating = value),
+                  ),
+                  TextField(
+                    controller: storeFeedbackController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      hintText: 'Share quick feedback for the store',
                     ),
                   ),
                   const SizedBox(height: 18),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        orderService.submitDeliveryFeedback(
-                          orderId: order.id,
-                          rating: rating,
-                          feedback: feedbackController.text,
-                        );
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Submit rating'),
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              setModalState(() => isSaving = true);
+                              final success = await orderService
+                                  .submitOrderRatings(
+                                    orderId: order.id,
+                                    deliveryRating: deliveryRating,
+                                    deliveryFeedback:
+                                        deliveryFeedbackController.text,
+                                    storeRating: storeRating,
+                                    storeFeedback: storeFeedbackController.text,
+                                  );
+                              if (!context.mounted) return;
+                              if (success) {
+                                Navigator.pop(context);
+                              } else {
+                                setModalState(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      orderService.syncError ??
+                                          'Could not submit the live rating.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                      child: Text(isSaving ? 'Saving...' : 'Submit ratings'),
                     ),
                   ),
                 ],

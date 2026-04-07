@@ -147,12 +147,17 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
       UserRole.delivery,
       userId: user.id,
     );
-    final deliveries = user.completedDeliveries ?? 0;
-    final rating = user.deliveryRating ?? 0.0;
-    final activeAssignments = orderService.activeOrders.where(
-      (order) => order.deliveryPersonId == user.id,
-    ).length;
-    final pendingProof = orderService.pendingProofCountForDeliveryPartner(user.id);
+    final deliveries = orderService
+        .earningsFor(UserRole.delivery, userId: user.id)
+        .completedOrders;
+    final rating = orderService.deliveryRatingForPartner(user.id);
+    final ratingCount = orderService.deliveryRatingCountForPartner(user.id);
+    final activeAssignments = orderService.activeOrders
+        .where((order) => order.deliveryPersonId == user.id)
+        .length;
+    final pendingProof = orderService.pendingProofCountForDeliveryPartner(
+      user.id,
+    );
     final routePings = orderService.routePingCountForDeliveryPartner(user.id);
 
     return Scaffold(
@@ -255,6 +260,17 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          ratingCount == 0
+                              ? 'No live ratings yet'
+                              : '$ratingCount customer rating${ratingCount == 1 ? '' : 's'} received',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -302,10 +318,26 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      _statCard('Active', '$activeAssignments', Icons.local_shipping_outlined),
-                      _statCard('Pending Proof', '$pendingProof', Icons.verified_outlined),
-                      _statCard('Route Pings', '$routePings', Icons.route_outlined),
-                      _statCard('Held', 'Rs ${earnings.held.toInt()}', Icons.savings_outlined),
+                      _statCard(
+                        'Active',
+                        '$activeAssignments',
+                        Icons.local_shipping_outlined,
+                      ),
+                      _statCard(
+                        'Pending Proof',
+                        '$pendingProof',
+                        Icons.verified_outlined,
+                      ),
+                      _statCard(
+                        'Route Pings',
+                        '$routePings',
+                        Icons.route_outlined,
+                      ),
+                      _statCard(
+                        'Held',
+                        'Rs ${earnings.held.toInt()}',
+                        Icons.savings_outlined,
+                      ),
                     ],
                   ),
                   _sectionLabel('Availability'),
@@ -449,7 +481,6 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
       ),
     ],
   );
-
 
   Widget _statCard(String label, String value, IconData icon) => Container(
     width: 160,
@@ -681,10 +712,3 @@ class _DeliveryAccountScreenState extends State<_DeliveryAccountScreen> {
     if (confirmed == true) auth.logout();
   }
 }
-
-
-
-
-
-
-

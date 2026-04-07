@@ -69,7 +69,17 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
 
   Future<void> _persist() async {
     if (!_ensureLiveBackend()) return;
-    await _AccountStateRepository.saveAddresses(widget.userId, _addresses);
+    try {
+      await _AccountStateRepository.saveAddresses(widget.userId, _addresses);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+          backgroundColor: AppTheme.primaryRed,
+        ),
+      );
+    }
   }
 
   Future<void> _editAddress({_SavedAddress? existing}) async {
@@ -365,9 +375,19 @@ class _WishlistScreenState extends State<WishlistScreen> {
     } else {
       next.add(productId);
     }
-    await _AccountStateRepository.saveWishlist(widget.userId, next.toList());
-    if (!mounted) return;
-    setState(() => _wishlistIds = next);
+    try {
+      await _AccountStateRepository.saveWishlist(widget.userId, next.toList());
+      if (!mounted) return;
+      setState(() => _wishlistIds = next);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+          backgroundColor: AppTheme.primaryRed,
+        ),
+      );
+    }
   }
 
   @override
@@ -856,14 +876,25 @@ class _GiftCardScreenState extends State<GiftCardScreen> {
     final credit =
         ((code.codeUnits.fold<int>(0, (sum, value) => sum + value) % 400) + 100)
             .toDouble();
-    _balance += credit;
-    await _AccountStateRepository.saveGiftBalance(widget.userId, _balance);
-    _controller.clear();
-    if (!mounted) return;
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Gift balance updated by Rs ${credit.toInt()}')),
-    );
+    final nextBalance = _balance + credit;
+    try {
+      await _AccountStateRepository.saveGiftBalance(widget.userId, nextBalance);
+      _balance = nextBalance;
+      _controller.clear();
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gift balance updated by Rs ${credit.toInt()}')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+          backgroundColor: AppTheme.primaryRed,
+        ),
+      );
+    }
   }
 
   @override
@@ -1475,6 +1506,12 @@ class _EmptyStateCard extends StatelessWidget {
 }
 
 class _AccountStateRepository {
+  static void _requireLiveBackend() {
+    if (!SupabaseService.isInitialized) {
+      throw StateError(SupabaseService.backendStatusMessage);
+    }
+  }
+
   static Future<Map<String, dynamic>> _loadRemoteState() async {
     if (!SupabaseService.isInitialized) return const {};
     return await SupabaseService.getUserAccountState() ?? const {};
@@ -1533,16 +1570,15 @@ class _AccountStateRepository {
     String userId,
     List<_SavedAddress> addresses,
   ) async {
+    _requireLiveBackend();
+    await SupabaseService.upsertUserAccountState({
+      'addresses': addresses.map((entry) => entry.toJson()).toList(),
+    });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
       _ScopedAccountStore.addressesKey(userId),
       addresses.map((entry) => jsonEncode(entry.toJson())).toList(),
     );
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertUserAccountState({
-        'addresses': addresses.map((entry) => entry.toJson()).toList(),
-      });
-    }
   }
 
   static Future<List<String>> loadWishlist(String userId) async {
@@ -1564,13 +1600,10 @@ class _AccountStateRepository {
   }
 
   static Future<void> saveWishlist(String userId, List<String> ids) async {
+    _requireLiveBackend();
+    await SupabaseService.upsertUserAccountState({'wishlist_product_ids': ids});
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_ScopedAccountStore.wishlistKey(userId), ids);
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertUserAccountState({
-        'wishlist_product_ids': ids,
-      });
-    }
   }
 
   static Future<Map<String, dynamic>> loadPaymentSettings(String userId) async {
@@ -1599,16 +1632,15 @@ class _AccountStateRepository {
     String userId,
     Map<String, dynamic> settings,
   ) async {
+    _requireLiveBackend();
+    await SupabaseService.upsertUserAccountState({
+      'payment_settings': settings,
+    });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _ScopedAccountStore.paymentMethodsKey(userId),
       jsonEncode(settings),
     );
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertUserAccountState({
-        'payment_settings': settings,
-      });
-    }
   }
 
   static Future<Map<String, dynamic>> loadGstProfile(String userId) async {
@@ -1633,14 +1665,13 @@ class _AccountStateRepository {
     String userId,
     Map<String, dynamic> profile,
   ) async {
+    _requireLiveBackend();
+    await SupabaseService.upsertUserAccountState({'gst_profile': profile});
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _ScopedAccountStore.gstKey(userId),
       jsonEncode(profile),
     );
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertUserAccountState({'gst_profile': profile});
-    }
   }
 
   static Future<List<String>> loadPromoCodes(String userId) async {
@@ -1670,11 +1701,10 @@ class _AccountStateRepository {
   }
 
   static Future<void> saveGiftBalance(String userId, double balance) async {
+    _requireLiveBackend();
+    await SupabaseService.upsertUserAccountState({'gift_balance': balance});
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_ScopedAccountStore.giftBalanceKey(userId), balance);
-    if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertUserAccountState({'gift_balance': balance});
-    }
   }
 }
 
