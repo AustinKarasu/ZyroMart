@@ -1,0 +1,14 @@
+Release date: 2026-04-08
+
+Fixes in v1.4.21:
+- Current-location autofill now resolves place name/address (with coordinates fallback).
+- Restock live sync path stabilized by removing fragile relation dependency and using direct table + product-name enrichment.
+- OTP-to-password mode switch now clears OTP state immediately, preventing stale OTP section display.
+- Admin dashboard now shows "No data available." when backend has no rows.
+- Removed "Separate Admin APK" info block from admin dashboard UI.
+- Admin user role updates now require backend-confirmed DB writes before success is shown.
+- Admin dashboard loading now tolerates partial backend fetch failures and still returns safe data.
+
+Artifacts:
+- release_assets/zyromart-storefront-v1.4.21.apk
+- release_assets/zyromart-admin-v1.4.21.apk
