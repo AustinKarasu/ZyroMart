@@ -440,18 +440,24 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                     child: _ModeChip(
                                       label: 'OTP Login',
                                       selected: !auth.isPasswordLogin,
-                                      onTap: () => context
-                                          .read<AuthService>()
-                                          .setPasswordMode(false),
+                                      onTap: () {
+                                        _otpController.clear();
+                                        context
+                                            .read<AuthService>()
+                                            .setPasswordMode(false);
+                                      },
                                     ),
                                   ),
                                   Expanded(
                                     child: _ModeChip(
                                       label: 'Password',
                                       selected: auth.isPasswordLogin,
-                                      onTap: () => context
-                                          .read<AuthService>()
-                                          .setPasswordMode(true),
+                                      onTap: () {
+                                        _otpController.clear();
+                                        context
+                                            .read<AuthService>()
+                                            .setPasswordMode(true);
+                                      },
                                     ),
                                   ),
                                 ],

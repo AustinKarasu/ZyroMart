@@ -89,6 +89,14 @@ class AuthService extends ChangeNotifier {
 
   void setPasswordMode(bool value) {
     _isPasswordLogin = value;
+    _otpRequested = false;
+    _pendingPhone = null;
+    _pendingEmail = null;
+    _pendingName = null;
+    _pendingPassword = null;
+    _pendingStoreName = null;
+    _pendingStoreAddress = null;
+    _pendingStoreLocation = null;
     _clearMessages();
     notifyListeners();
   }

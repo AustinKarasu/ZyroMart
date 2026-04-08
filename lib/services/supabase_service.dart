@@ -392,6 +392,20 @@ class SupabaseService {
     await client.from('profiles').upsert(profile);
   }
 
+  static Future<Map<String, dynamic>> updateProfileRole({
+    required String profileId,
+    required String role,
+  }) async {
+    _ensureInitialized();
+    final response = await client
+        .from('profiles')
+        .update({'role': role})
+        .eq('id', profileId)
+        .select('id, role')
+        .single();
+    return Map<String, dynamic>.from(response);
+  }
+
   static Future<Map<String, dynamic>?> getPlatformAdminEntry() async {
     if (!isInitialized || currentUser == null) return null;
     try {
@@ -777,25 +791,42 @@ class SupabaseService {
 
   static Future<List<Map<String, dynamic>>> getRestockSubscriptions() async {
     if (!isInitialized || currentUser == null) return [];
-    try {
-      final response = await client
-          .from('user_restock_subscriptions')
-          .select('*, products(name)')
-          .eq('user_id', currentUser!.id)
-          .order('next_run_at', ascending: true);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (error) {
-      final lowered = error.toString().toLowerCase();
-      if (!lowered.contains('relationship') && !lowered.contains('schema cache')) {
-        rethrow;
-      }
-      final fallback = await client
-          .from('user_restock_subscriptions')
-          .select()
-          .eq('user_id', currentUser!.id)
-          .order('next_run_at', ascending: true);
-      return List<Map<String, dynamic>>.from(fallback);
+    final subscriptions = await client
+        .from('user_restock_subscriptions')
+        .select()
+        .eq('user_id', currentUser!.id)
+        .order('next_run_at', ascending: true);
+
+    final rows = List<Map<String, dynamic>>.from(subscriptions);
+    if (rows.isEmpty) return rows;
+
+    final productIds = rows
+        .map((row) => row['product_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (productIds.isEmpty) return rows;
+
+    final products = await client
+        .from('products')
+        .select('id,name')
+        .inFilter('id', productIds);
+    final nameById = <String, String>{};
+    for (final row in List<Map<String, dynamic>>.from(products)) {
+      final id = row['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      nameById[id] = (row['name'] ?? '').toString();
     }
+
+    return rows
+        .map((row) => {
+              ...row,
+              'products': {
+                'name': nameById[row['product_id']?.toString() ?? ''] ?? '',
+              },
+            })
+        .toList();
   }
 
   // â”€â”€â”€ Real-time subscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

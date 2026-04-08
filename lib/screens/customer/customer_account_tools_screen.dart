@@ -115,8 +115,11 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                             );
                             return;
                           }
-                          addressController.text =
-                              'Current location (${current.latitude.toStringAsFixed(6)}, ${current.longitude.toStringAsFixed(6)})';
+                          final placeName = await location.reverseGeocode(current);
+                          if (!context.mounted) return;
+                          addressController.text = placeName == null
+                              ? 'Current location (${current.latitude.toStringAsFixed(6)}, ${current.longitude.toStringAsFixed(6)})'
+                              : '$placeName (${current.latitude.toStringAsFixed(5)}, ${current.longitude.toStringAsFixed(5)})';
                         },
                         icon: const Icon(Icons.my_location_rounded),
                         label: const Text('Use current location'),

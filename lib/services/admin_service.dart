@@ -44,37 +44,41 @@ class AdminService extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   Future<void> loadDashboard() async {
-    if (!SupabaseService.isInitialized) return;
-
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      final results = await Future.wait([
-        SupabaseService.getOrders(),
-        SupabaseService.getProducts(),
-        SupabaseService.getStores(),
-        SupabaseService.getProfiles(),
-        SupabaseService.getEarningsLedger(beneficiaryRole: 'platform'),
-        SupabaseService.getPlatformDailyMetrics(limit: 7),
-        SupabaseService.getAppUsageEvents(limit: 120),
-        SupabaseService.getCrashReports(limit: 40),
-      ]);
+    if (!SupabaseService.isInitialized) {
+      _snapshot = _emptySnapshot();
+      _errorMessage = SupabaseService.backendStatusMessage;
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
 
-      final orders = List<Map<String, dynamic>>.from(results[0] as List);
-      final products = List<Map<String, dynamic>>.from(results[1] as List);
-      final stores = List<Map<String, dynamic>>.from(results[2] as List);
-      final profiles = List<Map<String, dynamic>>.from(results[3] as List);
-      final platformLedger = List<Map<String, dynamic>>.from(results[4] as List);
-      final metrics = List<Map<String, dynamic>>.from(results[5] as List);
-      final usageEvents = List<Map<String, dynamic>>.from(results[6] as List);
-      final crashReports = List<Map<String, dynamic>>.from(results[7] as List);
+    try {
+      final orders = await _safeList(() => SupabaseService.getOrders());
+      final products = await _safeList(() => SupabaseService.getProducts());
+      final stores = await _safeList(() => SupabaseService.getStores());
+      final profiles = await _safeList(() => SupabaseService.getProfiles());
+      final platformLedger = await _safeList(
+        () => SupabaseService.getEarningsLedger(beneficiaryRole: 'platform'),
+      );
+      final metrics = await _safeList(
+        () => SupabaseService.getPlatformDailyMetrics(limit: 7),
+      );
+      final usageEvents = await _safeList(
+        () => SupabaseService.getAppUsageEvents(limit: 120),
+      );
+      final crashReports = await _safeList(
+        () => SupabaseService.getCrashReports(limit: 40),
+      );
       final latest = metrics.isEmpty ? null : metrics.first;
       final recentOrders = orders.take(6).toList();
-      final detailResults = await Future.wait(
-        recentOrders.map(_loadOperationalDetail),
-      );
+      final detailResults = <Map<String, dynamic>>[];
+      for (final order in recentOrders) {
+        detailResults.add(await _loadOperationalDetail(order));
+      }
 
       double pending = 0;
       double paid = 0;
@@ -131,10 +135,38 @@ class AdminService extends ChangeNotifier {
         orderStatusCounts: _buildStatusCounts(orders),
       );
     } catch (error) {
+      _snapshot = _emptySnapshot();
       _errorMessage = 'Could not load admin dashboard. ${error.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  AdminDashboardSnapshot _emptySnapshot() {
+    return const AdminDashboardSnapshot(
+      totalOrders: 0,
+      totalProducts: 0,
+      totalStores: 0,
+      totalCustomers: 0,
+      totalDeliveryPartners: 0,
+      pendingPlatformBalance: 0,
+      paidPlatformBalance: 0,
+      latestMetrics: null,
+      metricsHistory: [],
+      recentOperationalEvents: [],
+      liveSignals: {},
+      orderStatusCounts: {},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _safeList(
+    Future<List<Map<String, dynamic>>> Function() loader,
+  ) async {
+    try {
+      return await loader();
+    } catch (_) {
+      return const [];
     }
   }
 

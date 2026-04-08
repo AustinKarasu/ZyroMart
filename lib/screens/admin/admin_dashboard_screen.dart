@@ -255,41 +255,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x12000000),
-                            blurRadius: 18,
-                            offset: Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Separate Admin APK',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'This target is isolated from customer, store owner, and delivery flows. Build it with flutter build apk --flavor admin -t lib/admin_main.dart for a dedicated admin application package.',
-                            style: TextStyle(
-                              color: AppTheme.textMedium,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ],
               ),
@@ -638,7 +603,7 @@ class _OperationsPanel extends StatelessWidget {
           const SizedBox(height: 14),
           if (events.isEmpty)
             const Text(
-              'Recent order and platform events will appear here once traffic starts moving through the live backend.',
+              'No data available.',
               style: TextStyle(color: AppTheme.textMedium, height: 1.45),
             )
           else
@@ -825,7 +790,7 @@ class _MetricsPanel extends StatelessWidget {
           const SizedBox(height: 14),
           if (latest == null)
             const Text(
-              'No rows in platform_daily_metrics yet. The admin app is ready and will populate this panel as soon as metrics are written into Supabase.',
+              'No data available.',
               style: TextStyle(color: AppTheme.textMedium, height: 1.5),
             )
           else

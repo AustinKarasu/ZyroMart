@@ -21,7 +21,7 @@ class AdminMetricsHistoryScreen extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  'Daily platform metric rows will appear here once they are written into Supabase.',
+                  'No data available.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppTheme.textMedium, height: 1.6),
                 ),
@@ -88,7 +88,7 @@ class AdminOperationsLogScreen extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  'Recent platform events will appear here as order traffic moves through the backend.',
+                  'No data available.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppTheme.textMedium, height: 1.6),
                 ),

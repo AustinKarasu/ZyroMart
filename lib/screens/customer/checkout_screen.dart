@@ -226,8 +226,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       return;
     }
-    final formatted =
-        'Current location (${current.latitude.toStringAsFixed(6)}, ${current.longitude.toStringAsFixed(6)})';
+    final placeName = await location.reverseGeocode(current);
+    final formatted = placeName == null
+        ? 'Current location (${current.latitude.toStringAsFixed(6)}, ${current.longitude.toStringAsFixed(6)})'
+        : '$placeName (${current.latitude.toStringAsFixed(5)}, ${current.longitude.toStringAsFixed(5)})';
     setState(() {
       _addressController.text = formatted;
       _selectedAddressId = null;

@@ -95,9 +95,7 @@ class _RestockSubscriptionsScreenState
   bool _looksLikeMissingRestockTable(Object error) {
     final text = error.toString().toLowerCase();
     return text.contains('user_restock_subscriptions') ||
-        text.contains('pgrst205') ||
-        text.contains('relationship') ||
-        text.contains('schema cache');
+        text.contains('pgrst205');
   }
 
   Future<bool> _savePlan(_RestockPlan plan) async {

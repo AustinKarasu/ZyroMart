@@ -113,11 +113,14 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     if (profileId.isEmpty) return;
 
     try {
-      await SupabaseService.upsertProfile({
-        ...profile,
-        'id': profileId,
-        'role': role,
-      });
+      final updated = await SupabaseService.updateProfileRole(
+        profileId: profileId,
+        role: role,
+      );
+      final savedRole = (updated['role'] ?? '').toString();
+      if (savedRole != role) {
+        throw StateError('Backend did not confirm the role update.');
+      }
       if (!mounted) return;
       setState(() {
         final index = _profiles.indexWhere(
@@ -130,12 +133,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           };
         }
       });
-      _showSnack('Role updated successfully.');
+      _showSnack('Role updated successfully in database.');
     } catch (error) {
       _showSnack(
         _friendlyError(
           error,
-          fallback: 'Could not update role right now.',
+          fallback: 'Could not update role in database right now.',
         ),
         isError: true,
       );
