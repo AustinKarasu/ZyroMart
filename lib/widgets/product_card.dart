@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/product.dart';
@@ -7,10 +7,18 @@ import '../theme/app_theme.dart';
 import 'app_image.dart';
 
 class ProductCard extends StatelessWidget {
-  const ProductCard({super.key, required this.product, this.onTap});
+  const ProductCard({
+    super.key,
+    required this.product,
+    this.onTap,
+    this.isFavorite = false,
+    this.onFavoriteTap,
+  });
 
   final Product product;
   final VoidCallback? onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteTap;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +62,34 @@ class ProductCard extends StatelessWidget {
                       width: double.infinity,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(24),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: onFavoriteTap,
+                        child: Ink(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isFavorite
+                                ? const Color(0xFFE3475B)
+                                : const Color(0xFF4B5560),
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -240,3 +276,4 @@ class ProductCard extends StatelessWidget {
     );
   }
 }
+

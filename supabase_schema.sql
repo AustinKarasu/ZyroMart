@@ -1,7 +1,7 @@
--- ZyroMart Supabase Database Schema
+﻿-- ZyroMart Supabase Database Schema
 -- Run this in your Supabase SQL Editor: https://supabase.com/dashboard/project/uhlfphrtmaxffchivsip/sql
 
--- ─── Users / Profiles ──────────────────────────────────────
+-- â”€â”€â”€ Users / Profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Stores ────────────────────────────────────────────────
+-- â”€â”€â”€ Stores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS stores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS stores (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Categories ────────────────────────────────────────────
+-- â”€â”€â”€ Categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS categories (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Products ──────────────────────────────────────────────
+-- â”€â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Orders ────────────────────────────────────────────────
+-- â”€â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS orders (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Order Items ───────────────────────────────────────────
+-- â”€â”€â”€ Order Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Delivery Tracking ────────────────────────────────────
+-- â”€â”€â”€ Delivery Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS delivery_tracking (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -124,8 +124,9 @@ CREATE TABLE IF NOT EXISTS delivery_tracking (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Indexes ───────────────────────────────────────────────
+-- â”€â”€â”€ Indexes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_phone_unique ON profiles(phone) WHERE phone IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_store ON products(store_id);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
@@ -246,7 +247,7 @@ CREATE TRIGGER guard_delivery_tracking_update
 BEFORE UPDATE ON delivery_tracking
 FOR EACH ROW EXECUTE FUNCTION guard_delivery_tracking_update();
 
--- ─── Row Level Security ───────────────────────────────────
+-- â”€â”€â”€ Row Level Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
@@ -482,7 +483,7 @@ CREATE POLICY "Admins read crash reports" ON app_crash_reports FOR SELECT
     )
   );
 
--- ─── Realtime ──────────────────────────────────────────────
+-- â”€â”€â”€ Realtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 DO $$
 BEGIN
@@ -572,16 +573,6 @@ CREATE TABLE IF NOT EXISTS delivery_feedback (
   rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
   feedback_text TEXT,
   tags TEXT[] DEFAULT ARRAY[]::TEXT[],
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS store_feedback (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-  customer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
-  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  feedback_text TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -798,7 +789,6 @@ CREATE INDEX IF NOT EXISTS idx_earnings_ledger_order ON earnings_ledger(order_id
 CREATE INDEX IF NOT EXISTS idx_earnings_ledger_beneficiary ON earnings_ledger(beneficiary_user_id, settlement_state);
 CREATE INDEX IF NOT EXISTS idx_payouts_beneficiary ON payouts(beneficiary_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_delivery_feedback_delivery ON delivery_feedback(delivery_person_id);
-CREATE INDEX IF NOT EXISTS idx_store_feedback_store ON store_feedback(store_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_activity_events_user ON user_activity_events(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_product_recommendations_user ON product_recommendations(user_id, score DESC);
@@ -872,7 +862,6 @@ ALTER TABLE payout_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE earnings_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE delivery_feedback ENABLE ROW LEVEL SECURITY;
-ALTER TABLE store_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE store_service_areas ENABLE ROW LEVEL SECURITY;
@@ -895,7 +884,6 @@ ALTER TABLE payout_accounts FORCE ROW LEVEL SECURITY;
 ALTER TABLE earnings_ledger FORCE ROW LEVEL SECURITY;
 ALTER TABLE payouts FORCE ROW LEVEL SECURITY;
 ALTER TABLE delivery_feedback FORCE ROW LEVEL SECURITY;
-ALTER TABLE store_feedback FORCE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences FORCE ROW LEVEL SECURITY;
 ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
 ALTER TABLE store_service_areas FORCE ROW LEVEL SECURITY;
@@ -922,9 +910,6 @@ DROP POLICY IF EXISTS "Users read own payouts" ON payouts;
 DROP POLICY IF EXISTS "Admins manage payouts" ON payouts;
 DROP POLICY IF EXISTS "Users read related feedback" ON delivery_feedback;
 DROP POLICY IF EXISTS "Customers insert delivery feedback" ON delivery_feedback;
-DROP POLICY IF EXISTS "Users read related store feedback" ON store_feedback;
-DROP POLICY IF EXISTS "Customers insert store feedback" ON store_feedback;
-DROP POLICY IF EXISTS "Public read store feedback" ON store_feedback;
 DROP POLICY IF EXISTS "Users manage own notification preferences" ON notification_preferences;
 DROP POLICY IF EXISTS "Users read own notifications" ON notifications;
 DROP POLICY IF EXISTS "Admins insert notifications" ON notifications;
@@ -1003,31 +988,6 @@ CREATE POLICY "Customers insert delivery feedback" ON delivery_feedback FOR INSE
       WHERE orders.id = delivery_feedback.order_id
         AND orders.customer_id = auth.uid()
         AND orders.delivery_person_id = delivery_feedback.delivery_person_id
-        AND orders.status = 'delivered'
-    )
-  );
-
-CREATE POLICY "Public read store feedback" ON store_feedback FOR SELECT USING (true);
-
-CREATE POLICY "Users read related store feedback" ON store_feedback FOR SELECT
-  USING (
-    auth.uid() = customer_id
-    OR EXISTS (
-      SELECT 1 FROM orders
-      JOIN stores ON stores.id = orders.store_id
-      WHERE orders.id = store_feedback.order_id
-        AND (orders.delivery_person_id = auth.uid() OR stores.owner_id = auth.uid())
-    )
-  );
-
-CREATE POLICY "Customers insert store feedback" ON store_feedback FOR INSERT
-  WITH CHECK (
-    auth.uid() = customer_id
-    AND EXISTS (
-      SELECT 1 FROM orders
-      WHERE orders.id = store_feedback.order_id
-        AND orders.customer_id = auth.uid()
-        AND orders.store_id = store_feedback.store_id
         AND orders.status = 'delivered'
     )
   );
@@ -1294,3 +1254,4 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE proof_of_delivery;
   END IF;
 END $$;
+

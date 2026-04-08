@@ -1,6 +1,4 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -18,15 +16,12 @@ import 'supabase_service.dart';
 class OrderService extends ChangeNotifier {
   static const double _platformCommissionRate = 0.05;
   static const double _defaultServiceRadiusKm = 5;
-  static const double _defaultDeliveryPickupRadiusKm = 7;
-  static const int _maxActiveAssignmentsPerDeliveryPartner = 2;
 
   final Distance _distance = const Distance();
   final List<Order> _orders = [];
   List<Store> _storeCatalog = <Store>[];
   final List<AppUser> _deliveryRoster = <AppUser>[];
   final Map<String, DeliveryFeedback> _feedbackByOrderId = {};
-  final Map<String, Map<String, dynamic>> _storeFeedbackByOrderId = {};
   final List<AppNotification> _notifications = [];
   final Map<String, double> _heldStoreEarnings = {};
   final Map<String, double> _releasedStoreEarnings = {};
@@ -44,15 +39,16 @@ class OrderService extends ChangeNotifier {
   _inventoryReservationsByOrderId = {};
   final Map<String, List<Map<String, dynamic>>> _routeUpdatesByOrderId = {};
   final Map<String, Map<String, dynamic>> _proofOfDeliveryByOrderId = {};
+  final Map<String, Map<String, dynamic>> _storeFeedbackByOrderId = {};
   RealtimeChannel? _notificationChannel;
+  bool _isSyncing = false;
+  String? _syncError;
   RealtimeChannel? _ordersChannel;
   AppUser? _viewer;
   String _scope = 'guest';
-  bool _isSyncing = false;
-  String? _syncError;
 
   OrderService() {
-    // Live data only — no mock/demo orders
+    // Live data only â€” no mock/demo orders
     _restoreLocalState();
     _refreshStoreCatalog();
     _refreshDeliveryRoster();
@@ -83,8 +79,6 @@ class OrderService extends ChangeNotifier {
   }
 
   List<Order> get orders => List.unmodifiable(_visibleOrders);
-  bool get isSyncing => _isSyncing;
-  String? get syncError => _syncError;
   List<Order> get allOrders => List.unmodifiable(_orders);
   List<AppNotification> get notifications {
     if (_viewer == null) return const [];
@@ -129,43 +123,8 @@ class OrderService extends ChangeNotifier {
       .where((order) => order.status != OrderStatus.cancelled)
       .toList();
 
-  Future<void> syncOrders() async {
-    if (_viewer == null) {
-      _syncError = SupabaseService.backendStatusMessage;
-      notifyListeners();
-      return;
-    }
-    await _syncRemoteOrders();
-  }
-
-  void _setSyncError(String message, {bool notify = true}) {
-    _syncError = message;
-    if (notify) {
-      notifyListeners();
-    }
-  }
-
-  void _clearSyncError({bool notify = false}) {
-    if (_syncError == null) {
-      return;
-    }
-    _syncError = null;
-    if (notify) {
-      notifyListeners();
-    }
-  }
-
-  Future<void> _runRemoteWrite(
-    Future<void> Function() action,
-    String failurePrefix,
-  ) async {
-    try {
-      await action();
-      _clearSyncError(notify: true);
-    } catch (error) {
-      _setSyncError('$failurePrefix ${error.toString()}');
-    }
-  }
+  bool get isSyncing => _isSyncing;
+  String? get syncError => _syncError;
 
   bool canCustomerCancel(Order order) {
     if (_viewer?.role != UserRole.customer || _viewer?.id != order.customerId) {
@@ -191,51 +150,11 @@ class OrderService extends ChangeNotifier {
   Map<String, dynamic>? storeFeedbackForOrder(String orderId) =>
       _storeFeedbackByOrderId[orderId];
 
-  double deliveryRatingForPartner(String deliveryPersonId) {
-    final feedback = _feedbackByOrderId.values
-        .where((entry) => entry.deliveryPersonId == deliveryPersonId)
-        .toList();
-    if (feedback.isEmpty) {
-      final roster = _deliveryRoster.where(
-        (partner) => partner.id == deliveryPersonId,
-      );
-      return roster.isEmpty ? 0 : (roster.first.deliveryRating ?? 0);
-    }
-    final total = feedback.fold<int>(0, (sum, entry) => sum + entry.rating);
-    return total / feedback.length;
-  }
-
-  int deliveryRatingCountForPartner(String deliveryPersonId) =>
-      _feedbackByOrderId.values
-          .where((entry) => entry.deliveryPersonId == deliveryPersonId)
-          .length;
-
-  double storeRatingForStore(String storeId) {
-    final feedback = _storeFeedbackByOrderId.values
-        .where((entry) => (entry['store_id'] ?? '').toString() == storeId)
-        .toList();
-    if (feedback.isEmpty) {
-      final stores = _storeCatalog.where((store) => store.id == storeId);
-      return stores.isEmpty ? 0 : stores.first.rating;
-    }
-    final total = feedback.fold<int>(
-      0,
-      (sum, entry) => sum + ((entry['rating'] ?? 0) as num).toInt(),
-    );
-    return total / feedback.length;
-  }
-
-  int storeRatingCountForStore(String storeId) => _storeFeedbackByOrderId.values
-      .where((entry) => (entry['store_id'] ?? '').toString() == storeId)
-      .length;
-
   bool shouldPromptCustomerForRating(String orderId) {
     if (_viewer?.role != UserRole.customer) return false;
     final order = getOrder(orderId);
     if (order == null || order.status != OrderStatus.delivered) return false;
-    final hasDeliveryFeedback = _feedbackByOrderId.containsKey(orderId);
-    final hasStoreFeedback = _storeFeedbackByOrderId.containsKey(orderId);
-    if (hasDeliveryFeedback && hasStoreFeedback) return false;
+    if (_feedbackByOrderId.containsKey(orderId)) return false;
     if (order.customerId != _viewer?.id) return false;
     if (_customerPromptedByOrderId[orderId] == true) return false;
     return true;
@@ -376,19 +295,15 @@ class OrderService extends ChangeNotifier {
       _serviceRadiusByStoreId[storeId] ?? _defaultServiceRadiusKm;
 
   void updateStoreRadius(String storeId, double radiusKm) {
+    if (storeId.trim().isEmpty) return;
     _serviceRadiusByStoreId[storeId] = radiusKm.clamp(1, 15);
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.upsertStoreServiceArea({
-            'store_id': storeId,
-            'radius_km': _serviceRadiusByStoreId[storeId],
-            'minimum_order_amount': 0,
-            'is_active': true,
-          }),
-          'Could not update the live service radius.',
-        ),
-      );
+      SupabaseService.upsertStoreServiceArea({
+        'store_id': storeId,
+        'radius_km': _serviceRadiusByStoreId[storeId],
+        'minimum_order_amount': 0,
+        'is_active': true,
+      }).catchError((_) {});
     }
     notifyListeners();
   }
@@ -640,16 +555,11 @@ class OrderService extends ChangeNotifier {
         OrderStatus.outForDelivery => 'out_for_delivery',
         _ => status.name,
       };
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.updateOrder(order.id, {
-            'status': remoteStatus,
-            'delivery_person_id': order.deliveryPersonId,
-            'delivery_person_name': order.deliveryPersonName,
-          }),
-          'Could not update the live order status.',
-        ),
-      );
+      SupabaseService.updateOrder(order.id, {
+        'status': remoteStatus,
+        'delivery_person_id': order.deliveryPersonId,
+        'delivery_person_name': order.deliveryPersonName,
+      }).catchError((_) {});
     }
 
     _notifyStatusChange(order);
@@ -721,10 +631,9 @@ class OrderService extends ChangeNotifier {
     final bucket = _routeUpdatesByOrderId.putIfAbsent(orderId, () => []);
     bucket.insert(0, payload);
     if (SupabaseService.isInitialized) {
-      await _runRemoteWrite(
-        () => SupabaseService.insertDeliveryRouteUpdate(payload),
-        'Could not sync the live delivery route.',
-      );
+      await SupabaseService.insertDeliveryRouteUpdate(
+        payload,
+      ).catchError((_) {});
     }
     _persistLocalState();
     notifyListeners();
@@ -779,23 +688,24 @@ class OrderService extends ChangeNotifier {
   }
 
   Future<void> _syncRemoteOrders() async {
-    if (!SupabaseService.isInitialized || _viewer == null) {
-      _syncError = SupabaseService.backendStatusMessage;
-      notifyListeners();
-      return;
-    }
-    await _refreshStoreCatalog();
-    await _refreshDeliveryRoster();
-    await _loadRemoteOrders();
-    _ordersChannel = SupabaseService.subscribeToOrders((_) {
-      _loadRemoteOrders();
-    });
-  }
-
-  Future<void> _loadRemoteOrders() async {
+    if (!SupabaseService.isInitialized || _viewer == null) return;
     _isSyncing = true;
     _syncError = null;
     notifyListeners();
+    try {
+      await _refreshStoreCatalog();
+      await _refreshDeliveryRoster();
+      await _loadRemoteOrders();
+      _ordersChannel = SupabaseService.subscribeToOrders((_) {
+        _loadRemoteOrders();
+      });
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadRemoteOrders() async {
     try {
       final rows = await SupabaseService.getOrders();
       final serviceAreas = await SupabaseService.getStoreServiceAreas();
@@ -822,8 +732,6 @@ class OrderService extends ChangeNotifier {
         _inventoryReservationsByOrderId.clear();
         _routeUpdatesByOrderId.clear();
         _proofOfDeliveryByOrderId.clear();
-        _feedbackByOrderId.clear();
-        _storeFeedbackByOrderId.clear();
         _completionCodes.clear();
         _orders
           ..clear()
@@ -833,14 +741,43 @@ class OrderService extends ChangeNotifier {
         }
       }
       await Future.wait(remoteOrders.map(_loadRemoteOrderDetails));
+      await _loadRemoteFeedback(remoteOrders);
       _persistLocalState();
       notifyListeners();
     } catch (error) {
-      _syncError = 'Could not sync live orders. ${error.toString()}';
+      _syncError = _friendlySyncError(error);
       notifyListeners();
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
+    }
+  }
+
+  Future<void> _loadRemoteFeedback(List<Order> orders) async {
+    _feedbackByOrderId.clear();
+    _storeFeedbackByOrderId.clear();
+    for (final order in orders) {
+      final deliveryRows = await SupabaseService.getDeliveryFeedback(
+        orderId: order.id,
+      ).catchError((_) => <Map<String, dynamic>>[]);
+      if (deliveryRows.isNotEmpty) {
+        final row = deliveryRows.first;
+        _feedbackByOrderId[order.id] = DeliveryFeedback(
+          orderId: order.id,
+          customerId: (row['customer_id'] ?? '').toString(),
+          deliveryPersonId: (row['delivery_person_id'] ?? '').toString(),
+          rating: ((row['rating'] ?? 0) as num).toInt(),
+          feedback: (row['feedback_text'] ?? '').toString(),
+          createdAt:
+              DateTime.tryParse((row['created_at'] ?? '').toString()) ??
+              DateTime.now(),
+        );
+      }
+      final storeRows = await SupabaseService.getStoreFeedback(
+        orderId: order.id,
+      ).catchError((_) => <Map<String, dynamic>>[]);
+      if (storeRows.isNotEmpty) {
+        _storeFeedbackByOrderId[order.id] = Map<String, dynamic>.from(
+          storeRows.first,
+        );
+      }
     }
   }
 
@@ -856,12 +793,6 @@ class OrderService extends ChangeNotifier {
         order.id,
       ).catchError((_) => <Map<String, dynamic>>[]),
       SupabaseService.getProofOfDelivery(order.id).catchError((_) => null),
-      SupabaseService.getDeliveryFeedbackForOrder(
-        order.id,
-      ).catchError((_) => null),
-      SupabaseService.getStoreFeedbackForOrder(
-        order.id,
-      ).catchError((_) => null),
     ]);
     _statusEventsByOrderId[order.id] = List<Map<String, dynamic>>.from(
       results[0] as List,
@@ -875,28 +806,6 @@ class OrderService extends ChangeNotifier {
     final proof = results[3];
     if (proof is Map<String, dynamic>) {
       _proofOfDeliveryByOrderId[order.id] = proof;
-    }
-    final deliveryFeedback = results[4];
-    if (deliveryFeedback is Map<String, dynamic>) {
-      _feedbackByOrderId[order.id] = DeliveryFeedback(
-        orderId: (deliveryFeedback['order_id'] ?? order.id).toString(),
-        customerId: (deliveryFeedback['customer_id'] ?? '').toString(),
-        deliveryPersonId: (deliveryFeedback['delivery_person_id'] ?? '')
-            .toString(),
-        rating: ((deliveryFeedback['rating'] ?? 0) as num).toInt(),
-        feedback: (deliveryFeedback['feedback_text'] ?? '').toString(),
-        createdAt:
-            DateTime.tryParse(
-              (deliveryFeedback['created_at'] ?? '').toString(),
-            ) ??
-            DateTime.now(),
-      );
-    }
-    final storeFeedback = results[5];
-    if (storeFeedback is Map<String, dynamic>) {
-      _storeFeedbackByOrderId[order.id] = Map<String, dynamic>.from(
-        storeFeedback,
-      );
     }
   }
 
@@ -1027,6 +936,41 @@ class OrderService extends ChangeNotifier {
     }
   }
 
+  bool submitDeliveryFeedback({
+    required String orderId,
+    required int rating,
+    required String feedback,
+  }) {
+    final order = getOrder(orderId);
+    final viewer = _viewer;
+    if (order == null ||
+        viewer == null ||
+        viewer.role != UserRole.customer ||
+        order.status != OrderStatus.delivered ||
+        order.customerId != viewer.id ||
+        order.deliveryPersonId == null) {
+      return false;
+    }
+
+    _feedbackByOrderId[orderId] = DeliveryFeedback(
+      orderId: orderId,
+      customerId: viewer.id,
+      deliveryPersonId: order.deliveryPersonId!,
+      rating: rating,
+      feedback: feedback.trim(),
+      createdAt: DateTime.now(),
+    );
+    _createNotification(
+      recipientUserId: order.deliveryPersonId!,
+      category: 'system',
+      title: 'New delivery feedback',
+      body: 'You received a $rating-star rating for order ${order.id}.',
+      orderId: order.id,
+    );
+    notifyListeners();
+    return true;
+  }
+
   Future<bool> submitOrderRatings({
     required String orderId,
     required int deliveryRating,
@@ -1040,79 +984,77 @@ class OrderService extends ChangeNotifier {
         viewer == null ||
         viewer.role != UserRole.customer ||
         order.status != OrderStatus.delivered ||
-        order.customerId != viewer.id) {
-      return false;
-    }
-    if (!SupabaseService.isInitialized) {
-      _setSyncError(SupabaseService.backendStatusMessage);
-      return false;
-    }
-
-    final now = DateTime.now();
-    try {
-      if (order.deliveryPersonId != null &&
-          order.deliveryPersonId!.isNotEmpty &&
-          !_feedbackByOrderId.containsKey(orderId)) {
-        final deliveryPayload = <String, dynamic>{
-          'order_id': orderId,
-          'customer_id': viewer.id,
-          'delivery_person_id': order.deliveryPersonId,
-          'rating': deliveryRating.clamp(1, 5),
-          'feedback_text': deliveryFeedback.trim(),
-          'tags': <String>[],
-        };
-        await SupabaseService.insertDeliveryFeedback(deliveryPayload);
-        _feedbackByOrderId[orderId] = DeliveryFeedback(
-          orderId: orderId,
-          customerId: viewer.id,
-          deliveryPersonId: order.deliveryPersonId!,
-          rating: deliveryRating.clamp(1, 5),
-          feedback: deliveryFeedback.trim(),
-          createdAt: now,
-        );
-        _createNotification(
-          recipientUserId: order.deliveryPersonId!,
-          category: 'system',
-          title: 'New delivery feedback',
-          body:
-              'You received a ${deliveryRating.clamp(1, 5)}-star rating for order ${order.id}.',
-          orderId: order.id,
-        );
-      }
-
-      if (!_storeFeedbackByOrderId.containsKey(orderId)) {
-        final storePayload = <String, dynamic>{
-          'order_id': orderId,
-          'customer_id': viewer.id,
-          'store_id': order.storeId,
-          'rating': storeRating.clamp(1, 5),
-          'feedback_text': storeFeedback.trim(),
-        };
-        await SupabaseService.insertStoreFeedback(storePayload);
-        _storeFeedbackByOrderId[orderId] = {
-          ...storePayload,
-          'created_at': now.toIso8601String(),
-        };
-        final store = _storeForOrder(order);
-        if (store.ownerId.isNotEmpty) {
-          _createNotification(
-            recipientUserId: store.ownerId,
-            category: 'system',
-            title: 'New store rating',
-            body:
-                'Your store received a ${storeRating.clamp(1, 5)}-star rating for order ${order.id}.',
-            orderId: order.id,
-          );
-        }
-      }
-
-      _clearSyncError(notify: false);
+        order.customerId != viewer.id ||
+        order.deliveryPersonId == null) {
+      _syncError = 'This order is not eligible for ratings right now.';
       notifyListeners();
-      return true;
-    } catch (error) {
-      _setSyncError('Could not save the live rating. ${error.toString()}');
       return false;
     }
+
+    _syncError = null;
+    _feedbackByOrderId[orderId] = DeliveryFeedback(
+      orderId: orderId,
+      customerId: viewer.id,
+      deliveryPersonId: order.deliveryPersonId!,
+      rating: deliveryRating,
+      feedback: deliveryFeedback.trim(),
+      createdAt: DateTime.now(),
+    );
+    _storeFeedbackByOrderId[orderId] = {
+      'order_id': orderId,
+      'store_id': order.storeId,
+      'customer_id': viewer.id,
+      'rating': storeRating,
+      'feedback_text': storeFeedback.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    _persistLocalState();
+    notifyListeners();
+
+    if (!SupabaseService.isInitialized) {
+      return true;
+    }
+
+    try {
+      await Future.wait([
+        SupabaseService.insertDeliveryFeedback({
+          'order_id': orderId,
+          'delivery_person_id': order.deliveryPersonId!,
+          'rating': deliveryRating,
+          'feedback_text': deliveryFeedback.trim(),
+        }),
+        SupabaseService.insertStoreFeedback({
+          'order_id': orderId,
+          'store_id': order.storeId,
+          'rating': storeRating,
+          'feedback_text': storeFeedback.trim(),
+        }),
+      ]);
+      return true;
+    } catch (_) {
+      _syncError = 'Could not submit the live rating right now.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  double deliveryRatingForPartner(String userId) {
+    final ratings = _feedbackByOrderId.values
+        .where((feedback) => feedback.deliveryPersonId == userId)
+        .map((feedback) => feedback.rating)
+        .toList();
+    if (ratings.isEmpty) return 0;
+    return ratings.reduce((a, b) => a + b) / ratings.length;
+  }
+
+  int deliveryRatingCountForPartner(String userId) {
+    return _feedbackByOrderId.values
+        .where((feedback) => feedback.deliveryPersonId == userId)
+        .length;
+  }
+
+  Future<void> syncOrders() async {
+    await _syncRemoteOrders();
   }
 
   void markNotificationRead(String notificationId) {
@@ -1122,12 +1064,7 @@ class OrderService extends ChangeNotifier {
     if (notification.isEmpty) return;
     notification.first.isRead = true;
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.markNotificationRead(notificationId),
-          'Could not update the live notification state.',
-        ),
-      );
+      SupabaseService.markNotificationRead(notificationId).catchError((_) {});
     }
     notifyListeners();
   }
@@ -1203,14 +1140,9 @@ class OrderService extends ChangeNotifier {
       orderId: order.id,
     );
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.updateOrder(order.id, {
-            'status': OrderStatus.cancelled.name,
-          }),
-          'Could not cancel the live order.',
-        ),
-      );
+      SupabaseService.updateOrder(order.id, {
+        'status': OrderStatus.cancelled.name,
+      }).catchError((_) {});
     }
     _persistLocalState();
     notifyListeners();
@@ -1362,21 +1294,18 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _refreshStoreCatalog() async {
     if (!SupabaseService.isInitialized) return;
-    try {
-      final rows = await SupabaseService.getStores();
-      if (rows.isEmpty) return;
-      _storeCatalog = rows.map(_mapStore).toList();
-      for (final store in _storeCatalog) {
-        _serviceRadiusByStoreId.putIfAbsent(
-          store.id,
-          () => _defaultServiceRadiusKm,
-        );
-      }
-      _clearSyncError();
-      notifyListeners();
-    } catch (error) {
-      _setSyncError('Could not load live store data. ${error.toString()}');
+    final rows = await SupabaseService.getStores().catchError(
+      (_) => <Map<String, dynamic>>[],
+    );
+    if (rows.isEmpty) return;
+    _storeCatalog = rows.map(_mapStore).toList();
+    for (final store in _storeCatalog) {
+      _serviceRadiusByStoreId.putIfAbsent(
+        store.id,
+        () => _defaultServiceRadiusKm,
+      );
     }
+    notifyListeners();
   }
 
   Store _mapStore(Map<String, dynamic> row) {
@@ -1402,21 +1331,18 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _refreshDeliveryRoster() async {
     if (!SupabaseService.isInitialized) return;
-    try {
-      final rows = await SupabaseService.getProfiles();
-      if (rows.isEmpty) return;
-      _deliveryRoster
-        ..clear()
-        ..addAll(
-          rows
-              .where((row) => (row['role'] ?? '').toString() == 'delivery')
-              .map(_mapDeliveryProfile),
-        );
-      _clearSyncError();
-      notifyListeners();
-    } catch (error) {
-      _setSyncError('Could not load live delivery roster. ${error.toString()}');
-    }
+    final rows = await SupabaseService.getProfiles().catchError(
+      (_) => <Map<String, dynamic>>[],
+    );
+    if (rows.isEmpty) return;
+    _deliveryRoster
+      ..clear()
+      ..addAll(
+        rows
+            .where((row) => (row['role'] ?? '').toString() == 'delivery')
+            .map(_mapDeliveryProfile),
+      );
+    notifyListeners();
   }
 
   AppUser _mapDeliveryProfile(Map<String, dynamic> row) {
@@ -1440,79 +1366,23 @@ class OrderService extends ChangeNotifier {
 
   AppUser? _assignDeliveryPartner(Order order) {
     if (_deliveryRoster.isEmpty) {
-      _setSyncError('No live delivery partners are registered yet.');
       return null;
     }
-
-    final pickupRadiusKm = _pickupRadiusForOrder(order);
-    final candidates = _deliveryRoster.where((partner) {
-      if (!partner.isOnline || !_hasUsableLocation(partner.location)) {
-        return false;
-      }
-      if (_activeAssignmentsForDeliveryPartner(partner.id) >=
-          _maxActiveAssignmentsPerDeliveryPartner) {
-        return false;
-      }
-      final distanceToStore = _distance.as(
-        LengthUnit.Kilometer,
-        partner.location,
-        order.storeLocation,
-      );
-      return distanceToStore <= pickupRadiusKm;
-    }).toList();
-
-    if (candidates.isEmpty) {
-      _setSyncError(
-        'No nearby delivery partner is currently available within ${pickupRadiusKm.toStringAsFixed(1)} km of ${order.storeName}.',
-      );
-      return null;
-    }
-
-    candidates.sort((a, b) {
-      final loadCompare = _activeAssignmentsForDeliveryPartner(
-        a.id,
-      ).compareTo(_activeAssignmentsForDeliveryPartner(b.id));
-      if (loadCompare != 0) return loadCompare;
-
-      final distanceA = _distance.as(
-        LengthUnit.Kilometer,
-        a.location,
-        order.storeLocation,
-      );
-      final distanceB = _distance.as(
-        LengthUnit.Kilometer,
-        b.location,
-        order.storeLocation,
-      );
-      final distanceCompare = distanceA.compareTo(distanceB);
-      if (distanceCompare != 0) return distanceCompare;
-
-      return (b.deliveryRating ?? 0).compareTo(a.deliveryRating ?? 0);
-    });
-
-    _clearSyncError(notify: false);
-    return candidates.first;
-  }
-
-  bool _hasUsableLocation(LatLng location) =>
-      location.latitude.abs() > 0.0001 || location.longitude.abs() > 0.0001;
-
-  int _activeAssignmentsForDeliveryPartner(String deliveryPersonId) {
-    return _orders
-        .where(
-          (order) =>
-              order.deliveryPersonId == deliveryPersonId &&
-              order.status != OrderStatus.delivered &&
-              order.status != OrderStatus.cancelled,
-        )
-        .length;
-  }
-
-  double _pickupRadiusForOrder(Order order) {
-    final storeRadius =
-        _serviceRadiusByStoreId[order.storeId] ?? _defaultServiceRadiusKm;
-    final candidateRadius = storeRadius + 2;
-    return candidateRadius.clamp(3, _defaultDeliveryPickupRadiusKm);
+    final nearest = [..._deliveryRoster]
+      ..sort((a, b) {
+        final distanceA = _distance.as(
+          LengthUnit.Kilometer,
+          a.location,
+          order.storeLocation,
+        );
+        final distanceB = _distance.as(
+          LengthUnit.Kilometer,
+          b.location,
+          order.storeLocation,
+        );
+        return distanceA.compareTo(distanceB);
+      });
+    return nearest.first;
   }
 
   Store _storeForOrder(Order order) {
@@ -1556,22 +1426,16 @@ class OrderService extends ChangeNotifier {
 
   Future<void> _syncRemoteNotifications() async {
     if (!SupabaseService.isInitialized || _viewer == null) return;
-    await _runRemoteWrite(
-      () => SupabaseService.upsertNotificationDevice(
-        deviceToken: 'local-${_viewer!.id}-${_viewer!.role.name}',
-        platform: 'android',
-        appVariant: 'storefront',
-      ),
-      'Could not register this device for live notifications.',
+    await SupabaseService.upsertNotificationDevice(
+      deviceToken: 'local-${_viewer!.id}-${_viewer!.role.name}',
+      platform: 'android',
+      appVariant: 'storefront',
+    ).catchError((_) {});
+    final rows = await SupabaseService.getNotifications().catchError(
+      (_) => <Map<String, dynamic>>[],
     );
-    try {
-      final rows = await SupabaseService.getNotifications();
-      for (final row in rows) {
-        _mergeNotification(AppNotification.fromMap(row));
-      }
-      _clearSyncError();
-    } catch (error) {
-      _setSyncError('Could not load live notifications. ${error.toString()}');
+    for (final row in rows) {
+      _mergeNotification(AppNotification.fromMap(row));
     }
     _notificationChannel = SupabaseService.subscribeToNotifications((row) {
       final remote = AppNotification.fromMap(row);
@@ -1657,13 +1521,14 @@ class OrderService extends ChangeNotifier {
 
   void _clearScopedOrderState({bool notify = false}) {
     _orders.clear();
+    _feedbackByOrderId.clear();
+    _storeFeedbackByOrderId.clear();
     _statusEventsByOrderId.clear();
     _inventoryReservationsByOrderId.clear();
     _routeUpdatesByOrderId.clear();
     _proofOfDeliveryByOrderId.clear();
-    _feedbackByOrderId.clear();
-    _storeFeedbackByOrderId.clear();
     _completionCodes.clear();
+    _syncError = null;
     if (notify) {
       notifyListeners();
     }
@@ -1708,12 +1573,7 @@ class OrderService extends ChangeNotifier {
     final bucket = _statusEventsByOrderId.putIfAbsent(order.id, () => []);
     bucket.insert(0, event);
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.insertOrderStatusEvent(event),
-          'Could not save the live status history.',
-        ),
-      );
+      SupabaseService.insertOrderStatusEvent(event).catchError((_) {});
     }
     _persistLocalState();
   }
@@ -1739,12 +1599,7 @@ class OrderService extends ChangeNotifier {
         .toList();
     _inventoryReservationsByOrderId[order.id] = reservations;
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.reserveInventory(reservations),
-          'Could not reserve live inventory.',
-        ),
-      );
+      SupabaseService.reserveInventory(reservations).catchError((_) {});
     }
     _persistLocalState();
   }
@@ -1757,15 +1612,10 @@ class OrderService extends ChangeNotifier {
       reservation['released_at'] = DateTime.now().toIso8601String();
     }
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.updateInventoryReservationStatus(
-            orderId: orderId,
-            status: 'released',
-          ),
-          'Could not release live inventory reservations.',
-        ),
-      );
+      SupabaseService.updateInventoryReservationStatus(
+        orderId: orderId,
+        status: 'released',
+      ).catchError((_) {});
     }
     _persistLocalState();
   }
@@ -1777,15 +1627,10 @@ class OrderService extends ChangeNotifier {
       reservation['reservation_status'] = 'consumed';
     }
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.updateInventoryReservationStatus(
-            orderId: orderId,
-            status: 'consumed',
-          ),
-          'Could not consume live inventory reservations.',
-        ),
-      );
+      SupabaseService.updateInventoryReservationStatus(
+        orderId: orderId,
+        status: 'consumed',
+      ).catchError((_) {});
     }
     _persistLocalState();
   }
@@ -1805,12 +1650,7 @@ class OrderService extends ChangeNotifier {
     };
     _proofOfDeliveryByOrderId[order.id] = proof;
     if (SupabaseService.isInitialized) {
-      unawaited(
-        _runRemoteWrite(
-          () => SupabaseService.saveProofOfDelivery(proof),
-          'Could not save the live proof of delivery.',
-        ),
-      );
+      SupabaseService.saveProofOfDelivery(proof).catchError((_) {});
     }
     _persistLocalState();
   }
@@ -1824,6 +1664,20 @@ class OrderService extends ChangeNotifier {
       case UserRole.delivery:
         return 'delivery';
     }
+  }
+
+  String _friendlySyncError(Object error) {
+    final lowered = error.toString().toLowerCase();
+    if (lowered.contains('invalid input syntax for type uuid')) {
+      return 'A live store record is missing or incomplete. Save the store profile and refresh orders.';
+    }
+    if (lowered.contains('pgrst205') ||
+        lowered.contains('schema cache') ||
+        lowered.contains('store_feedback') ||
+        lowered.contains('user_restock_subscriptions')) {
+      return 'The live backend schema is not fully applied yet. Refresh the database schema and try again.';
+    }
+    return 'Could not load live order data right now. Please try again.';
   }
 
   String _statusEventNote(OrderStatus status) {
@@ -1845,3 +1699,4 @@ class OrderService extends ChangeNotifier {
     }
   }
 }
+

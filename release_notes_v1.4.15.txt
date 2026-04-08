@@ -1,0 +1,15 @@
+ZyroMart v1.4.15
+
+Highlights
+- Fixed the live order service compatibility layer so customer, store, and delivery screens bind cleanly to backend sync state again.
+- Added truthful sync-state handling for live orders, including retry-safe feedback loading and professional backend error messaging.
+- Restored customer/store/delivery rating flows with live delivery and store feedback support.
+- Kept role-specific order, notification, and account flows analyzer-clean for release readiness.
+
+Backend and logic
+- Store feedback is now tracked alongside delivery feedback in the live order service.
+- Live order sync now exposes loading and error state to the UI instead of failing silently.
+- Session-scoped order state clears feedback and sync errors correctly when users switch accounts.
+
+Validation
+- flutter analyze passed with no issues before release packaging.

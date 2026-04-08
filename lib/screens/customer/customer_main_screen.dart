@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/app_preferences_service.dart';
@@ -6,10 +6,10 @@ import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
 import '../../theme/app_theme.dart';
 import '../shared/notification_center_screen.dart';
-import 'customer_account_tools_screen.dart';
-import 'customer_home_screen.dart';
-import 'customer_orders_screen.dart';
-import 'restock_subscriptions_screen.dart';
+import 'package:zyromart/screens/customer/customer_account_tools_screen.dart';
+import 'package:zyromart/screens/customer/customer_home_screen.dart';
+import 'package:zyromart/screens/customer/customer_orders_screen.dart';
+import 'package:zyromart/screens/customer/restock_subscriptions_screen.dart';
 
 class CustomerMainScreen extends StatefulWidget {
   const CustomerMainScreen({super.key});
@@ -35,18 +35,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Account',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
         ],
       ),
     );
@@ -84,13 +75,8 @@ class _CustomerProfileScreen extends StatelessWidget {
                     const Spacer(),
                     IconButton(
                       onPressed: () => _showProfileEditor(context, auth),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white12,
-                      ),
-                      icon: const Icon(
-                        Icons.edit_outlined,
-                        color: Colors.white,
-                      ),
+                      style: IconButton.styleFrom(backgroundColor: Colors.white12),
+                      icon: const Icon(Icons.edit_outlined, color: Colors.white),
                     ),
                   ],
                 ),
@@ -104,40 +90,26 @@ class _CustomerProfileScreen extends StatelessWidget {
                   child: (user?.profileImageUrl?.isNotEmpty ?? false)
                       ? null
                       : Text(
-                          (user?.name.isNotEmpty == true ? user!.name[0] : 'U')
-                              .toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800),
                         ),
                 ),
                 const SizedBox(height: 18),
                 Text(
                   user?.name ?? 'Your account',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   user?.phone ?? '',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 18,
-                  ),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 18),
                 ),
                 const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6B3700), Color(0xFF965F08)],
-                    ),
+                    gradient: const LinearGradient(colors: [Color(0xFF6B3700), Color(0xFF965F08)]),
                   ),
                   child: Row(
                     children: [
@@ -145,31 +117,15 @@ class _CustomerProfileScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Faster sign-in setup',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+                            Text('Faster sign-in setup', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
                             SizedBox(height: 6),
-                            Text(
-                              'Add your email and password after OTP verification for easier future logins.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                height: 1.4,
-                              ),
-                            ),
+                            Text('Add your email and password after OTP verification for easier future logins.', style: TextStyle(color: Colors.white70, height: 1.4)),
                           ],
                         ),
                       ),
                       FilledButton(
                         onPressed: () => _showPasswordSetup(context, auth),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppTheme.primaryRed,
-                        ),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppTheme.primaryRed),
                         child: const Text('Manage'),
                       ),
                     ],
@@ -184,13 +140,7 @@ class _CustomerProfileScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: _statCard(
-                        Icons.receipt_long,
-                        'Your orders',
-                        'Track active and completed orders',
-                      ),
-                    ),
+                    Expanded(child: _statCard(Icons.receipt_long, 'Your orders', 'Track active and completed orders')),
                     const SizedBox(width: 12),
                     Expanded(
                       child: InkWell(
@@ -210,13 +160,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: _statCard(
-                        Icons.support_agent,
-                        'Need help?',
-                        'Support, refunds, and order help',
-                      ),
-                    ),
+                    Expanded(child: _statCard(Icons.support_agent, 'Need help?', 'Support, refunds, and order help')),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -227,16 +171,14 @@ class _CustomerProfileScreen extends StatelessWidget {
                     _switchRow(
                       context,
                       title: 'Hide sensitive items',
-                      subtitle:
-                          'Hide wellness and restricted products from browse screens.',
+                      subtitle: 'Hide wellness and restricted products from browse screens.',
                       value: preferences.hideSensitiveItems,
                       onChanged: preferences.setHideSensitiveItems,
                     ),
                     _switchRow(
                       context,
                       title: 'Enable sounds',
-                      subtitle:
-                          'Play a light system bell sound when sounds are enabled.',
+                      subtitle: 'Play a light system bell sound when sounds are enabled.',
                       value: preferences.soundEnabled,
                       onChanged: preferences.setSoundEnabled,
                     ),
@@ -250,9 +192,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                       context,
                       Icons.location_on_outlined,
                       'Address book',
-                      user?.address.isNotEmpty == true
-                          ? user!.address
-                          : 'Manage your saved delivery address',
+                      user?.address.isNotEmpty == true ? user!.address : 'Manage your saved delivery address',
                       'Add, update, and choose saved delivery locations.',
                       destination: AddressBookScreen(
                         userId: user?.id ?? 'guest',
@@ -273,9 +213,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                       'Payment methods',
                       'Manage UPI, COD, and billing preferences',
                       'Saved payment preferences appear here for faster checkout.',
-                      destination: PaymentMethodsScreen(
-                        userId: user?.id ?? 'guest',
-                      ),
+                      destination: PaymentMethodsScreen(userId: user?.id ?? 'guest'),
                     ),
                     _navRow(
                       context,
@@ -283,9 +221,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                       'GST details',
                       'Saved business invoice details',
                       'Maintain invoice-ready GST data for eligible orders.',
-                      destination: GstDetailsScreen(
-                        userId: user?.id ?? 'guest',
-                      ),
+                      destination: GstDetailsScreen(userId: user?.id ?? 'guest'),
                     ),
                     _navRow(
                       context,
@@ -293,9 +229,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                       'Promo codes',
                       'Only verified store and platform coupons appear here',
                       'Active verified coupons are listed here once issued.',
-                      destination: PromoCodesScreen(
-                        userId: user?.id ?? 'guest',
-                      ),
+                      destination: PromoCodesScreen(userId: user?.id ?? 'guest'),
                     ),
                     _navRow(
                       context,
@@ -330,25 +264,21 @@ class _CustomerProfileScreen extends StatelessWidget {
                     _switchRow(
                       context,
                       title: 'Two-factor verification',
-                      subtitle:
-                          'Require OTP verification during sensitive account changes.',
+                      subtitle: 'Require OTP verification during sensitive account changes.',
                       value: preferences.twoFactorEnabled,
                       onChanged: preferences.setTwoFactorEnabled,
                     ),
                     _switchRow(
                       context,
                       title: 'Biometric unlock',
-                      subtitle:
-                          'Use biometric unlock when supported on this device.',
+                      subtitle: 'Use biometric unlock when supported on this device.',
                       value: preferences.biometricUnlock,
-                      onChanged: (value) =>
-                          _handleBiometricToggle(context, preferences, value),
+                      onChanged: (value) => _handleBiometricToggle(context, preferences, value),
                     ),
                     _switchRow(
                       context,
                       title: 'Auto login',
-                      subtitle:
-                          'Stay signed in on this device until you log out manually.',
+                      subtitle: 'Stay signed in on this device until you log out manually.',
                       value: preferences.autoLogin,
                       onChanged: preferences.setAutoLogin,
                     ),
@@ -356,9 +286,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                       context,
                       Icons.mail_outline,
                       'Password login',
-                      user?.email.isNotEmpty == true
-                          ? user!.email
-                          : 'No email password configured yet',
+                      user?.email.isNotEmpty == true ? user!.email : 'No email password configured yet',
                       'Manage email-based login after your OTP account is verified.',
                       destination: const PasswordLoginSettingsScreen(),
                     ),
@@ -379,16 +307,14 @@ class _CustomerProfileScreen extends StatelessWidget {
                     _switchRow(
                       context,
                       title: 'Order notifications',
-                      subtitle:
-                          'Receive preparation, dispatch, and delivery updates.',
+                      subtitle: 'Receive preparation, dispatch, and delivery updates.',
                       value: preferences.orderNotifications,
                       onChanged: preferences.setOrderNotifications,
                     ),
                     _switchRow(
                       context,
                       title: 'Marketing updates',
-                      subtitle:
-                          'Receive new launches, store campaigns, and rewards.',
+                      subtitle: 'Receive new launches, store campaigns, and rewards.',
                       value: preferences.marketingNotifications,
                       onChanged: preferences.setMarketingNotifications,
                     ),
@@ -422,17 +348,9 @@ class _CustomerProfileScreen extends StatelessWidget {
                 ListTile(
                   onTap: auth.logout,
                   tileColor: Theme.of(context).cardColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   leading: const Icon(Icons.logout, color: AppTheme.primaryRed),
-                  title: const Text(
-                    'Log out',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryRed,
-                    ),
-                  ),
+                  title: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryRed)),
                 ),
                 const SizedBox(height: 36),
               ],
@@ -452,10 +370,7 @@ class _CustomerProfileScreen extends StatelessWidget {
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: const Text(
-        'Theme style',
-        style: TextStyle(fontWeight: FontWeight.w600),
-      ),
+      title: const Text('Theme style', style: TextStyle(fontWeight: FontWeight.w600)),
       subtitle: const Text('Apply Light, Dark, or System theme instantly.'),
       trailing: DropdownButton<String>(
         value: current,
@@ -474,12 +389,8 @@ class _CustomerProfileScreen extends StatelessWidget {
           };
           await preferences.setThemeMode(mode);
           if (!context.mounted) return;
-          final error = preferences.lastSyncError;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error ?? 'Theme changed to $newValue.'),
-              backgroundColor: error == null ? null : AppTheme.primaryRed,
-            ),
+            SnackBar(content: Text('Theme changed to $newValue.')),
           );
         },
       ),
@@ -489,34 +400,14 @@ class _CustomerProfileScreen extends StatelessWidget {
   Widget _statCard(IconData icon, String title, String subtitle) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF23232B),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.white, size: 30),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF23232B), borderRadius: BorderRadius.circular(22)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, color: Colors.white, size: 30),
+        const SizedBox(height: 14),
+        Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.35)),
+      ]),
     );
   }
 
@@ -524,21 +415,12 @@ class _CustomerProfileScreen extends StatelessWidget {
     return Builder(
       builder: (context) => Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 10),
-            ...children,
-          ],
-        ),
+        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          ...children,
+        ]),
       ),
     );
   }
@@ -560,8 +442,7 @@ class _CustomerProfileScreen extends StatelessWidget {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              destination ??
+          builder: (_) => destination ??
               _InfoDetailScreen(title: title, subtitle: subtitle, body: body),
         ),
       ),
@@ -583,13 +464,8 @@ class _CustomerProfileScreen extends StatelessWidget {
       onChanged: (next) async {
         await onChanged(next);
         if (!context.mounted) return;
-        final preferences = context.read<AppPreferencesService>();
-        final error = preferences.lastSyncError;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error ?? '$title ${next ? 'enabled' : 'disabled'}'),
-            backgroundColor: error == null ? null : AppTheme.primaryRed,
-          ),
+          SnackBar(content: Text('$title ${next ? 'enabled' : 'disabled'}')),
         );
       },
     );
@@ -605,11 +481,7 @@ class _CustomerProfileScreen extends StatelessWidget {
       if (!supported) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Biometric authentication is not available on this device.',
-            ),
-          ),
+          const SnackBar(content: Text('Biometric authentication is not available on this device.')),
         );
         return;
       }
@@ -619,9 +491,7 @@ class _CustomerProfileScreen extends StatelessWidget {
       if (!authenticated) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Biometric verification was not completed.'),
-          ),
+          const SnackBar(content: Text('Biometric verification was not completed.')),
         );
         return;
       }
@@ -629,19 +499,12 @@ class _CustomerProfileScreen extends StatelessWidget {
     await preferences.setBiometricUnlock(value);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Biometric unlock ${value ? 'enabled' : 'disabled'}'),
-      ),
+      SnackBar(content: Text('Biometric unlock ${value ? 'enabled' : 'disabled'}')),
     );
   }
 
-  Future<void> _showPasswordSetup(
-    BuildContext context,
-    AuthService auth,
-  ) async {
-    final emailController = TextEditingController(
-      text: auth.currentUser?.email ?? '',
-    );
+  Future<void> _showPasswordSetup(BuildContext context, AuthService auth) async {
+    final emailController = TextEditingController(text: auth.currentUser?.email ?? '');
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -651,9 +514,7 @@ class _CustomerProfileScreen extends StatelessWidget {
       isScrollControlled: true,
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Form(
@@ -661,38 +522,26 @@ class _CustomerProfileScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Set up email and password',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                  ),
+                  const Text('Set up email and password', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: emailController,
                     decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (value) =>
-                        (value == null || !value.contains('@'))
-                        ? 'Enter a valid email'
-                        : null,
+                    validator: (value) => (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: passwordController,
                     obscureText: true,
                     decoration: const InputDecoration(labelText: 'Password'),
-                    validator: (value) => (value == null || value.length < 8)
-                        ? 'Minimum 8 characters'
-                        : null,
+                    validator: (value) => (value == null || value.length < 8) ? 'Minimum 8 characters' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: confirmController,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm password',
-                    ),
-                    validator: (value) => value != passwordController.text
-                        ? 'Passwords do not match'
-                        : null,
+                    decoration: const InputDecoration(labelText: 'Confirm password'),
+                    validator: (value) => value != passwordController.text ? 'Passwords do not match' : null,
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -707,14 +556,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                         if (!context.mounted) return;
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              success
-                                  ? 'Password login saved'
-                                  : (auth.errorMessage ??
-                                        'Could not save password'),
-                            ),
-                          ),
+                          SnackBar(content: Text(success ? 'Password login saved' : (auth.errorMessage ?? 'Could not save password'))),
                         );
                       },
                       child: const Text('Save credentials'),
@@ -729,27 +571,20 @@ class _CustomerProfileScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showProfileEditor(
-    BuildContext context,
-    AuthService auth,
-  ) async {
+  Future<void> _showProfileEditor(BuildContext context, AuthService auth) async {
     final user = auth.currentUser;
     if (user == null) return;
     final nameController = TextEditingController(text: user.name);
     final phoneController = TextEditingController(text: user.phone);
     final addressController = TextEditingController(text: user.address);
-    final photoController = TextEditingController(
-      text: user.profileImageUrl ?? '',
-    );
+    final photoController = TextEditingController(text: user.profileImageUrl ?? '');
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -763,38 +598,18 @@ class _CustomerProfileScreen extends StatelessWidget {
                       : null,
                   child: photoController.text.trim().isNotEmpty
                       ? null
-                      : const Icon(
-                          Icons.camera_alt_outlined,
-                          color: AppTheme.textDark,
-                        ),
+                      : const Icon(Icons.camera_alt_outlined, color: AppTheme.textDark),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Change profile details',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                ),
+                const Text('Change profile details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: photoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Profile photo URL',
-                  ),
-                ),
+                TextField(controller: photoController, decoration: const InputDecoration(labelText: 'Profile photo URL')),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                ),
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(labelText: 'Phone number'),
-                ),
+                TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone number')),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                ),
+                TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -810,14 +625,7 @@ class _CustomerProfileScreen extends StatelessWidget {
                       if (!context.mounted) return;
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            success
-                                ? 'Profile updated'
-                                : (auth.errorMessage ??
-                                      'Could not save profile'),
-                          ),
-                        ),
+                        SnackBar(content: Text(success ? 'Profile updated' : (auth.errorMessage ?? 'Could not save profile'))),
                       );
                     },
                     child: const Text('Save changes'),
@@ -852,12 +660,7 @@ class _InfoDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              subtitle,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
+            Text(subtitle, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
             Text(body, style: const TextStyle(height: 1.6)),
             const SizedBox(height: 24),
@@ -879,3 +682,7 @@ class _InfoDetailScreen extends StatelessWidget {
     );
   }
 }
+
+
+
+

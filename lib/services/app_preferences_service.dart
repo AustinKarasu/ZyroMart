@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -123,6 +123,16 @@ class AppPreferencesService extends ChangeNotifier {
     };
   }
 
+  Map<String, dynamic> _notificationPreferenceSnapshot() {
+    return {
+      'order_updates': _orderNotifications,
+      'marketing_updates': _marketingNotifications,
+      'recommendations': _marketingNotifications,
+      'account_alerts': true,
+      'earnings_alerts': true,
+    };
+  }
+
   void _restoreSnapshot(Map<String, dynamic> snapshot) {
     _themeMode = _themeModeFromString(snapshot['theme_mode']?.toString());
     _autoLogin = snapshot['auto_login'] as bool? ?? true;
@@ -157,9 +167,20 @@ class AppPreferencesService extends ChangeNotifier {
       if (!SupabaseService.isInitialized) {
         throw StateError(SupabaseService.backendStatusMessage);
       }
-      await SupabaseService.upsertUserAccountState({
-        'app_preferences': _snapshot(),
-      });
+      await Future.wait([
+        SupabaseService.upsertUserAccountState({
+          'app_preferences': _snapshot(),
+        }),
+        SupabaseService.upsertNotificationPreferences(
+          _notificationPreferenceSnapshot(),
+        ),
+        SupabaseService.upsertNotificationDevice(
+          deviceToken: 'storefront-$_scope-primary',
+          platform: 'android',
+          appVariant: 'storefront',
+          pushEnabled: _orderNotifications || _marketingNotifications,
+        ),
+      ]);
       await _persistLocalSnapshot();
       if (playSystemSound) {
         SystemSound.play(SystemSoundType.alert);
@@ -168,8 +189,7 @@ class AppPreferencesService extends ChangeNotifier {
       _lastRemoteSyncSucceeded = true;
     } catch (error) {
       _restoreSnapshot(previous);
-      _lastSyncError =
-          'Could not save settings to the backend. ${error.toString()}';
+      _lastSyncError = 'Could not save settings to the backend. $error';
       _lastRemoteSyncSucceeded = false;
     }
     notifyListeners();
@@ -178,17 +198,25 @@ class AppPreferencesService extends ChangeNotifier {
   Future<void> _loadRemoteSnapshot() async {
     if (_scope == 'guest' || !SupabaseService.isInitialized) return;
     try {
-      final remote = await SupabaseService.getUserAccountState();
-      final payload = remote?['app_preferences'];
-      if (payload is! Map || payload.isEmpty) return;
-      final snapshot = Map<String, dynamic>.from(payload);
-      _restoreSnapshot(snapshot);
+      final remoteState = await SupabaseService.getUserAccountState();
+      final notificationPreferences =
+          await SupabaseService.getNotificationPreferences();
+      final payload = remoteState?['app_preferences'];
+      if (payload is Map && payload.isNotEmpty) {
+        _restoreSnapshot(Map<String, dynamic>.from(payload));
+      }
+      if (notificationPreferences != null) {
+        _orderNotifications =
+            notificationPreferences['order_updates'] ?? _orderNotifications;
+        _marketingNotifications =
+            notificationPreferences['marketing_updates'] ??
+            _marketingNotifications;
+      }
       await _persistLocalSnapshot();
       _lastSyncError = null;
       _lastRemoteSyncSucceeded = true;
     } catch (error) {
-      _lastSyncError =
-          'Could not load settings from the backend. ${error.toString()}';
+      _lastSyncError = 'Could not load settings from the backend. $error';
       _lastRemoteSyncSucceeded = false;
     }
   }

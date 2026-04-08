@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/order.dart';
@@ -389,7 +389,7 @@ class StoreDashboardScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 10),
                                 Text(
-                                  '${order.itemCount} items • Rs ${order.grandTotal.toInt()}',
+                                  '${order.itemCount} items â€¢ Rs ${order.grandTotal.toInt()}',
                                   style: const TextStyle(
                                     color: AppTheme.textMedium,
                                     fontWeight: FontWeight.w600,
@@ -477,3 +477,4 @@ class StoreDashboardScreen extends StatelessWidget {
     );
   }
 }
+
