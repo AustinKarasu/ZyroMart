@@ -190,10 +190,18 @@ class _CustomerProfileScreen extends StatelessWidget {
                   children: [
                     SizedBox(
                       width: (MediaQuery.of(context).size.width - 44) / 2,
-                      child: _statCard(
-                        Icons.receipt_long,
-                        'Your orders',
-                        'Track active and completed orders',
+                      child: InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CustomerOrdersScreen(),
+                          ),
+                        ),
+                        child: _statCard(
+                          Icons.receipt_long,
+                          'Your orders',
+                          'Track active and completed orders',
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -216,10 +224,18 @@ class _CustomerProfileScreen extends StatelessWidget {
                     ),
                     SizedBox(
                       width: MediaQuery.of(context).size.width - 32,
-                      child: _statCard(
-                        Icons.support_agent,
-                        'Need help?',
-                        'Support, refunds, and order help',
+                      child: InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SupportScreen(),
+                          ),
+                        ),
+                        child: _statCard(
+                          Icons.support_agent,
+                          'Need help?',
+                          'Support, refunds, and order help',
+                        ),
                       ),
                     ),
                   ],

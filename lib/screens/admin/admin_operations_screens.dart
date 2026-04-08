@@ -10,13 +10,20 @@ class AdminMetricsHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = context.watch<AdminService>().snapshot;
+    final admin = context.watch<AdminService>();
+    final snapshot = admin.snapshot;
     final history = snapshot?.metricsHistory ?? const [];
-    final currency = NumberFormat.currency(locale: 'en_IN', symbol: 'INR ', decimalDigits: 0);
+    final currency = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: 'INR ',
+      decimalDigits: 0,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Metrics history')),
-      body: history.isEmpty
+      body: admin.isLoading && snapshot == null
+          ? const Center(child: CircularProgressIndicator())
+          : history.isEmpty
           ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -31,7 +38,9 @@ class AdminMetricsHistoryScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               itemBuilder: (context, index) {
                 final row = history[index];
-                final date = DateTime.tryParse((row['metric_date'] ?? '').toString());
+                final date = DateTime.tryParse(
+                  (row['metric_date'] ?? '').toString(),
+                );
                 return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(18),
@@ -39,16 +48,50 @@ class AdminMetricsHistoryScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          date == null ? 'Metric row ${index + 1}' : DateFormat('dd MMM yyyy').format(date),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          date == null
+                              ? 'Metric row ${index + 1}'
+                              : DateFormat('dd MMM yyyy').format(date),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const SizedBox(height: 12),
-                        _row('GMV', currency.format(((row['gross_merchandise_value'] ?? 0) as num).toDouble())),
-                        _row('Platform commission', currency.format(((row['platform_commission_earned'] ?? 0) as num).toDouble())),
-                        _row('Delivery payout due', currency.format(((row['delivery_payout_due'] ?? 0) as num).toDouble())),
-                        _row('Store payout due', currency.format(((row['store_payout_due'] ?? 0) as num).toDouble())),
-                        _row('Completed orders', '${row['completed_orders'] ?? 0}'),
-                        _row('Cancelled orders', '${row['cancelled_orders'] ?? 0}'),
+                        _row(
+                          'GMV',
+                          currency.format(
+                            ((row['gross_merchandise_value'] ?? 0) as num)
+                                .toDouble(),
+                          ),
+                        ),
+                        _row(
+                          'Platform commission',
+                          currency.format(
+                            ((row['platform_commission_earned'] ?? 0) as num)
+                                .toDouble(),
+                          ),
+                        ),
+                        _row(
+                          'Delivery payout due',
+                          currency.format(
+                            ((row['delivery_payout_due'] ?? 0) as num)
+                                .toDouble(),
+                          ),
+                        ),
+                        _row(
+                          'Store payout due',
+                          currency.format(
+                            ((row['store_payout_due'] ?? 0) as num).toDouble(),
+                          ),
+                        ),
+                        _row(
+                          'Completed orders',
+                          '${row['completed_orders'] ?? 0}',
+                        ),
+                        _row(
+                          'Cancelled orders',
+                          '${row['cancelled_orders'] ?? 0}',
+                        ),
                       ],
                     ),
                   ),
@@ -65,7 +108,12 @@ class AdminMetricsHistoryScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(color: AppTheme.textMedium))),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: AppTheme.textMedium),
+            ),
+          ),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
         ],
       ),
@@ -78,12 +126,15 @@ class AdminOperationsLogScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = context.watch<AdminService>().snapshot;
+    final admin = context.watch<AdminService>();
+    final snapshot = admin.snapshot;
     final events = snapshot?.recentOperationalEvents ?? const [];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Operational feed')),
-      body: events.isEmpty
+      body: admin.isLoading && snapshot == null
+          ? const Center(child: CircularProgressIndicator())
+          : events.isEmpty
           ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -99,16 +150,24 @@ class AdminOperationsLogScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final event = events[index];
                 final color = event['color'] as Color? ?? AppTheme.info;
-                final timestamp =
-                    DateTime.tryParse((event['timestamp'] ?? '').toString());
+                final timestamp = DateTime.tryParse(
+                  (event['timestamp'] ?? '').toString(),
+                );
                 final source = (event['source'] ?? 'ops').toString();
                 return Card(
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: color.withValues(alpha: 0.12),
-                      child: Icon(Icons.fiber_manual_record, color: color, size: 16),
+                      child: Icon(
+                        Icons.fiber_manual_record,
+                        color: color,
+                        size: 16,
+                      ),
                     ),
-                    title: Text((event['title'] ?? '').toString(), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    title: Text(
+                      (event['title'] ?? '').toString(),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -118,14 +177,12 @@ class AdminOperationsLogScreen extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            _OpsChip(
-                              label: source.toUpperCase(),
-                              color: color,
-                            ),
+                            _OpsChip(label: source.toUpperCase(), color: color),
                             if (timestamp != null)
                               _OpsChip(
-                                label: DateFormat('dd MMM, hh:mm a')
-                                    .format(timestamp),
+                                label: DateFormat(
+                                  'dd MMM, hh:mm a',
+                                ).format(timestamp),
                                 color: const Color(0xFF4B5B6A),
                               ),
                           ],
@@ -143,10 +200,7 @@ class AdminOperationsLogScreen extends StatelessWidget {
 }
 
 class _OpsChip extends StatelessWidget {
-  const _OpsChip({
-    required this.label,
-    required this.color,
-  });
+  const _OpsChip({required this.label, required this.color});
 
   final String label;
   final Color color;

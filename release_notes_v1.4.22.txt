@@ -1,0 +1,38 @@
+ZyroMart v1.4.22
+
+Highlights
+- Fixed cart/theme issues:
+  - Cart screen now follows dark theme (no white cards/surfaces in dark mode).
+  - Empty-cart text contrast fixed for light and dark themes.
+- Fixed auth mode behavior:
+  - OTP request state is preserved when switching Sign In modes.
+  - OTP input is hidden in password mode and restored when switching back to OTP mode without re-requesting OTP.
+- Improved product presentation:
+  - Product cards are more compact and optimized for smaller screens.
+  - Dark theme card and text colors corrected.
+  - Vegetarian filter chip contrast fixed in dark mode.
+- Settings flow improvements:
+  - "Your orders" card now opens orders screen.
+  - "Need help?" card now opens support screen.
+- Restock live sync reliability:
+  - Fixed restock upsert conflict handling (`user_id,product_id,cadence`) to prevent backup-only behavior when table exists.
+- Better search relevance:
+  - Added synonym-aware query expansion (`coke` ↔ `coca cola`/`cola`, and more).
+- Delivery map enhancements:
+  - Route mode labeling improved (Fast/Low-traffic/Balanced).
+  - Added rider "You" marker on map when live location is available.
+  - Improved mode chips and live-sync feedback text.
+- Admin dashboard polish:
+  - Platform snapshot tiles made responsive.
+  - Metrics history and operations feed now show loading state instead of blank screens.
+- Payment + privacy:
+  - UPI field now appears only when UPI is selected as preferred method.
+  - Added more actionable controls under Account privacy.
+
+Quality gates
+- flutter analyze: passed
+- flutter test: passed
+
+Release assets
+- zyromart-storefront-v1.4.22.apk
+- zyromart-admin-v1.4.22.apk

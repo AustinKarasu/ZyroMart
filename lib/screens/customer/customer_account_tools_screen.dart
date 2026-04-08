@@ -63,7 +63,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
 
   Future<void> _editAddress({_SavedAddress? existing}) async {
     final labelController = TextEditingController(text: existing?.label ?? '');
-    final addressController = TextEditingController(text: existing?.address ?? '');
+    final addressController = TextEditingController(
+      text: existing?.address ?? '',
+    );
     var isDefault = existing?.isDefault ?? _addresses.isEmpty;
 
     await showModalBottomSheet<void>(
@@ -71,7 +73,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
       isScrollControlled: true,
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: StatefulBuilder(
             builder: (context, setModalState) {
               return Padding(
@@ -81,7 +85,10 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                   children: [
                     Text(
                       existing == null ? 'Add address' : 'Edit address',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -93,7 +100,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       controller: addressController,
                       minLines: 2,
                       maxLines: 3,
-                      decoration: const InputDecoration(labelText: 'Full address'),
+                      decoration: const InputDecoration(
+                        labelText: 'Full address',
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Align(
@@ -115,7 +124,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                             );
                             return;
                           }
-                          final placeName = await location.reverseGeocode(current);
+                          final placeName = await location.reverseGeocode(
+                            current,
+                          );
                           if (!context.mounted) return;
                           addressController.text = placeName == null
                               ? 'Current location (${current.latitude.toStringAsFixed(6)}, ${current.longitude.toStringAsFixed(6)})'
@@ -130,7 +141,8 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Default address'),
                       value: isDefault,
-                      onChanged: (value) => setModalState(() => isDefault = value),
+                      onChanged: (value) =>
+                          setModalState(() => isDefault = value),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
@@ -140,27 +152,39 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                           if (labelController.text.trim().isEmpty ||
                               addressController.text.trim().isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Enter both label and address.')),
+                              const SnackBar(
+                                content: Text('Enter both label and address.'),
+                              ),
                             );
                             return;
                           }
                           final next = _SavedAddress(
-                            id: existing?.id ??
-                                DateTime.now().microsecondsSinceEpoch.toString(),
+                            id:
+                                existing?.id ??
+                                DateTime.now().microsecondsSinceEpoch
+                                    .toString(),
                             label: labelController.text.trim(),
                             address: addressController.text.trim(),
                             isDefault: isDefault,
                           );
                           final updated = [..._addresses];
                           if (isDefault) {
-                            for (var index = 0; index < updated.length; index++) {
-                              updated[index] = updated[index].copyWith(isDefault: false);
+                            for (
+                              var index = 0;
+                              index < updated.length;
+                              index++
+                            ) {
+                              updated[index] = updated[index].copyWith(
+                                isDefault: false,
+                              );
                             }
                           }
                           if (existing == null) {
                             updated.add(next);
                           } else {
-                            final index = updated.indexWhere((entry) => entry.id == existing.id);
+                            final index = updated.indexWhere(
+                              (entry) => entry.id == existing.id,
+                            );
                             if (index >= 0) {
                               updated[index] = next;
                             }
@@ -186,7 +210,8 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
   Future<void> _removeAddress(String id) async {
     setState(() {
       _addresses = _addresses.where((entry) => entry.id != id).toList();
-      if (_addresses.isNotEmpty && !_addresses.any((entry) => entry.isDefault)) {
+      if (_addresses.isNotEmpty &&
+          !_addresses.any((entry) => entry.isDefault)) {
         _addresses = [
           _addresses.first.copyWith(isDefault: true),
           ..._addresses.skip(1),
@@ -217,77 +242,99 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _addresses.isEmpty
-              ? _EmptyStateCard(
-                  icon: Icons.location_off_outlined,
-                  title: 'No saved addresses yet',
-                  body: 'Add your delivery addresses here for faster checkout and cleaner order routing.',
-                  actionLabel: 'Add first address',
-                  onTap: _editAddress,
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemBuilder: (context, index) {
-                    final address = _addresses[index];
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          ? _EmptyStateCard(
+              icon: Icons.location_off_outlined,
+              title: 'No saved addresses yet',
+              body:
+                  'Add your delivery addresses here for faster checkout and cleaner order routing.',
+              actionLabel: 'Add first address',
+              onTap: _editAddress,
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemBuilder: (context, index) {
+                final address = _addresses[index];
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  address.label,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                                ),
-                                const SizedBox(width: 10),
-                                if (address.isDefault)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.success.withValues(alpha: 0.14),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: const Text(
-                                      'Default',
-                                      style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                              ],
+                            Text(
+                              address.label,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                            const SizedBox(height: 10),
-                            Text(address.address, style: const TextStyle(height: 1.5)),
-                            const SizedBox(height: 14),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: () => _editAddress(existing: address),
-                                  icon: const Icon(Icons.edit_outlined),
-                                  label: const Text('Edit'),
+                            const SizedBox(width: 10),
+                            if (address.isDefault)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
-                                if (!address.isDefault)
-                                  OutlinedButton.icon(
-                                    onPressed: () => _makeDefault(address.id),
-                                    icon: const Icon(Icons.check_circle_outline),
-                                    label: const Text('Set default'),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.success.withValues(
+                                    alpha: 0.14,
                                   ),
-                                TextButton.icon(
-                                  onPressed: () => _removeAddress(address.id),
-                                  icon: const Icon(Icons.delete_outline, color: AppTheme.primaryRed),
-                                  label: const Text('Remove', style: TextStyle(color: AppTheme.primaryRed)),
+                                  borderRadius: BorderRadius.circular(999),
                                 ),
-                              ],
+                                child: const Text(
+                                  'Default',
+                                  style: TextStyle(
+                                    color: AppTheme.success,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          address.address,
+                          style: const TextStyle(height: 1.5),
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => _editAddress(existing: address),
+                              icon: const Icon(Icons.edit_outlined),
+                              label: const Text('Edit'),
+                            ),
+                            if (!address.isDefault)
+                              OutlinedButton.icon(
+                                onPressed: () => _makeDefault(address.id),
+                                icon: const Icon(Icons.check_circle_outline),
+                                label: const Text('Set default'),
+                              ),
+                            TextButton.icon(
+                              onPressed: () => _removeAddress(address.id),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: AppTheme.primaryRed,
+                              ),
+                              label: const Text(
+                                'Remove',
+                                style: TextStyle(color: AppTheme.primaryRed),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  },
-                  separatorBuilder: (_, separatorIndex) => const SizedBox(height: 12),
-                  itemCount: _addresses.length,
-                ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              separatorBuilder: (_, separatorIndex) =>
+                  const SizedBox(height: 12),
+              itemCount: _addresses.length,
+            ),
     );
   }
 }
@@ -335,7 +382,9 @@ class _WishlistScreenState extends State<WishlistScreen> {
   @override
   Widget build(BuildContext context) {
     final catalog = context.watch<CatalogService>();
-    final savedProducts = catalog.products.where((product) => _wishlistIds.contains(product.id)).toList();
+    final savedProducts = catalog.products
+        .where((product) => _wishlistIds.contains(product.id))
+        .toList();
     final suggestions = catalog.recommendedProducts(limit: 12);
 
     return Scaffold(
@@ -353,30 +402,38 @@ class _WishlistScreenState extends State<WishlistScreen> {
                           padding: EdgeInsets.only(top: 8),
                           child: Text(
                             'No wishlist items yet. Save products from the suggestion shelf below.',
-                            style: TextStyle(color: AppTheme.textMedium, height: 1.5),
+                            style: TextStyle(
+                              color: AppTheme.textMedium,
+                              height: 1.5,
+                            ),
                           ),
                         )
                       : Column(
                           children: savedProducts
-                              .map((product) => _WishlistProductTile(
-                                    product: product,
-                                    saved: true,
-                                    onToggle: () => _toggleWishlist(product.id),
-                                  ))
+                              .map(
+                                (product) => _WishlistProductTile(
+                                  product: product,
+                                  saved: true,
+                                  onToggle: () => _toggleWishlist(product.id),
+                                ),
+                              )
                               .toList(),
                         ),
                 ),
                 const SizedBox(height: 16),
                 _SectionShell(
                   title: 'Suggested picks',
-                  subtitle: 'Fast-moving staples and products with stronger repeat intent.',
+                  subtitle:
+                      'Fast-moving staples and products with stronger repeat intent.',
                   child: Column(
                     children: suggestions
-                        .map((product) => _WishlistProductTile(
-                              product: product,
-                              saved: _wishlistIds.contains(product.id),
-                              onToggle: () => _toggleWishlist(product.id),
-                            ))
+                        .map(
+                          (product) => _WishlistProductTile(
+                            product: product,
+                            saved: _wishlistIds.contains(product.id),
+                            onToggle: () => _toggleWishlist(product.id),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -419,12 +476,16 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 
   Future<void> _load() async {
-    final data = await _AccountStateRepository.loadPaymentSettings(widget.userId);
+    final data = await _AccountStateRepository.loadPaymentSettings(
+      widget.userId,
+    );
     if (data.isNotEmpty) {
       _upiController.text = (data['upi_id'] ?? '').toString();
       _billingNameController.text = (data['billing_name'] ?? '').toString();
-      _preferredMethod = (data['preferred_method'] ?? _preferredMethod).toString();
-      _cashOnDeliveryEnabled = data['cash_on_delivery_enabled'] as bool? ?? true;
+      _preferredMethod = (data['preferred_method'] ?? _preferredMethod)
+          .toString();
+      _cashOnDeliveryEnabled =
+          data['cash_on_delivery_enabled'] as bool? ?? true;
     }
     if (!mounted) return;
     setState(() => _isLoaded = true);
@@ -432,19 +493,16 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    await _AccountStateRepository.savePaymentSettings(
-      widget.userId,
-      {
-        'upi_id': _upiController.text.trim(),
-        'billing_name': _billingNameController.text.trim(),
-        'preferred_method': _preferredMethod,
-        'cash_on_delivery_enabled': _cashOnDeliveryEnabled,
-      },
-    );
+    await _AccountStateRepository.savePaymentSettings(widget.userId, {
+      'upi_id': _upiController.text.trim(),
+      'billing_name': _billingNameController.text.trim(),
+      'preferred_method': _preferredMethod,
+      'cash_on_delivery_enabled': _cashOnDeliveryEnabled,
+    });
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Payment preferences saved')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Payment preferences saved')));
   }
 
   @override
@@ -461,41 +519,60 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
           children: [
             _SectionShell(
               title: 'Default payment setup',
-              subtitle: 'Save your preferred checkout path for faster future orders.',
+              subtitle:
+                  'Save your preferred checkout path for faster future orders.',
               child: Column(
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: _preferredMethod,
-                    decoration: const InputDecoration(labelText: 'Preferred method'),
+                    decoration: const InputDecoration(
+                      labelText: 'Preferred method',
+                    ),
                     items: const [
-                      DropdownMenuItem(value: 'cash_on_delivery', child: Text('Cash on delivery')),
+                      DropdownMenuItem(
+                        value: 'cash_on_delivery',
+                        child: Text('Cash on delivery'),
+                      ),
                       DropdownMenuItem(value: 'upi', child: Text('UPI')),
                     ],
-                    onChanged: (value) => setState(() => _preferredMethod = value ?? 'cash_on_delivery'),
+                    onChanged: (value) => setState(
+                      () => _preferredMethod = value ?? 'cash_on_delivery',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _billingNameController,
-                    decoration: const InputDecoration(labelText: 'Billing name'),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Enter billing name' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Billing name',
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Enter billing name'
+                        : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _upiController,
-                    decoration: const InputDecoration(labelText: 'UPI ID'),
-                    validator: (value) {
-                      if (_preferredMethod != 'upi') return null;
-                      if (value == null || !value.contains('@')) return 'Enter a valid UPI ID';
-                      return null;
-                    },
-                  ),
+                  if (_preferredMethod == 'upi') ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _upiController,
+                      decoration: const InputDecoration(labelText: 'UPI ID'),
+                      validator: (value) {
+                        if (_preferredMethod != 'upi') return null;
+                        if (value == null || !value.contains('@')) {
+                          return 'Enter a valid UPI ID';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Allow cash on delivery'),
-                    subtitle: const Text('Keep COD available when stores support it.'),
+                    subtitle: const Text(
+                      'Keep COD available when stores support it.',
+                    ),
                     value: _cashOnDeliveryEnabled,
-                    onChanged: (value) => setState(() => _cashOnDeliveryEnabled = value),
+                    onChanged: (value) =>
+                        setState(() => _cashOnDeliveryEnabled = value),
                   ),
                 ],
               ),
@@ -551,7 +628,8 @@ class _GstDetailsScreenState extends State<GstDetailsScreen> {
     if (data.isNotEmpty) {
       _businessNameController.text = (data['business_name'] ?? '').toString();
       _gstNumberController.text = (data['gst_number'] ?? '').toString();
-      _businessAddressController.text = (data['business_address'] ?? '').toString();
+      _businessAddressController.text = (data['business_address'] ?? '')
+          .toString();
       _active = data['active'] as bool? ?? false;
     }
     if (!mounted) return;
@@ -560,19 +638,16 @@ class _GstDetailsScreenState extends State<GstDetailsScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    await _AccountStateRepository.saveGstProfile(
-      widget.userId,
-      {
-        'business_name': _businessNameController.text.trim(),
-        'gst_number': _gstNumberController.text.trim().toUpperCase(),
-        'business_address': _businessAddressController.text.trim(),
-        'active': _active,
-      },
-    );
+    await _AccountStateRepository.saveGstProfile(widget.userId, {
+      'business_name': _businessNameController.text.trim(),
+      'gst_number': _gstNumberController.text.trim().toUpperCase(),
+      'business_address': _businessAddressController.text.trim(),
+      'active': _active,
+    });
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('GST details saved')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('GST details saved')));
   }
 
   @override
@@ -589,33 +664,47 @@ class _GstDetailsScreenState extends State<GstDetailsScreen> {
           children: [
             _SectionShell(
               title: 'Business invoice details',
-              subtitle: 'Use these saved business details for GST-ready invoices on eligible orders.',
+              subtitle:
+                  'Use these saved business details for GST-ready invoices on eligible orders.',
               child: Column(
                 children: [
                   TextFormField(
                     controller: _businessNameController,
-                    decoration: const InputDecoration(labelText: 'Business name'),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Enter business name' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Business name',
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Enter business name'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _gstNumberController,
                     decoration: const InputDecoration(labelText: 'GST number'),
-                    validator: (value) => value == null || value.trim().length < 8 ? 'Enter a valid GST number' : null,
+                    validator: (value) =>
+                        value == null || value.trim().length < 8
+                        ? 'Enter a valid GST number'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _businessAddressController,
                     minLines: 2,
                     maxLines: 3,
-                    decoration: const InputDecoration(labelText: 'Business address'),
-                    validator: (value) => value == null || value.trim().isEmpty ? 'Enter business address' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Business address',
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Enter business address'
+                        : null,
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Use GST details by default'),
-                    subtitle: const Text('Apply these invoice details whenever GST billing is needed.'),
+                    subtitle: const Text(
+                      'Apply these invoice details whenever GST billing is needed.',
+                    ),
                     value: _active,
                     onChanged: (value) => setState(() => _active = value),
                   ),
@@ -654,10 +743,13 @@ class PromoCodesScreen extends StatelessWidget {
             return _EmptyStateCard(
               icon: Icons.sell_outlined,
               title: 'No verified coupons available',
-              body: 'Only approved platform or store-issued promo codes appear here. Once a valid coupon is issued to your account, it will surface in this section.',
+              body:
+                  'Only approved platform or store-issued promo codes appear here. Once a valid coupon is issued to your account, it will surface in this section.',
               actionLabel: 'Copy support email',
               onTap: () async {
-                await Clipboard.setData(const ClipboardData(text: 'support@zyromart.in'));
+                await Clipboard.setData(
+                  const ClipboardData(text: 'support@zyromart.in'),
+                );
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Support email copied')),
@@ -671,8 +763,14 @@ class PromoCodesScreen extends StatelessWidget {
               final code = codes[index];
               return Card(
                 child: ListTile(
-                  leading: const Icon(Icons.sell_outlined, color: AppTheme.success),
-                  title: Text(code, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  leading: const Icon(
+                    Icons.sell_outlined,
+                    color: AppTheme.success,
+                  ),
+                  title: Text(
+                    code,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   subtitle: const Text('Verified coupon ready for checkout'),
                 ),
               );
@@ -721,12 +819,14 @@ class _GiftCardScreenState extends State<GiftCardScreen> {
   Future<void> _redeem() async {
     final code = _controller.text.trim().toUpperCase();
     if (code.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid gift code')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a valid gift code')));
       return;
     }
-    final credit = ((code.codeUnits.fold<int>(0, (sum, value) => sum + value) % 400) + 100).toDouble();
+    final credit =
+        ((code.codeUnits.fold<int>(0, (sum, value) => sum + value) % 400) + 100)
+            .toDouble();
     _balance += credit;
     await _AccountStateRepository.saveGiftBalance(widget.userId, _balance);
     _controller.clear();
@@ -749,13 +849,17 @@ class _GiftCardScreenState extends State<GiftCardScreen> {
         children: [
           _SectionShell(
             title: 'Available gift balance',
-            subtitle: 'Apply valid store credit or gift vouchers against future orders.',
+            subtitle:
+                'Apply valid store credit or gift vouchers against future orders.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Rs ${_balance.toInt()}',
-                  style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -789,11 +893,24 @@ class RewardsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final orders = context.watch<OrderService>().pastOrders.where((order) => order.customerId == userId).toList();
-    final completed = orders.where((order) => order.status.name == 'delivered').toList();
-    final spend = completed.fold<double>(0, (sum, order) => sum + order.grandTotal);
+    final orders = context
+        .watch<OrderService>()
+        .pastOrders
+        .where((order) => order.customerId == userId)
+        .toList();
+    final completed = orders
+        .where((order) => order.status.name == 'delivered')
+        .toList();
+    final spend = completed.fold<double>(
+      0,
+      (sum, order) => sum + order.grandTotal,
+    );
     final points = (spend / 100).floor() * 2;
-    final formatter = NumberFormat.currency(locale: 'en_IN', symbol: 'Rs ', decimalDigits: 0);
+    final formatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: 'Rs ',
+      decimalDigits: 0,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Collected rewards')),
@@ -802,7 +919,8 @@ class RewardsScreen extends StatelessWidget {
         children: [
           _SectionShell(
             title: 'Your loyalty overview',
-            subtitle: 'Rewards build from completed orders and successful repeat purchases.',
+            subtitle:
+                'Rewards build from completed orders and successful repeat purchases.',
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -829,11 +947,16 @@ class RewardsScreen extends StatelessWidget {
                             contentPadding: EdgeInsets.zero,
                             leading: const CircleAvatar(
                               backgroundColor: Color(0xFFFDF0D8),
-                              child: Icon(Icons.workspace_premium_outlined, color: AppTheme.warning),
+                              child: Icon(
+                                Icons.workspace_premium_outlined,
+                                color: AppTheme.warning,
+                              ),
                             ),
                             title: Text(order.storeName),
                             subtitle: Text('Order ${order.id}'),
-                            trailing: Text('+${(order.grandTotal / 100).floor() * 2} pts'),
+                            trailing: Text(
+                              '+${(order.grandTotal / 100).floor() * 2} pts',
+                            ),
                           ),
                         )
                         .toList(),
@@ -859,29 +982,63 @@ class PrivacyScreen extends StatelessWidget {
         children: [
           _SectionShell(
             title: 'Privacy controls',
-            subtitle: 'Tune how much of your account data is surfaced across the browsing and delivery experience.',
+            subtitle:
+                'Tune how much of your account data is surfaced across the browsing and delivery experience.',
             child: Column(
               children: [
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Hide sensitive items'),
-                  subtitle: const Text('Remove restricted categories from browse surfaces.'),
+                  subtitle: const Text(
+                    'Remove restricted categories from browse surfaces.',
+                  ),
                   value: preferences.hideSensitiveItems,
                   onChanged: preferences.setHideSensitiveItems,
                 ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Marketing updates'),
-                  subtitle: const Text('Allow campaign offers and rewards reminders.'),
+                  subtitle: const Text(
+                    'Allow campaign offers and rewards reminders.',
+                  ),
                   value: preferences.marketingNotifications,
                   onChanged: preferences.setMarketingNotifications,
                 ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Two-factor verification'),
-                  subtitle: const Text('Require an extra verification step for sensitive account changes.'),
+                  subtitle: const Text(
+                    'Require an extra verification step for sensitive account changes.',
+                  ),
                   value: preferences.twoFactorEnabled,
                   onChanged: preferences.setTwoFactorEnabled,
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Order notifications'),
+                  subtitle: const Text(
+                    'Receive status updates in-app and in push notifications.',
+                  ),
+                  value: preferences.orderNotifications,
+                  onChanged: preferences.setOrderNotifications,
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Auto login'),
+                  subtitle: const Text(
+                    'Stay signed in on this verified device until manual logout.',
+                  ),
+                  value: preferences.autoLogin,
+                  onChanged: preferences.setAutoLogin,
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Biometric unlock'),
+                  subtitle: const Text(
+                    'Use biometric unlock when your device supports it.',
+                  ),
+                  value: preferences.biometricUnlock,
+                  onChanged: preferences.setBiometricUnlock,
                 ),
               ],
             ),
@@ -896,10 +1053,12 @@ class PasswordLoginSettingsScreen extends StatefulWidget {
   const PasswordLoginSettingsScreen({super.key});
 
   @override
-  State<PasswordLoginSettingsScreen> createState() => _PasswordLoginSettingsScreenState();
+  State<PasswordLoginSettingsScreen> createState() =>
+      _PasswordLoginSettingsScreenState();
 }
 
-class _PasswordLoginSettingsScreenState extends State<PasswordLoginSettingsScreen> {
+class _PasswordLoginSettingsScreenState
+    extends State<PasswordLoginSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
@@ -924,7 +1083,9 @@ class _PasswordLoginSettingsScreenState extends State<PasswordLoginSettingsScree
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
-    _emailController.text = _emailController.text.isEmpty ? auth.currentUser?.email ?? '' : _emailController.text;
+    _emailController.text = _emailController.text.isEmpty
+        ? auth.currentUser?.email ?? ''
+        : _emailController.text;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Password login')),
@@ -935,28 +1096,38 @@ class _PasswordLoginSettingsScreenState extends State<PasswordLoginSettingsScree
           children: [
             _SectionShell(
               title: 'Email and password access',
-              subtitle: 'Set up a durable password login on top of your OTP-backed account so future sign-ins can use either method.',
+              subtitle:
+                  'Set up a durable password login on top of your OTP-backed account so future sign-ins can use either method.',
               child: Column(
                 children: [
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (value) => value == null || !value.contains('@') ? 'Enter a valid email' : null,
+                    validator: (value) => value == null || !value.contains('@')
+                        ? 'Enter a valid email'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
                     decoration: const InputDecoration(labelText: 'Password'),
-                    validator: (value) => value == null || value.trim().length < 8 ? 'Minimum 8 characters' : null,
+                    validator: (value) =>
+                        value == null || value.trim().length < 8
+                        ? 'Minimum 8 characters'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _confirmController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Confirm password'),
-                    validator: (value) => value != _passwordController.text ? 'Passwords do not match' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm password',
+                    ),
+                    validator: (value) => value != _passwordController.text
+                        ? 'Passwords do not match'
+                        : null,
                   ),
                 ],
               ),
@@ -973,7 +1144,10 @@ class _PasswordLoginSettingsScreenState extends State<PasswordLoginSettingsScree
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      success ? 'Password login saved' : (auth.errorMessage ?? 'Could not save password login'),
+                      success
+                          ? 'Password login saved'
+                          : (auth.errorMessage ??
+                                'Could not save password login'),
                     ),
                   ),
                 );
@@ -995,9 +1169,9 @@ class SupportScreen extends StatelessWidget {
     if (launched || !context.mounted) return;
     await Clipboard.setData(ClipboardData(text: fallback));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$fallback copied')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$fallback copied')));
   }
 
   @override
@@ -1009,7 +1183,8 @@ class SupportScreen extends StatelessWidget {
         children: [
           _SectionShell(
             title: 'Support options',
-            subtitle: 'Use the fastest route depending on whether your issue is with delivery, billing, or account access.',
+            subtitle:
+                'Use the fastest route depending on whether your issue is with delivery, billing, or account access.',
             child: Column(
               children: [
                 ListTile(
@@ -1019,7 +1194,9 @@ class SupportScreen extends StatelessWidget {
                   subtitle: const Text('support@zyromart.in'),
                   onTap: () => _launch(
                     context,
-                    Uri.parse('mailto:support@zyromart.in?subject=ZyroMart%20Support'),
+                    Uri.parse(
+                      'mailto:support@zyromart.in?subject=ZyroMart%20Support',
+                    ),
                     'support@zyromart.in',
                   ),
                 ),
@@ -1028,17 +1205,24 @@ class SupportScreen extends StatelessWidget {
                   leading: const Icon(Icons.call_outlined),
                   title: const Text('Call support'),
                   subtitle: const Text('+91 1800 572 1111'),
-                  onTap: () => _launch(context, Uri.parse('tel:+9118005721111'), '+91 1800 572 1111'),
+                  onTap: () => _launch(
+                    context,
+                    Uri.parse('tel:+9118005721111'),
+                    '+91 1800 572 1111',
+                  ),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.question_answer_outlined),
                   title: const Text('Issue reporting'),
-                  subtitle: const Text('Share order ID, store name, and the problem for faster routing.'),
+                  subtitle: const Text(
+                    'Share order ID, store name, and the problem for faster routing.',
+                  ),
                   onTap: () async {
                     await Clipboard.setData(
                       const ClipboardData(
-                        text: 'Issue report template:\nOrder ID:\nStore:\nProblem:\nExpected resolution:',
+                        text:
+                            'Issue report template:\nOrder ID:\nStore:\nProblem:\nExpected resolution:',
                       ),
                     );
                     if (!context.mounted) return;
@@ -1068,11 +1252,15 @@ class ShareAppScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: _SectionShell(
           title: 'Invite someone to ZyroMart',
-          subtitle: 'Use the release link below to share the latest Android build directly.',
+          subtitle:
+              'Use the release link below to share the latest Android build directly.',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SelectableText(link, style: TextStyle(fontWeight: FontWeight.w700)),
+              const SelectableText(
+                link,
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -1108,13 +1296,16 @@ class AboutZyroMartScreen extends StatelessWidget {
         children: const [
           _SectionShell(
             title: 'Platform overview',
-            subtitle: 'Quick-commerce storefront, store operations, delivery routing, and admin oversight are designed to stay connected through one shared order lifecycle.',
+            subtitle:
+                'Quick-commerce storefront, store operations, delivery routing, and admin oversight are designed to stay connected through one shared order lifecycle.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('App family: customer, store owner, delivery, and admin'),
                 SizedBox(height: 8),
-                Text('Release train: phased architecture with live Supabase-backed ordering, tracking, notifications, and payout-state foundations'),
+                Text(
+                  'Release train: phased architecture with live Supabase-backed ordering, tracking, notifications, and payout-state foundations',
+                ),
                 SizedBox(height: 8),
                 Text('Current public release line: v1.4.x'),
               ],
@@ -1143,14 +1334,26 @@ class _WishlistProductTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
         backgroundColor: const Color(0xFFF3F6F7),
-        backgroundImage: product.imageUrl.isNotEmpty ? NetworkImage(product.imageUrl) : null,
-        child: product.imageUrl.isEmpty ? const Icon(Icons.shopping_bag_outlined) : null,
+        backgroundImage: product.imageUrl.isNotEmpty
+            ? NetworkImage(product.imageUrl)
+            : null,
+        child: product.imageUrl.isEmpty
+            ? const Icon(Icons.shopping_bag_outlined)
+            : null,
       ),
-      title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text('Rs ${product.price.toStringAsFixed(0)} • ${product.unit}'),
+      title: Text(
+        product.name,
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      subtitle: Text(
+        'Rs ${product.price.toStringAsFixed(0)} • ${product.unit}',
+      ),
       trailing: IconButton(
         onPressed: onToggle,
-        icon: Icon(saved ? Icons.favorite : Icons.favorite_border, color: AppTheme.primaryRed),
+        icon: Icon(
+          saved ? Icons.favorite : Icons.favorite_border,
+          color: AppTheme.primaryRed,
+        ),
       ),
     );
   }
@@ -1175,9 +1378,15 @@ class _SectionShell extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: AppTheme.textMedium, height: 1.4)),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppTheme.textMedium, height: 1.4),
+            ),
             const SizedBox(height: 16),
             child,
           ],
@@ -1197,7 +1406,10 @@ class _MetricBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 6),
         Text(label, style: const TextStyle(color: AppTheme.textMedium)),
       ],
@@ -1233,9 +1445,22 @@ class _EmptyStateCard extends StatelessWidget {
               children: [
                 Icon(icon, size: 52, color: AppTheme.primaryRed),
                 const SizedBox(height: 16),
-                Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 10),
-                Text(body, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textMedium, height: 1.5)),
+                Text(
+                  body,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.textMedium,
+                    height: 1.5,
+                  ),
+                ),
                 const SizedBox(height: 18),
                 ElevatedButton(onPressed: onTap, child: Text(actionLabel)),
               ],
@@ -1261,7 +1486,10 @@ class _AccountStateRepository {
     final remoteAddresses = remote['addresses'];
     if (remoteAddresses is List) {
       final addresses = remoteAddresses
-          .map((entry) => _SavedAddress.fromJson(Map<String, dynamic>.from(entry as Map)))
+          .map(
+            (entry) =>
+                _SavedAddress.fromJson(Map<String, dynamic>.from(entry as Map)),
+          )
           .toList();
       if (addresses.isNotEmpty) {
         return addresses;
@@ -1272,7 +1500,10 @@ class _AccountStateRepository {
     final key = _ScopedAccountStore.addressesKey(userId);
     final stored = prefs.getStringList(key) ?? const [];
     final decoded = stored
-        .map((entry) => _SavedAddress.fromJson(jsonDecode(entry) as Map<String, dynamic>))
+        .map(
+          (entry) =>
+              _SavedAddress.fromJson(jsonDecode(entry) as Map<String, dynamic>),
+        )
         .toList();
     if (decoded.isEmpty && fallbackAddress.trim().isNotEmpty) {
       decoded.add(
@@ -1296,7 +1527,10 @@ class _AccountStateRepository {
     return decoded;
   }
 
-  static Future<void> saveAddresses(String userId, List<_SavedAddress> addresses) async {
+  static Future<void> saveAddresses(
+    String userId,
+    List<_SavedAddress> addresses,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
       _ScopedAccountStore.addressesKey(userId),
@@ -1316,7 +1550,9 @@ class _AccountStateRepository {
       return remoteIds.map((entry) => entry.toString()).toList();
     }
     final prefs = await SharedPreferences.getInstance();
-    final ids = prefs.getStringList(_ScopedAccountStore.wishlistKey(userId)) ?? const [];
+    final ids =
+        prefs.getStringList(_ScopedAccountStore.wishlistKey(userId)) ??
+        const [];
     if (ids.isNotEmpty && SupabaseService.isInitialized) {
       await SupabaseService.upsertUserAccountState({
         'wishlist_product_ids': ids,
@@ -1342,20 +1578,34 @@ class _AccountStateRepository {
       return Map<String, dynamic>.from(remoteSettings);
     }
     final prefs = await SharedPreferences.getInstance();
-    final payload = prefs.getString(_ScopedAccountStore.paymentMethodsKey(userId));
+    final payload = prefs.getString(
+      _ScopedAccountStore.paymentMethodsKey(userId),
+    );
     if (payload == null) return const {};
-    final decoded = Map<String, dynamic>.from(jsonDecode(payload) as Map<String, dynamic>);
+    final decoded = Map<String, dynamic>.from(
+      jsonDecode(payload) as Map<String, dynamic>,
+    );
     if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertUserAccountState({'payment_settings': decoded});
+      await SupabaseService.upsertUserAccountState({
+        'payment_settings': decoded,
+      });
     }
     return decoded;
   }
 
-  static Future<void> savePaymentSettings(String userId, Map<String, dynamic> settings) async {
+  static Future<void> savePaymentSettings(
+    String userId,
+    Map<String, dynamic> settings,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_ScopedAccountStore.paymentMethodsKey(userId), jsonEncode(settings));
+    await prefs.setString(
+      _ScopedAccountStore.paymentMethodsKey(userId),
+      jsonEncode(settings),
+    );
     if (SupabaseService.isInitialized) {
-      await SupabaseService.upsertUserAccountState({'payment_settings': settings});
+      await SupabaseService.upsertUserAccountState({
+        'payment_settings': settings,
+      });
     }
   }
 
@@ -1368,16 +1618,24 @@ class _AccountStateRepository {
     final prefs = await SharedPreferences.getInstance();
     final payload = prefs.getString(_ScopedAccountStore.gstKey(userId));
     if (payload == null) return const {};
-    final decoded = Map<String, dynamic>.from(jsonDecode(payload) as Map<String, dynamic>);
+    final decoded = Map<String, dynamic>.from(
+      jsonDecode(payload) as Map<String, dynamic>,
+    );
     if (SupabaseService.isInitialized) {
       await SupabaseService.upsertUserAccountState({'gst_profile': decoded});
     }
     return decoded;
   }
 
-  static Future<void> saveGstProfile(String userId, Map<String, dynamic> profile) async {
+  static Future<void> saveGstProfile(
+    String userId,
+    Map<String, dynamic> profile,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_ScopedAccountStore.gstKey(userId), jsonEncode(profile));
+    await prefs.setString(
+      _ScopedAccountStore.gstKey(userId),
+      jsonEncode(profile),
+    );
     if (SupabaseService.isInitialized) {
       await SupabaseService.upsertUserAccountState({'gst_profile': profile});
     }
@@ -1390,7 +1648,8 @@ class _AccountStateRepository {
       return remoteCodes.map((entry) => entry.toString()).toList();
     }
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_ScopedAccountStore.promoCodesKey(userId)) ?? const [];
+    return prefs.getStringList(_ScopedAccountStore.promoCodesKey(userId)) ??
+        const [];
   }
 
   static Future<double> loadGiftBalance(String userId) async {
@@ -1400,7 +1659,8 @@ class _AccountStateRepository {
       return remoteBalance.toDouble();
     }
     final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getDouble(_ScopedAccountStore.giftBalanceKey(userId)) ?? 0;
+    final value =
+        prefs.getDouble(_ScopedAccountStore.giftBalanceKey(userId)) ?? 0;
     if (value > 0 && SupabaseService.isInitialized) {
       await SupabaseService.upsertUserAccountState({'gift_balance': value});
     }
@@ -1419,10 +1679,12 @@ class _AccountStateRepository {
 class _ScopedAccountStore {
   static String addressesKey(String userId) => 'account::$userId::addresses';
   static String wishlistKey(String userId) => 'account::$userId::wishlist';
-  static String paymentMethodsKey(String userId) => 'account::$userId::payment_methods';
+  static String paymentMethodsKey(String userId) =>
+      'account::$userId::payment_methods';
   static String gstKey(String userId) => 'account::$userId::gst';
   static String promoCodesKey(String userId) => 'account::$userId::promo_codes';
-  static String giftBalanceKey(String userId) => 'account::$userId::gift_balance';
+  static String giftBalanceKey(String userId) =>
+      'account::$userId::gift_balance';
 }
 
 class _SavedAddress {
@@ -1453,11 +1715,11 @@ class _SavedAddress {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'address': address,
-        'is_default': isDefault,
-      };
+    'id': id,
+    'label': label,
+    'address': address,
+    'is_default': isDefault,
+  };
 
   factory _SavedAddress.fromJson(Map<String, dynamic> json) {
     return _SavedAddress(

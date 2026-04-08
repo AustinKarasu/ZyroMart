@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../models/user.dart';
@@ -88,15 +88,8 @@ class AuthService extends ChangeNotifier {
   }
 
   void setPasswordMode(bool value) {
+    if (_isPasswordLogin == value) return;
     _isPasswordLogin = value;
-    _otpRequested = false;
-    _pendingPhone = null;
-    _pendingEmail = null;
-    _pendingName = null;
-    _pendingPassword = null;
-    _pendingStoreName = null;
-    _pendingStoreAddress = null;
-    _pendingStoreLocation = null;
     _clearMessages();
     notifyListeners();
   }
@@ -194,7 +187,9 @@ class AuthService extends ChangeNotifier {
       await SupabaseService.requestPhoneOtp(
         phone: _pendingPhone!,
         email: _pendingEmail,
-        userName: (_pendingName ?? '').isEmpty ? 'ZyroMart User' : _pendingName!,
+        userName: (_pendingName ?? '').isEmpty
+            ? 'ZyroMart User'
+            : _pendingName!,
         role: _roleToDb(role),
       );
       await RateLimitService.clear('otp:${_pendingPhone!}');
@@ -254,8 +249,12 @@ class AuthService extends ChangeNotifier {
         phone: _pendingPhone!,
         email: _pendingEmail,
         name: _pendingName,
-        address: effectiveRole == UserRole.storeOwner ? _pendingStoreAddress : null,
-        location: effectiveRole == UserRole.storeOwner ? _pendingStoreLocation : null,
+        address: effectiveRole == UserRole.storeOwner
+            ? _pendingStoreAddress
+            : null,
+        location: effectiveRole == UserRole.storeOwner
+            ? _pendingStoreLocation
+            : null,
       );
       if ((_pendingEmail?.isNotEmpty ?? false) &&
           (_pendingPassword?.isNotEmpty ?? false)) {
@@ -340,9 +339,13 @@ class AuthService extends ChangeNotifier {
         // New account â€” write the selected role to DB now.
         await _upsertCurrentProfile(
           role: effectiveRole,
-          phone: (profile?['phone'] ?? SupabaseService.currentUser?.phone ?? '').toString(),
+          phone: (profile?['phone'] ?? SupabaseService.currentUser?.phone ?? '')
+              .toString(),
           email: (profile?['email'] ?? normalizedEmail).toString(),
-          name: (profile?['name'] ?? SupabaseService.currentUser?.userMetadata?['name'])?.toString(),
+          name:
+              (profile?['name'] ??
+                      SupabaseService.currentUser?.userMetadata?['name'])
+                  ?.toString(),
           address: profile?['address']?.toString(),
         );
       }
@@ -414,7 +417,8 @@ class AuthService extends ChangeNotifier {
         fallbackPhone: _currentUser?.phone,
         fallbackEmail: normalizedEmail,
       );
-      _statusMessage = 'Email and password updated. You can now use password login.';
+      _statusMessage =
+          'Email and password updated. You can now use password login.';
       return true;
     } catch (error) {
       _errorMessage = _friendlyPasswordSaveError(error);
@@ -537,32 +541,39 @@ class AuthService extends ChangeNotifier {
 
     final profile = await SupabaseService.getMyProfile();
     final dbRoleStr = (profile?['role'] ?? '').toString().trim();
-    final metadataRoleStr =
-        (sessionUser.userMetadata?['role'] ?? '').toString().trim();
+    final metadataRoleStr = (sessionUser.userMetadata?['role'] ?? '')
+        .toString()
+        .trim();
 
     // FIX: Role resolution priority:
     //   1. DB profile role (most authoritative â€” written on every auth action)
     //   2. Auth metadata role
     //   3. Explicit fallbackRole passed by callers (e.g. the selected role at login)
     //   4. Never infer from email â€” that was the bug
-    final role = _roleFromDb(dbRoleStr.isNotEmpty ? dbRoleStr : null) ??
+    final role =
+        _roleFromDb(dbRoleStr.isNotEmpty ? dbRoleStr : null) ??
         _roleFromDb(metadataRoleStr.isNotEmpty ? metadataRoleStr : null) ??
         fallbackRole ??
         UserRole.customer;
 
     final phone =
-        (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? '').toString();
+        (profile?['phone'] ?? sessionUser.phone ?? fallbackPhone ?? '')
+            .toString();
     final email =
-        (profile?['email'] ?? sessionUser.email ?? fallbackEmail ?? _fallbackEmailForPhone(phone))
+        (profile?['email'] ??
+                sessionUser.email ??
+                fallbackEmail ??
+                _fallbackEmailForPhone(phone))
             .toString();
 
     _currentUser = AppUser(
       id: sessionUser.id,
-      name: (profile?['name'] ??
-              sessionUser.userMetadata?['name'] ??
-              fallbackName ??
-              'ZyroMart User')
-          .toString(),
+      name:
+          (profile?['name'] ??
+                  sessionUser.userMetadata?['name'] ??
+                  fallbackName ??
+                  'ZyroMart User')
+              .toString(),
       email: email,
       phone: phone,
       role: role,
@@ -570,11 +581,13 @@ class AuthService extends ChangeNotifier {
       location: LatLng(
         ((profile?['latitude'] ??
                     fallbackLocation?.latitude ??
-                    _fallbackLocation(role).latitude) as num)
+                    _fallbackLocation(role).latitude)
+                as num)
             .toDouble(),
         ((profile?['longitude'] ??
                     fallbackLocation?.longitude ??
-                    _fallbackLocation(role).longitude) as num)
+                    _fallbackLocation(role).longitude)
+                as num)
             .toDouble(),
       ),
       profileImageUrl: profile?['profile_image_url']?.toString(),
@@ -605,11 +618,12 @@ class AuthService extends ChangeNotifier {
     await SupabaseService.upsertProfile({
       'id': sessionUser.id,
       'name': InputSecurityService.sanitizePlainText(
-        (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User').toString(),
+        (name ?? sessionUser.userMetadata?['name'] ?? 'ZyroMart User')
+            .toString(),
         maxLength: InputSecurityService.nameMaxLength,
       ),
-      'email':
-          (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone)).toString(),
+      'email': (email ?? sessionUser.email ?? _fallbackEmailForPhone(phone))
+          .toString(),
       'phone': phone,
       'role': _roleToDb(role), // Always write the role explicitly
       'address': InputSecurityService.sanitizePlainText(
@@ -618,10 +632,12 @@ class AuthService extends ChangeNotifier {
         allowNewLines: true,
       ),
       'profile_image_url': profileImageUrl ?? _currentUser?.profileImageUrl,
-      'latitude': location?.latitude ??
+      'latitude':
+          location?.latitude ??
           _currentUser?.location.latitude ??
           fallback.latitude,
-      'longitude': location?.longitude ??
+      'longitude':
+          location?.longitude ??
           _currentUser?.location.longitude ??
           fallback.longitude,
       'is_online': isOnline ?? _currentUser?.isOnline ?? true,
@@ -635,7 +651,8 @@ class AuthService extends ChangeNotifier {
     final storeName = (_pendingStoreName ?? '').trim();
     final storeAddress = (_pendingStoreAddress ?? '').trim();
     if (storeName.isEmpty || storeAddress.isEmpty) return;
-    final fallback = _pendingStoreLocation ??
+    final fallback =
+        _pendingStoreLocation ??
         _currentUser?.location ??
         _fallbackLocation(UserRole.storeOwner);
     await SupabaseService.upsertOwnerStore(
@@ -705,7 +722,6 @@ class AuthService extends ChangeNotifier {
     return 'user$digits@zyromart.app';
   }
 
-
   String _friendlyPasswordError(Object error) {
     final lowered = error.toString().toLowerCase();
     if (lowered.contains('invalid login credentials') ||
@@ -733,7 +749,8 @@ class AuthService extends ChangeNotifier {
 
   String _friendlyProfileError(Object error) {
     final lowered = error.toString().toLowerCase();
-    if (lowered.contains('duplicate key') && lowered.contains('profiles_phone')) {
+    if (lowered.contains('duplicate key') &&
+        lowered.contains('profiles_phone')) {
       return 'That phone number is already linked to another account. Verify a different number before changing it.';
     }
     return 'Could not save your profile right now. Please try again.';
@@ -741,7 +758,8 @@ class AuthService extends ChangeNotifier {
 
   String _friendlyAvailabilityError(Object error) {
     final lowered = error.toString().toLowerCase();
-    if (lowered.contains('permission') || lowered.contains('row-level security')) {
+    if (lowered.contains('permission') ||
+        lowered.contains('row-level security')) {
       return 'Your live availability could not be updated for this account.';
     }
     return 'Could not update availability right now. Please try again.';
@@ -779,6 +797,3 @@ class AuthService extends ChangeNotifier {
         : 'Could not send OTP. $message';
   }
 }
-
-
-

@@ -441,7 +441,6 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                       label: 'OTP Login',
                                       selected: !auth.isPasswordLogin,
                                       onTap: () {
-                                        _otpController.clear();
                                         context
                                             .read<AuthService>()
                                             .setPasswordMode(false);
@@ -453,7 +452,6 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                       label: 'Password',
                                       selected: auth.isPasswordLogin,
                                       onTap: () {
-                                        _otpController.clear();
                                         context
                                             .read<AuthService>()
                                             .setPasswordMode(true);
@@ -474,168 +472,176 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                         ),
                         child: AutofillGroup(
                           child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _isSignUp
-                                  ? 'Create your account'
-                                  : 'Sign in to continue',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.textDark,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _isSignUp
-                                  ? 'Email is required for signup. We verify the phone number first and attach the password immediately after OTP verification.'
-                                  : auth.isPasswordLogin
-                                  ? 'Use your email and password. Role access is resolved from your live profile after sign-in.'
-                                  : 'Phone OTP sign in does not require an email field.',
-                              style: const TextStyle(
-                                color: AppTheme.textMedium,
-                                height: 1.45,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            if (_isSignUp) ...[
-                              TextField(
-                                controller: _nameController,
-                                textCapitalization: TextCapitalization.words,
-                                decoration: const InputDecoration(
-                                  labelText: 'Full Name',
-                                  prefixIcon: Icon(Icons.person_outline),
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isSignUp
+                                    ? 'Create your account'
+                                    : 'Sign in to continue',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.textDark,
                                 ),
-                                autofillHints: const [AutofillHints.name],
                               ),
-                              const SizedBox(height: 14),
-                              if (_selectedRole == UserRole.storeOwner) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _isSignUp
+                                    ? 'Email is required for signup. We verify the phone number first and attach the password immediately after OTP verification.'
+                                    : auth.isPasswordLogin
+                                    ? 'Use your email and password. Role access is resolved from your live profile after sign-in.'
+                                    : 'Phone OTP sign in does not require an email field.',
+                                style: const TextStyle(
+                                  color: AppTheme.textMedium,
+                                  height: 1.45,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              if (_isSignUp) ...[
                                 TextField(
-                                  controller: _storeNameController,
+                                  controller: _nameController,
                                   textCapitalization: TextCapitalization.words,
                                   decoration: const InputDecoration(
-                                    labelText: 'Store Name',
-                                    prefixIcon: Icon(Icons.storefront_outlined),
+                                    labelText: 'Full Name',
+                                    prefixIcon: Icon(Icons.person_outline),
                                   ),
+                                  autofillHints: const [AutofillHints.name],
+                                ),
+                                const SizedBox(height: 14),
+                                if (_selectedRole == UserRole.storeOwner) ...[
+                                  TextField(
+                                    controller: _storeNameController,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Store Name',
+                                      prefixIcon: Icon(
+                                        Icons.storefront_outlined,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  TextField(
+                                    controller: _storeAddressController,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Store Location',
+                                      prefixIcon: Icon(
+                                        Icons.location_on_outlined,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                ],
+                              ],
+                              if (_isSignUp || !auth.isPasswordLogin)
+                                TextField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Phone Number',
+                                    prefixIcon: Icon(Icons.phone_outlined),
+                                  ),
+                                  autofillHints: const [
+                                    AutofillHints.telephoneNumber,
+                                  ],
+                                ),
+                              if (_isSignUp || auth.isPasswordLogin) ...[
+                                const SizedBox(height: 14),
+                                TextField(
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Email Address',
+                                    prefixIcon: Icon(Icons.alternate_email),
+                                  ),
+                                  autofillHints: const [AutofillHints.email],
                                 ),
                                 const SizedBox(height: 14),
                                 TextField(
-                                  controller: _storeAddressController,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
+                                  controller: _passwordController,
+                                  obscureText: true,
                                   decoration: const InputDecoration(
-                                    labelText: 'Store Location',
+                                    labelText: 'Password',
+                                    prefixIcon: Icon(Icons.lock_outline),
+                                  ),
+                                  autofillHints: _isSignUp
+                                      ? const [AutofillHints.newPassword]
+                                      : const [AutofillHints.password],
+                                ),
+                              ],
+                              if (_isSignUp) ...[
+                                const SizedBox(height: 14),
+                                TextField(
+                                  controller: _confirmPasswordController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Confirm Password',
                                     prefixIcon: Icon(
-                                      Icons.location_on_outlined,
+                                      Icons.lock_person_outlined,
                                     ),
                                   ),
+                                  autofillHints: const [
+                                    AutofillHints.newPassword,
+                                  ],
                                 ),
-                                const SizedBox(height: 14),
                               ],
-                            ],
-                            if (_isSignUp || !auth.isPasswordLogin)
-                              TextField(
-                                controller: _phoneController,
-                                keyboardType: TextInputType.phone,
-                                decoration: const InputDecoration(
-                                  labelText: 'Phone Number',
-                                  prefixIcon: Icon(Icons.phone_outlined),
+                              if (auth.otpRequested &&
+                                  !auth.isPasswordLogin) ...[
+                                const SizedBox(height: 14),
+                                TextField(
+                                  controller: _otpController,
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 6,
+                                  decoration: const InputDecoration(
+                                    labelText: '6-digit OTP',
+                                    prefixIcon: Icon(Icons.lock_outline),
+                                  ),
                                 ),
-                                autofillHints: const [
-                                  AutofillHints.telephoneNumber,
-                                ],
-                              ),
-                            if (_isSignUp || auth.isPasswordLogin) ...[
-                              const SizedBox(height: 14),
-                              TextField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                decoration: const InputDecoration(
-                                  labelText: 'Email Address',
-                                  prefixIcon: Icon(Icons.alternate_email),
+                              ],
+                              if (auth.errorMessage != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  auth.errorMessage!,
+                                  style: const TextStyle(
+                                    color: AppTheme.primaryRed,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                                autofillHints: const [AutofillHints.email],
-                              ),
-                              const SizedBox(height: 14),
-                              TextField(
-                                controller: _passwordController,
-                                obscureText: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Password',
-                                  prefixIcon: Icon(Icons.lock_outline),
+                              ],
+                              if (auth.statusMessage != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  auth.statusMessage!,
+                                  style: const TextStyle(
+                                    color: Color(0xFF8A5200),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                                autofillHints: _isSignUp
-                                    ? const [AutofillHints.newPassword]
-                                    : const [AutofillHints.password],
-                              ),
-                            ],
-                            if (_isSignUp) ...[
-                              const SizedBox(height: 14),
-                              TextField(
-                                controller: _confirmPasswordController,
-                                obscureText: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Confirm Password',
-                                  prefixIcon: Icon(Icons.lock_person_outlined),
-                                ),
-                                autofillHints: const [AutofillHints.newPassword],
-                              ),
-                            ],
-                            if (auth.otpRequested) ...[
-                              const SizedBox(height: 14),
-                              TextField(
-                                controller: _otpController,
-                                keyboardType: TextInputType.number,
-                                maxLength: 6,
-                                decoration: const InputDecoration(
-                                  labelText: '6-digit OTP',
-                                  prefixIcon: Icon(Icons.lock_outline),
+                              ],
+                              const SizedBox(height: 18),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed: auth.isLoading
+                                      ? null
+                                      : () => _submit(context, auth),
+                                  child: auth.isLoading
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(_buttonLabel(auth)),
                                 ),
                               ),
                             ],
-                            if (auth.errorMessage != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                auth.errorMessage!,
-                                style: const TextStyle(
-                                  color: AppTheme.primaryRed,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                            if (auth.statusMessage != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                auth.statusMessage!,
-                                style: const TextStyle(
-                                  color: Color(0xFF8A5200),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 18),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 56,
-                              child: ElevatedButton(
-                                onPressed: auth.isLoading
-                                    ? null
-                                    : () => _submit(context, auth),
-                                child: auth.isLoading
-                                    ? const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : Text(_buttonLabel(auth)),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
                         ),
                       );
 

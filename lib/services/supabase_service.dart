@@ -1,4 +1,4 @@
-﻿import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 
 class SupabaseService {
@@ -476,7 +476,9 @@ class SupabaseService {
   }) async {
     _ensureInitialized();
     if (currentUser == null) {
-      throw StateError('You need to be signed in to save operator preferences.');
+      throw StateError(
+        'You need to be signed in to save operator preferences.',
+      );
     }
     await client.from('operator_preferences').upsert({
       'user_id': currentUser!.id,
@@ -630,7 +632,6 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-
   static Future<Map<String, dynamic>?> getNotificationPreferences() async {
     if (!isInitialized || currentUser == null) return null;
     final response = await client
@@ -646,13 +647,16 @@ class SupabaseService {
   ) async {
     _ensureInitialized();
     if (currentUser == null) {
-      throw StateError('You need to be signed in to save notification preferences.');
+      throw StateError(
+        'You need to be signed in to save notification preferences.',
+      );
     }
     await client.from('notification_preferences').upsert({
       ...payload,
       'user_id': currentUser!.id,
     });
   }
+
   static Future<void> insertAppUsageEvent(Map<String, dynamic> payload) async {
     if (!isInitialized) return;
     await client.from('app_usage_events').insert({
@@ -745,6 +749,7 @@ class SupabaseService {
     final response = await query.order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
   }
+
   static Future<void> insertStoreFeedback(Map<String, dynamic> payload) async {
     if (!isInitialized || currentUser == null) return;
     await client.from('store_feedback').insert({
@@ -752,6 +757,7 @@ class SupabaseService {
       'customer_id': currentUser!.id,
     });
   }
+
   static Future<List<Map<String, dynamic>>> getDeliveryFeedback({
     String? orderId,
     String? deliveryPersonId,
@@ -767,6 +773,7 @@ class SupabaseService {
     final response = await query.order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
   }
+
   static Future<void> insertDeliveryFeedback(
     Map<String, dynamic> payload,
   ) async {
@@ -776,17 +783,20 @@ class SupabaseService {
       'customer_id': currentUser!.id,
     });
   }
+
   static Future<void> upsertRestockSubscription(
     Map<String, dynamic> payload,
   ) async {
     _ensureInitialized();
     if (currentUser == null) {
-      throw StateError('You need to be signed in to save restock subscriptions.');
+      throw StateError(
+        'You need to be signed in to save restock subscriptions.',
+      );
     }
     await client.from('user_restock_subscriptions').upsert({
       ...payload,
       'user_id': currentUser!.id,
-    });
+    }, onConflict: 'user_id,product_id,cadence');
   }
 
   static Future<List<Map<String, dynamic>>> getRestockSubscriptions() async {
@@ -820,12 +830,14 @@ class SupabaseService {
     }
 
     return rows
-        .map((row) => {
-              ...row,
-              'products': {
-                'name': nameById[row['product_id']?.toString() ?? ''] ?? '',
-              },
-            })
+        .map(
+          (row) => {
+            ...row,
+            'products': {
+              'name': nameById[row['product_id']?.toString() ?? ''] ?? '',
+            },
+          },
+        )
         .toList();
   }
 
@@ -899,8 +911,3 @@ class SupabaseService {
         .subscribe();
   }
 }
-
-
-
-
-

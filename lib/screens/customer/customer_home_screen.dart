@@ -311,7 +311,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => _openCategoryDirectory(context, categories),
+                      onPressed: () =>
+                          _openCategoryDirectory(context, categories),
                       child: const Text(
                         'See all',
                         style: TextStyle(
@@ -459,7 +460,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.68,
+                childAspectRatio: 0.82,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
@@ -550,6 +551,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Widget _dietChip(String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final selected = _dietFilters.contains(label);
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -558,7 +560,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         label: Text(
           label,
           style: TextStyle(
-            color: selected ? const Color(0xFF145B28) : const Color(0xFF23303F),
+            color: selected
+                ? const Color(0xFF145B28)
+                : (isDark ? Colors.white : const Color(0xFF23303F)),
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -571,11 +575,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             }
           });
         },
-        backgroundColor: const Color(0xFFF1F4F7),
+        backgroundColor: isDark
+            ? const Color(0xFF232A31)
+            : const Color(0xFFF1F4F7),
         selectedColor: const Color(0xFFD9F0DF),
         checkmarkColor: const Color(0xFF1D8C3A),
         side: BorderSide(
-          color: selected ? const Color(0xFF1D8C3A) : const Color(0xFFD4DCE4),
+          color: selected
+              ? const Color(0xFF1D8C3A)
+              : (isDark ? const Color(0xFF4F5D6A) : const Color(0xFFD4DCE4)),
         ),
       ),
     );
@@ -616,7 +624,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => CategoryProductsScreen(category: category),
+                      builder: (_) =>
+                          CategoryProductsScreen(category: category),
                     ),
                   );
                 },

@@ -33,6 +33,8 @@ class CatalogService extends ChangeNotifier {
     Set<String> dietFilters = const {},
   }) {
     final normalized = query.trim().toLowerCase();
+    final aliases = _searchAliases(normalized);
+    final queryTokens = aliases.isEmpty ? {normalized} : aliases;
     final cacheKey = '$localeCode|$normalized|${dietFilters.join(",")}';
     if (_searchCache.containsKey(cacheKey)) {
       return List.unmodifiable(_searchCache[cacheKey]!);
@@ -46,7 +48,9 @@ class CatalogService extends ChangeNotifier {
         _categoryName(product.categoryId),
         _storeName(product.storeId),
       ].join(' ').toLowerCase();
-      final queryMatch = normalized.isEmpty || text.contains(normalized);
+      final queryMatch =
+          normalized.isEmpty ||
+          queryTokens.any((token) => token.isNotEmpty && text.contains(token));
       final dietMatch =
           dietFilters.isEmpty || _matchesDietFilter(product, dietFilters);
       return queryMatch && dietMatch;
@@ -280,5 +284,24 @@ class CatalogService extends ChangeNotifier {
           !nonVegSignals.any(text.contains);
     }
     return true;
+  }
+
+  Set<String> _searchAliases(String query) {
+    if (query.isEmpty) return const {};
+    const aliases = <String, List<String>>{
+      'coke': ['coca cola', 'cola', 'soft drink', 'coke'],
+      'coca cola': ['coca cola', 'cola', 'coke'],
+      'pepsi': ['pepsi', 'cola', 'soft drink'],
+      'atta': ['atta', 'wheat flour'],
+      'curd': ['curd', 'dahi', 'yogurt'],
+      'chips': ['chips', 'snack', 'namkeen'],
+    };
+    final expanded = <String>{query};
+    for (final entry in aliases.entries) {
+      if (query.contains(entry.key)) {
+        expanded.addAll(entry.value);
+      }
+    }
+    return expanded;
   }
 }

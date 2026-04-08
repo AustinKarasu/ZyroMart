@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../models/product.dart';
 import '../services/cart_service.dart';
 import '../theme/app_theme.dart';
-import 'package:provider/provider.dart';
 import 'app_image.dart';
 
 class ProductCard extends StatelessWidget {
@@ -13,17 +14,22 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1A1F24) : Colors.white;
+    final textPrimary = isDark ? Colors.white : AppTheme.textDark;
+    final textSecondary = isDark ? Colors.white70 : AppTheme.textLight;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: cardColor,
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.cardShadow,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -31,14 +37,15 @@ class ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              flex: 3,
+              flex: 5,
               child: Stack(
                 children: [
                   AppImage(
                     imageUrl: product.imageUrl,
                     width: double.infinity,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(14),
+                    ),
                   ),
                   if (product.discount > 0)
                     Positioned(
@@ -46,7 +53,9 @@ class ProductCard extends StatelessWidget {
                       left: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryRed,
                           borderRadius: BorderRadius.circular(8),
@@ -64,10 +73,11 @@ class ProductCard extends StatelessWidget {
                   if (!product.inStock)
                     Positioned.fill(
                       child: Container(
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.black45,
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(14),
+                          ),
                         ),
                         child: const Center(
                           child: Text(
@@ -84,9 +94,9 @@ class ProductCard extends StatelessWidget {
               ),
             ),
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -94,18 +104,18 @@ class ProductCard extends StatelessWidget {
                       product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                        color: textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       product.unit,
-                      style: TextStyle(
-                        color: AppTheme.textLight,
-                        fontSize: 11,
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: textSecondary, fontSize: 11),
                     ),
                     const Spacer(),
                     Row(
@@ -115,19 +125,19 @@ class ProductCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '₹${product.price.toInt()}',
-                                style: const TextStyle(
+                                'Rs ${product.price.toInt()}',
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: AppTheme.textDark,
+                                  fontSize: 14,
+                                  color: textPrimary,
                                 ),
                               ),
                               if (product.originalPrice != null)
                                 Text(
-                                  '₹${product.originalPrice!.toInt()}',
-                                  style: const TextStyle(
+                                  'Rs ${product.originalPrice!.toInt()}',
+                                  style: TextStyle(
                                     decoration: TextDecoration.lineThrough,
-                                    color: AppTheme.textLight,
+                                    color: textSecondary,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -157,12 +167,15 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildAddButton(CartService cart) {
     return SizedBox(
-      height: 32,
+      height: 30,
       child: ElevatedButton(
         onPressed: product.inStock ? () => cart.addItem(product) : null,
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          textStyle: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         child: const Text('ADD'),
       ),
@@ -171,7 +184,7 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildQuantityControl(CartService cart, int qty) {
     return Container(
-      height: 32,
+      height: 30,
       decoration: BoxDecoration(
         color: AppTheme.primaryRed,
         borderRadius: BorderRadius.circular(8),
@@ -182,19 +195,22 @@ class ProductCard extends StatelessWidget {
           InkWell(
             onTap: () => cart.decrementQuantity(product.id),
             child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
+              padding: EdgeInsets.symmetric(horizontal: 7),
               child: Icon(Icons.remove, color: Colors.white, size: 16),
             ),
           ),
           Text(
             '$qty',
             style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12.5,
+            ),
           ),
           InkWell(
             onTap: () => cart.incrementQuantity(product.id),
             child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
+              padding: EdgeInsets.symmetric(horizontal: 7),
               child: Icon(Icons.add, color: Colors.white, size: 16),
             ),
           ),
