@@ -17,6 +17,11 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, auth, _) {
+        if (!auth.authReady) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
         final user = auth.currentUser;
         if (user == null) {
           return const OnboardingAuthScreen();
@@ -29,8 +34,12 @@ class AuthGate extends StatelessWidget {
         };
 
         final preferences = context.watch<AppPreferencesService>();
-        if (preferences.biometricUnlock) {
-          return _BiometricGate(child: destination);
+        if (preferences.biometricUnlock &&
+            auth.shouldPromptBiometricAfterLogin) {
+          return _BiometricGate(
+            child: destination,
+            onUnlocked: () => auth.markBiometricPromptCompleted(),
+          );
         }
 
         return destination;
@@ -41,8 +50,9 @@ class AuthGate extends StatelessWidget {
 
 class _BiometricGate extends StatefulWidget {
   final Widget child;
+  final VoidCallback onUnlocked;
 
-  const _BiometricGate({required this.child});
+  const _BiometricGate({required this.child, required this.onUnlocked});
 
   @override
   State<_BiometricGate> createState() => _BiometricGateState();
@@ -76,6 +86,9 @@ class _BiometricGateState extends State<_BiometricGate> {
         _error = 'Biometric verification was not completed. Try again to continue.';
       }
     });
+    if (success) {
+      widget.onUnlocked();
+    }
   }
 
   @override

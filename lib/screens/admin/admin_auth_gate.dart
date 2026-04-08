@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/admin_auth_service.dart';
 import '../../services/admin_service.dart';
-import 'admin_dashboard_screen.dart';
+import 'admin_main_screen.dart';
 import 'admin_sign_in_screen.dart';
 
 class AdminAuthGate extends StatelessWidget {
@@ -23,7 +23,7 @@ class AdminAuthGate extends StatelessWidget {
             service.loadDashboard();
             return service;
           },
-          child: const AdminDashboardScreen(),
+          child: const AdminMainScreen(),
         );
       },
     );

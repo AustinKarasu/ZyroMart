@@ -1,7 +1,8 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+﻿import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 
 class SupabaseService {
+  static String? _initializationError;
   static bool _initialized = false;
 
   static SupabaseClient get client {
@@ -23,21 +24,32 @@ class SupabaseService {
 
   static Future<void> initialize() async {
     if (_initialized) return;
+    _initializationError = null;
     final url = SupabaseConfig.supabaseUrl;
     final anonKey = SupabaseConfig.supabaseAnonKey;
     if (url.isEmpty || anonKey.isEmpty) {
-      // Skip Supabase initialization if no key is configured.
-      // The app will use local/offline data instead.
       _initialized = false;
+      _initializationError =
+          'Supabase URL or anon key is missing in this build configuration.';
       return;
     }
-    await Supabase.initialize(url: url, anonKey: anonKey);
-    _initialized = true;
+    try {
+      await Supabase.initialize(url: url, anonKey: anonKey);
+      _initialized = true;
+    } catch (error) {
+      _initialized = false;
+      _initializationError = error.toString();
+      rethrow;
+    }
   }
 
   static bool get isInitialized => _initialized;
+  static String? get initializationError => _initializationError;
+  static String get backendStatusMessage =>
+      _initializationError ??
+      'Supabase is not initialized. Verify SUPABASE_URL and SUPABASE_ANON_KEY.';
 
-  // ─── Products ────────────────────────────────────────────
+  // â”€â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static Future<List<Map<String, dynamic>>> getProducts() async {
     if (!isInitialized) return [];
@@ -153,7 +165,7 @@ class SupabaseService {
         );
   }
 
-  // ─── Orders ──────────────────────────────────────────────
+  // â”€â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static Future<List<Map<String, dynamic>>> getOrders() async {
     if (!isInitialized) return [];
@@ -184,6 +196,14 @@ class SupabaseService {
   static Future<void> updateOrderStatus(String id, String status) async {
     if (!isInitialized) return;
     await client.from('orders').update({'status': status}).eq('id', id);
+  }
+
+  static Future<void> updateOrder(
+    String id,
+    Map<String, dynamic> updates,
+  ) async {
+    if (!isInitialized || id.isEmpty || updates.isEmpty) return;
+    await client.from('orders').update(updates).eq('id', id);
   }
 
   static Future<void> insertOrderStatusEvent(Map<String, dynamic> event) async {
@@ -276,7 +296,7 @@ class SupabaseService {
     return response == null ? null : Map<String, dynamic>.from(response);
   }
 
-  // ─── Stores ──────────────────────────────────────────────
+  // â”€â”€â”€ Stores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static Future<List<Map<String, dynamic>>> getStores() async {
     if (!isInitialized) return [];
@@ -298,7 +318,8 @@ class SupabaseService {
     String storeId,
     Map<String, dynamic> payload,
   ) async {
-    if (!isInitialized || storeId.isEmpty) return;
+    _ensureInitialized();
+    if (storeId.isEmpty) return;
     await client.from('stores').update(payload).eq('id', storeId);
   }
 
@@ -310,7 +331,8 @@ class SupabaseService {
     required double longitude,
     String? phone,
   }) async {
-    if (!isInitialized || ownerId.isEmpty) return null;
+    _ensureInitialized();
+    if (ownerId.isEmpty) return null;
     final existing = await getStoreByOwner(ownerId);
     final payload = <String, dynamic>{
       'name': name,
@@ -355,13 +377,35 @@ class SupabaseService {
     return response == null ? null : Map<String, dynamic>.from(response);
   }
 
+  static Future<Map<String, dynamic>?> getProfileByPhone(String phone) async {
+    if (!isInitialized || phone.trim().isEmpty) return null;
+    final response = await client
+        .from('profiles')
+        .select()
+        .eq('phone', phone.trim())
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
   static Future<void> upsertProfile(Map<String, dynamic> profile) async {
-    if (!isInitialized) return;
+    _ensureInitialized();
     await client.from('profiles').upsert(profile);
   }
 
   static Future<Map<String, dynamic>?> getPlatformAdminEntry() async {
     if (!isInitialized || currentUser == null) return null;
+    try {
+      final adminAllowed = await client.rpc(
+        'is_platform_admin',
+        params: {'candidate_user_id': currentUser!.id},
+      );
+      if (adminAllowed != true) {
+        return null;
+      }
+    } catch (_) {
+      // Fall back to direct table access for projects that have not applied the
+      // helper function yet.
+    }
     final response = await client
         .from('platform_admins')
         .select()
@@ -389,7 +433,10 @@ class SupabaseService {
   static Future<void> upsertUserAccountState(
     Map<String, dynamic> payload,
   ) async {
-    if (!isInitialized || currentUser == null) return;
+    _ensureInitialized();
+    if (currentUser == null) {
+      throw StateError('You need to be signed in to save account state.');
+    }
     await client.from('user_account_state').upsert({
       ...payload,
       'user_id': currentUser!.id,
@@ -413,7 +460,10 @@ class SupabaseService {
     required String appVariant,
     required Map<String, dynamic> settings,
   }) async {
-    if (!isInitialized || currentUser == null) return;
+    _ensureInitialized();
+    if (currentUser == null) {
+      throw StateError('You need to be signed in to save operator preferences.');
+    }
     await client.from('operator_preferences').upsert({
       'user_id': currentUser!.id,
       'app_variant': appVariant,
@@ -456,7 +506,7 @@ class SupabaseService {
     );
   }
 
-  // ─── Users / Auth ────────────────────────────────────────
+  // â”€â”€â”€ Users / Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static Future<AuthResponse> signUp(String email, String password) async {
     _ensureInitialized();
@@ -540,7 +590,10 @@ class SupabaseService {
     String? timezoneName,
     bool pushEnabled = true,
   }) async {
-    if (!isInitialized || currentUser == null) return;
+    _ensureInitialized();
+    if (currentUser == null) {
+      throw StateError('You need to be signed in to register this device.');
+    }
     await client.from('notification_devices').upsert({
       'user_id': currentUser!.id,
       'device_token': deviceToken,
@@ -563,6 +616,29 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
+
+  static Future<Map<String, dynamic>?> getNotificationPreferences() async {
+    if (!isInitialized || currentUser == null) return null;
+    final response = await client
+        .from('notification_preferences')
+        .select()
+        .eq('user_id', currentUser!.id)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
+  }
+
+  static Future<void> upsertNotificationPreferences(
+    Map<String, dynamic> payload,
+  ) async {
+    _ensureInitialized();
+    if (currentUser == null) {
+      throw StateError('You need to be signed in to save notification preferences.');
+    }
+    await client.from('notification_preferences').upsert({
+      ...payload,
+      'user_id': currentUser!.id,
+    });
+  }
   static Future<void> insertAppUsageEvent(Map<String, dynamic> payload) async {
     if (!isInitialized) return;
     await client.from('app_usage_events').insert({
@@ -640,10 +716,59 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  static Future<void> upsertRestockSubscription(
+  static Future<List<Map<String, dynamic>>> getStoreFeedback({
+    String? orderId,
+    String? storeId,
+  }) async {
+    if (!isInitialized) return [];
+    var query = client.from('store_feedback').select();
+    if (orderId != null && orderId.isNotEmpty) {
+      query = query.eq('order_id', orderId);
+    }
+    if (storeId != null && storeId.isNotEmpty) {
+      query = query.eq('store_id', storeId);
+    }
+    final response = await query.order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+  static Future<void> insertStoreFeedback(Map<String, dynamic> payload) async {
+    if (!isInitialized || currentUser == null) return;
+    await client.from('store_feedback').insert({
+      ...payload,
+      'customer_id': currentUser!.id,
+    });
+  }
+  static Future<List<Map<String, dynamic>>> getDeliveryFeedback({
+    String? orderId,
+    String? deliveryPersonId,
+  }) async {
+    if (!isInitialized) return [];
+    var query = client.from('delivery_feedback').select();
+    if (orderId != null && orderId.isNotEmpty) {
+      query = query.eq('order_id', orderId);
+    }
+    if (deliveryPersonId != null && deliveryPersonId.isNotEmpty) {
+      query = query.eq('delivery_person_id', deliveryPersonId);
+    }
+    final response = await query.order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+  static Future<void> insertDeliveryFeedback(
     Map<String, dynamic> payload,
   ) async {
     if (!isInitialized || currentUser == null) return;
+    await client.from('delivery_feedback').insert({
+      ...payload,
+      'customer_id': currentUser!.id,
+    });
+  }
+  static Future<void> upsertRestockSubscription(
+    Map<String, dynamic> payload,
+  ) async {
+    _ensureInitialized();
+    if (currentUser == null) {
+      throw StateError('You need to be signed in to save restock subscriptions.');
+    }
     await client.from('user_restock_subscriptions').upsert({
       ...payload,
       'user_id': currentUser!.id,
@@ -660,7 +785,7 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // ─── Real-time subscriptions ─────────────────────────────
+  // â”€â”€â”€ Real-time subscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static RealtimeChannel subscribeToOrders(
     void Function(Map<String, dynamic>) onUpdate,
@@ -730,3 +855,8 @@ class SupabaseService {
         .subscribe();
   }
 }
+
+
+
+
+

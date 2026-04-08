@@ -1,7 +1,7 @@
--- ZyroMart Supabase Database Schema
+﻿-- ZyroMart Supabase Database Schema
 -- Run this in your Supabase SQL Editor: https://supabase.com/dashboard/project/uhlfphrtmaxffchivsip/sql
 
--- ─── Users / Profiles ──────────────────────────────────────
+-- â”€â”€â”€ Users / Profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Stores ────────────────────────────────────────────────
+-- â”€â”€â”€ Stores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS stores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS stores (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Categories ────────────────────────────────────────────
+-- â”€â”€â”€ Categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS categories (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Products ──────────────────────────────────────────────
+-- â”€â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Orders ────────────────────────────────────────────────
+-- â”€â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS orders (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Order Items ───────────────────────────────────────────
+-- â”€â”€â”€ Order Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Delivery Tracking ────────────────────────────────────
+-- â”€â”€â”€ Delivery Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS delivery_tracking (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -124,8 +124,9 @@ CREATE TABLE IF NOT EXISTS delivery_tracking (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Indexes ───────────────────────────────────────────────
+-- â”€â”€â”€ Indexes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_phone_unique ON profiles(phone) WHERE phone IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_store ON products(store_id);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
@@ -246,7 +247,7 @@ CREATE TRIGGER guard_delivery_tracking_update
 BEFORE UPDATE ON delivery_tracking
 FOR EACH ROW EXECUTE FUNCTION guard_delivery_tracking_update();
 
--- ─── Row Level Security ───────────────────────────────────
+-- â”€â”€â”€ Row Level Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
@@ -268,12 +269,27 @@ DROP POLICY IF EXISTS "Public read products" ON products;
 DROP POLICY IF EXISTS "Public read stores" ON stores;
 DROP POLICY IF EXISTS "Users read own profile" ON profiles;
 DROP POLICY IF EXISTS "Users update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users insert own profile" ON profiles;
 DROP POLICY IF EXISTS "Customers read own orders" ON orders;
 DROP POLICY IF EXISTS "Customers create orders" ON orders;
 DROP POLICY IF EXISTS "Read order items" ON order_items;
 DROP POLICY IF EXISTS "Public read tracking" ON delivery_tracking;
 DROP POLICY IF EXISTS "Delivery update tracking" ON delivery_tracking;
 DROP POLICY IF EXISTS "Delivery update tracking update" ON delivery_tracking;
+DROP POLICY IF EXISTS "Owners insert stores" ON stores;
+DROP POLICY IF EXISTS "Owners update stores" ON stores;
+DROP POLICY IF EXISTS "Owners insert products" ON products;
+DROP POLICY IF EXISTS "Owners update products" ON products;
+DROP POLICY IF EXISTS "Owners delete products" ON products;
+DROP POLICY IF EXISTS "Users read related orders" ON orders;
+DROP POLICY IF EXISTS "Customers cancel own orders" ON orders;
+DROP POLICY IF EXISTS "Store owners update store orders" ON orders;
+DROP POLICY IF EXISTS "Delivery updates assigned orders" ON orders;
+DROP POLICY IF EXISTS "Read related order items" ON order_items;
+DROP POLICY IF EXISTS "Customers insert own order items" ON order_items;
+DROP POLICY IF EXISTS "Users read related tracking" ON delivery_tracking;
+DROP POLICY IF EXISTS "Assigned delivery insert tracking" ON delivery_tracking;
+DROP POLICY IF EXISTS "Assigned delivery update tracking" ON delivery_tracking;
 
 -- Allow public catalog reads only
 CREATE POLICY "Public read categories" ON categories FOR SELECT USING (true);
@@ -463,26 +479,25 @@ DROP POLICY IF EXISTS "Users insert crash reports" ON app_crash_reports;
 DROP POLICY IF EXISTS "Admins read app usage events" ON app_usage_events;
 DROP POLICY IF EXISTS "Admins read crash reports" ON app_crash_reports;
 
+-- Ensure function exists before first policy references it.
+-- Later in this file, the real implementation replaces this stub.
+CREATE OR REPLACE FUNCTION is_platform_admin(candidate_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+AS $$
+  SELECT FALSE;
+$$;
+
 CREATE POLICY "Users insert app usage events" ON app_usage_events FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL AND (user_id IS NULL OR user_id = auth.uid()));
 CREATE POLICY "Users insert crash reports" ON app_crash_reports FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL AND (user_id IS NULL OR user_id = auth.uid()));
 CREATE POLICY "Admins read app usage events" ON app_usage_events FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM platform_admins
-      WHERE platform_admins.user_id = auth.uid()
-    )
-  );
+  USING (is_platform_admin(auth.uid()));
 CREATE POLICY "Admins read crash reports" ON app_crash_reports FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM platform_admins
-      WHERE platform_admins.user_id = auth.uid()
-    )
-  );
+  USING (is_platform_admin(auth.uid()));
 
--- ─── Realtime ──────────────────────────────────────────────
+-- â”€â”€â”€ Realtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 DO $$
 BEGIN
@@ -514,6 +529,22 @@ CREATE TABLE IF NOT EXISTS platform_admins (
     CHECK (access_level IN ('admin', 'super_admin', 'support')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE OR REPLACE FUNCTION is_platform_admin(candidate_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.platform_admins pa
+    WHERE pa.user_id = candidate_user_id
+  );
+$$;
+
+REVOKE ALL ON FUNCTION is_platform_admin(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION is_platform_admin(UUID) TO authenticated;
 
 CREATE TABLE IF NOT EXISTS payout_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -940,32 +971,32 @@ DROP POLICY IF EXISTS "Users manage own account state" ON user_account_state;
 DROP POLICY IF EXISTS "Users manage own operator preferences" ON operator_preferences;
 
 CREATE POLICY "Admins read platform admins" ON platform_admins FOR SELECT
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (auth.uid() = user_id OR is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users manage own payout accounts" ON payout_accounts FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Admins manage payout accounts" ON payout_accounts FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users read own earnings ledger" ON earnings_ledger FOR SELECT
   USING (
     auth.uid() = beneficiary_user_id
-    OR (beneficiary_role = 'platform' AND EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+    OR (beneficiary_role = 'platform' AND is_platform_admin(auth.uid()))
   );
 
 CREATE POLICY "Admins manage earnings ledger" ON earnings_ledger FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users read own payouts" ON payouts FOR SELECT
   USING (auth.uid() = beneficiary_user_id);
 
 CREATE POLICY "Admins manage payouts" ON payouts FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users read related feedback" ON delivery_feedback FOR SELECT
   USING (
@@ -1003,7 +1034,7 @@ CREATE POLICY "Users update own notifications" ON notifications FOR UPDATE
   WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Admins insert notifications" ON notifications FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Public read service areas" ON store_service_areas FOR SELECT
   USING (true);
@@ -1034,15 +1065,15 @@ CREATE POLICY "Users read own recommendations" ON product_recommendations FOR SE
   USING (auth.uid() = user_id);
 
 CREATE POLICY "Admins manage recommendations" ON product_recommendations FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Admins read daily metrics" ON platform_daily_metrics FOR SELECT
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Admins manage daily metrics" ON platform_daily_metrics FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Public read product metadata" ON product_catalog_metadata FOR SELECT
   USING (true);
@@ -1144,7 +1175,7 @@ CREATE POLICY "Users read related order status events" ON order_status_events FO
           orders.customer_id = auth.uid()
           OR stores.owner_id = auth.uid()
           OR orders.delivery_person_id = auth.uid()
-          OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+          OR is_platform_admin(auth.uid())
         )
     )
   );
@@ -1153,7 +1184,7 @@ CREATE POLICY "Authorized insert order status events" ON order_status_events FOR
   WITH CHECK (
     auth.uid() = actor_user_id
     OR actor_role = 'system'
-    OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+    OR is_platform_admin(auth.uid())
   );
 
 CREATE POLICY "Users read related route updates" ON delivery_route_updates FOR SELECT
@@ -1186,7 +1217,7 @@ CREATE POLICY "Users read related proof of delivery" ON proof_of_delivery FOR SE
           orders.customer_id = auth.uid()
           OR stores.owner_id = auth.uid()
           OR orders.delivery_person_id = auth.uid()
-          OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+          OR is_platform_admin(auth.uid())
         )
     )
   );
@@ -1253,3 +1284,4 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE proof_of_delivery;
   END IF;
 END $$;
+
