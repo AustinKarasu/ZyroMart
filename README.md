@@ -48,3 +48,6 @@ PowerShell shortcuts:
 ```bash
 flutter build web --release
 ```
+
+
+## FEEL FREE TO CONTRIBUTE
