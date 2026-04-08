@@ -1,0 +1,14 @@
+Release date: 2026-04-08
+
+Highlights:
+- Restored swipe-to-pay checkout animation with real order-confirm flow.
+- Added primary-address and payment-preference hydration in checkout.
+- Added current-location helper in address and checkout flows.
+- Improved auto-restock with category filtering, product images, and safer backend fallback handling.
+- Fixed customer Home "See all" category button to open working navigation.
+- Hardened OTP role enforcement to prevent wrong-app role routing.
+- Added flavor-safe storefront build script and updated build docs.
+
+Artifacts:
+- zyromart-storefront-v1.4.20.apk
+- zyromart-admin-v1.4.20.apk
