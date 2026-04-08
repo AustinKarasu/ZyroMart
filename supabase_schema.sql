@@ -469,19 +469,9 @@ CREATE POLICY "Users insert app usage events" ON app_usage_events FOR INSERT
 CREATE POLICY "Users insert crash reports" ON app_crash_reports FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL AND (user_id IS NULL OR user_id = auth.uid()));
 CREATE POLICY "Admins read app usage events" ON app_usage_events FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM platform_admins
-      WHERE platform_admins.user_id = auth.uid()
-    )
-  );
+  USING (is_platform_admin(auth.uid()));
 CREATE POLICY "Admins read crash reports" ON app_crash_reports FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM platform_admins
-      WHERE platform_admins.user_id = auth.uid()
-    )
-  );
+  USING (is_platform_admin(auth.uid()));
 
 -- â”€â”€â”€ Realtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -515,6 +505,22 @@ CREATE TABLE IF NOT EXISTS platform_admins (
     CHECK (access_level IN ('admin', 'super_admin', 'support')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE OR REPLACE FUNCTION is_platform_admin(candidate_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.platform_admins pa
+    WHERE pa.user_id = candidate_user_id
+  );
+$$;
+
+REVOKE ALL ON FUNCTION is_platform_admin(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION is_platform_admin(UUID) TO authenticated;
 
 CREATE TABLE IF NOT EXISTS payout_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -941,32 +947,32 @@ DROP POLICY IF EXISTS "Users manage own account state" ON user_account_state;
 DROP POLICY IF EXISTS "Users manage own operator preferences" ON operator_preferences;
 
 CREATE POLICY "Admins read platform admins" ON platform_admins FOR SELECT
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (auth.uid() = user_id OR is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users manage own payout accounts" ON payout_accounts FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Admins manage payout accounts" ON payout_accounts FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users read own earnings ledger" ON earnings_ledger FOR SELECT
   USING (
     auth.uid() = beneficiary_user_id
-    OR (beneficiary_role = 'platform' AND EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
+    OR (beneficiary_role = 'platform' AND is_platform_admin(auth.uid()))
   );
 
 CREATE POLICY "Admins manage earnings ledger" ON earnings_ledger FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users read own payouts" ON payouts FOR SELECT
   USING (auth.uid() = beneficiary_user_id);
 
 CREATE POLICY "Admins manage payouts" ON payouts FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Users read related feedback" ON delivery_feedback FOR SELECT
   USING (
@@ -1004,7 +1010,7 @@ CREATE POLICY "Users update own notifications" ON notifications FOR UPDATE
   WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Admins insert notifications" ON notifications FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Public read service areas" ON store_service_areas FOR SELECT
   USING (true);
@@ -1035,15 +1041,15 @@ CREATE POLICY "Users read own recommendations" ON product_recommendations FOR SE
   USING (auth.uid() = user_id);
 
 CREATE POLICY "Admins manage recommendations" ON product_recommendations FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Admins read daily metrics" ON platform_daily_metrics FOR SELECT
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (auth.uid() = user_id OR is_platform_admin(auth.uid()));
 
 CREATE POLICY "Admins manage daily metrics" ON platform_daily_metrics FOR ALL
-  USING (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid()));
+  USING (is_platform_admin(auth.uid()))
+  WITH CHECK (is_platform_admin(auth.uid()));
 
 CREATE POLICY "Public read product metadata" ON product_catalog_metadata FOR SELECT
   USING (true);
@@ -1145,7 +1151,7 @@ CREATE POLICY "Users read related order status events" ON order_status_events FO
           orders.customer_id = auth.uid()
           OR stores.owner_id = auth.uid()
           OR orders.delivery_person_id = auth.uid()
-          OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+          OR is_platform_admin(auth.uid())
         )
     )
   );
@@ -1154,7 +1160,7 @@ CREATE POLICY "Authorized insert order status events" ON order_status_events FOR
   WITH CHECK (
     auth.uid() = actor_user_id
     OR actor_role = 'system'
-    OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+    OR is_platform_admin(auth.uid())
   );
 
 CREATE POLICY "Users read related route updates" ON delivery_route_updates FOR SELECT
@@ -1187,7 +1193,7 @@ CREATE POLICY "Users read related proof of delivery" ON proof_of_delivery FOR SE
           orders.customer_id = auth.uid()
           OR stores.owner_id = auth.uid()
           OR orders.delivery_person_id = auth.uid()
-          OR EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = auth.uid())
+          OR is_platform_admin(auth.uid())
         )
     )
   );

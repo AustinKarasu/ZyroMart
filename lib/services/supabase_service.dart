@@ -392,6 +392,18 @@ class SupabaseService {
 
   static Future<Map<String, dynamic>?> getPlatformAdminEntry() async {
     if (!isInitialized || currentUser == null) return null;
+    try {
+      final adminAllowed = await client.rpc(
+        'is_platform_admin',
+        params: {'candidate_user_id': currentUser!.id},
+      );
+      if (adminAllowed != true) {
+        return null;
+      }
+    } catch (_) {
+      // Fall back to direct table access for projects that have not applied the
+      // helper function yet.
+    }
     final response = await client
         .from('platform_admins')
         .select()

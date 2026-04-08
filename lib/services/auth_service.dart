@@ -163,11 +163,6 @@ class AuthService extends ChangeNotifier {
             'This phone number is already registered. Sign in instead or verify a different number.';
         return false;
       }
-      if (!isSignUpFlow && existingPhoneProfile == null) {
-        _errorMessage =
-            'No account was found for this phone number. Create an account first.';
-        return false;
-      }
 
       await SupabaseService.requestPhoneOtp(
         phone: _pendingPhone!,
@@ -341,7 +336,7 @@ class AuthService extends ChangeNotifier {
         success: false,
         identifierHash: normalizedEmail.hashCode.toString(),
       );
-      _errorMessage = 'Could not sign in. ${error.toString()}';
+      _errorMessage = _friendlyPasswordError(error);
       return false;
     } finally {
       _isLoading = false;
@@ -388,7 +383,7 @@ class AuthService extends ChangeNotifier {
       _statusMessage = 'Email and password updated. You can now use password login.';
       return true;
     } catch (error) {
-      _errorMessage = 'Could not save password login. ${error.toString()}';
+      _errorMessage = _friendlyPasswordSaveError(error);
       return false;
     } finally {
       _isLoading = false;
@@ -440,7 +435,7 @@ class AuthService extends ChangeNotifier {
       _statusMessage = 'Profile saved';
       return true;
     } catch (error) {
-      _errorMessage = 'Could not update profile. ${error.toString()}';
+      _errorMessage = _friendlyProfileError(error);
       return false;
     } finally {
       _isLoading = false;
@@ -468,7 +463,7 @@ class AuthService extends ChangeNotifier {
       _statusMessage = isOnline ? 'You are online' : 'You are offline';
       return true;
     } catch (error) {
-      _errorMessage = 'Could not update availability. ${error.toString()}';
+      _errorMessage = _friendlyAvailabilityError(error);
       return false;
     } finally {
       _isLoading = false;
@@ -673,6 +668,48 @@ class AuthService extends ChangeNotifier {
   String _fallbackEmailForPhone(String phone) {
     final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
     return 'user$digits@zyromart.app';
+  }
+
+
+  String _friendlyPasswordError(Object error) {
+    final lowered = error.toString().toLowerCase();
+    if (lowered.contains('invalid login credentials') ||
+        lowered.contains('invalid_credentials')) {
+      return 'The email or password is incorrect. Check your details and try again.';
+    }
+    if (lowered.contains('email not confirmed')) {
+      return 'This email address is not confirmed yet. Complete verification and try again.';
+    }
+    if (lowered.contains('too many requests')) {
+      return 'Too many sign-in attempts were made. Please wait a moment and try again.';
+    }
+    return 'Could not sign in right now. Please try again.';
+  }
+
+  String _friendlyPasswordSaveError(Object error) {
+    final lowered = error.toString().toLowerCase();
+    if (lowered.contains('already registered') ||
+        lowered.contains('already been registered') ||
+        lowered.contains('duplicate')) {
+      return 'That email address is already linked to another account.';
+    }
+    return 'Could not save password login right now. Please try again.';
+  }
+
+  String _friendlyProfileError(Object error) {
+    final lowered = error.toString().toLowerCase();
+    if (lowered.contains('duplicate key') && lowered.contains('profiles_phone')) {
+      return 'That phone number is already linked to another account. Verify a different number before changing it.';
+    }
+    return 'Could not save your profile right now. Please try again.';
+  }
+
+  String _friendlyAvailabilityError(Object error) {
+    final lowered = error.toString().toLowerCase();
+    if (lowered.contains('permission') || lowered.contains('row-level security')) {
+      return 'Your live availability could not be updated for this account.';
+    }
+    return 'Could not update availability right now. Please try again.';
   }
 
   void _clearMessages() {

@@ -112,15 +112,31 @@ class AdminAuthService extends ChangeNotifier {
   }
 
   Future<void> _refreshAdminAccess() async {
-    _adminEntry = await SupabaseService.getPlatformAdminEntry();
+    try {
+      _adminEntry = await SupabaseService.getPlatformAdminEntry();
+    } catch (error) {
+      _adminEntry = null;
+      rethrow;
+    }
   }
 
   String _friendlyAdminError(Object error) {
     final message = error.toString();
+    if (error is StateError) {
+      return message.replaceFirst('Bad state: ', '').trim();
+    }
     final lowered = message.toLowerCase();
     if (lowered.contains('invalid login credentials')) {
-      return 'The admin email or password is incorrect for live Supabase access. Use the configured owner credentials or create this admin user in Supabase Authentication.';
+      return 'The admin email or password is incorrect. Check the live admin credentials and try again.';
     }
-    return 'The admin app could not complete sign in. $message';
+    if (lowered.contains('42p17') ||
+        lowered.contains('infinite recursion') ||
+        lowered.contains('platform_admins')) {
+      return 'Admin access is blocked by an outdated Supabase policy on platform_admins. Apply the latest database schema and try again.';
+    }
+    if (lowered.contains('not enabled for this account yet')) {
+      return 'This account can sign in, but admin access has not been granted yet.';
+    }
+    return 'The admin app could not complete sign in right now. Please try again after refreshing the backend configuration.';
   }
 }

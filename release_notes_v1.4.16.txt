@@ -1,0 +1,20 @@
+ZyroMart v1.4.16
+
+Highlights
+- Fixed the admin sign-in failure path to surface a professional backend-policy message instead of raw PostgREST recursion errors.
+- Hardened OTP and password authentication messaging for production use.
+- Removed the false "No account was found" block during phone OTP sign-in when the live auth account exists but the profile row is not hydrated yet.
+- Added a safer Supabase admin-access helper path and updated schema policies to avoid platform_admins recursion.
+
+Backend and auth
+- Added is_platform_admin(uuid) helper function to the schema for admin-safe RLS checks.
+- Replaced direct recursive platform_admins policy checks with helper-based checks in admin-related policies.
+- Admin app now handles backend misconfiguration gracefully and shows actionable sign-in errors.
+- Customer/store/delivery sign-in now returns cleaner professional messages for invalid credentials, duplicate phone conflicts, and profile save failures.
+
+Validation
+- flutter analyze passed with no issues.
+- storefront and admin release APKs rebuilt from the updated codebase.
+
+Important
+- Apply the latest supabase_schema.sql to your Supabase project before using the admin sign-in fixes in production.
