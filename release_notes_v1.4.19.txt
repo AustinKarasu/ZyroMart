@@ -1,0 +1,11 @@
+ZyroMart v1.4.19
+
+Release focus:
+- Published APK assets for both app variants.
+
+Assets:
+- zyromart-storefront-v1.4.19.apk
+- zyromart-admin-v1.4.19.apk
+
+Release URL:
+- https://github.com/AustinKarasu/ZyroMart/releases/tag/v1.4.19
