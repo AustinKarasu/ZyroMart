@@ -5,10 +5,12 @@ import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../services/auth_service.dart';
 import '../../services/cart_service.dart';
+import '../../services/error_message_service.dart';
 import '../../services/location_service.dart';
 import '../../services/order_service.dart';
 import '../../services/payment_gateway_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/slide_to_confirm_button.dart';
 import 'order_tracking_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -295,33 +297,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ],
         ),
-        child: SizedBox(
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isPlacing ? null : () => _placeOrder(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D8C3A),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            child: _isPlacing
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Text(
-                    'Place order - Rs ${cart.grandTotal.toInt()}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-          ),
+        child: SlideToConfirmButton(
+          label: _isPlacing
+              ? 'Processing order...'
+              : 'Slide to place order - Rs ${cart.grandTotal.toInt()}',
+          onConfirmed: () => _isPlacing ? Future.value() : _placeOrder(context),
+          backgroundColor: const Color(0xFF1D8C3A),
         ),
       ),
     );
@@ -577,7 +558,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (mounted) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text(error.toString().replaceFirst('Bad state: ', '')),
+            content: Text(ErrorMessageService.from(error, fallback: 'Could not place the order right now. Please try again.')),
           ),
         );
       }

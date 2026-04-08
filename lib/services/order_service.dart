@@ -279,7 +279,9 @@ class OrderService extends ChangeNotifier {
   }
 
   List<Store> storesServingLocation(LatLng customerLocation) {
-    return _storeCatalog.where((store) {
+    final openStores = _storeCatalog.where((store) => store.isOpen).toList();
+    final exactMatches = openStores.where((store) {
+      if (!_hasUsableStoreLocation(store)) return false;
       final radiusKm =
           _serviceRadiusByStoreId[store.id] ?? _defaultServiceRadiusKm;
       final distanceKm = _distance.as(
@@ -288,7 +290,38 @@ class OrderService extends ChangeNotifier {
         customerLocation,
       );
       return distanceKm <= radiusKm;
-    }).toList();
+    }).toList()
+      ..sort(
+        (a, b) => _distance
+            .as(LengthUnit.Kilometer, a.location, customerLocation)
+            .compareTo(
+              _distance.as(LengthUnit.Kilometer, b.location, customerLocation),
+            ),
+      );
+    if (exactMatches.isNotEmpty) {
+      return exactMatches;
+    }
+
+    final softMatches = openStores.where((store) {
+      if (!_hasUsableStoreLocation(store)) return false;
+      final radiusKm =
+          _serviceRadiusByStoreId[store.id] ?? _defaultServiceRadiusKm;
+      final distanceKm = _distance.as(
+        LengthUnit.Kilometer,
+        store.location,
+        customerLocation,
+      );
+      final softRadius = (radiusKm + 3).clamp(radiusKm, 20);
+      return distanceKm <= softRadius;
+    }).toList()
+      ..sort(
+        (a, b) => _distance
+            .as(LengthUnit.Kilometer, a.location, customerLocation)
+            .compareTo(
+              _distance.as(LengthUnit.Kilometer, b.location, customerLocation),
+            ),
+      );
+    return softMatches;
   }
 
   double radiusForStore(String storeId) =>
@@ -1306,6 +1339,11 @@ class OrderService extends ChangeNotifier {
       );
     }
     notifyListeners();
+  }
+
+  bool _hasUsableStoreLocation(Store store) {
+    return store.location.latitude.abs() > 0.01 ||
+        store.location.longitude.abs() > 0.01;
   }
 
   Store _mapStore(Map<String, dynamic> row) {

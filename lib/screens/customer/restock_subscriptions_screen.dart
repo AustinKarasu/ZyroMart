@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/product.dart';
 import '../../services/catalog_service.dart';
+import '../../services/error_message_service.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -76,8 +77,7 @@ class _RestockSubscriptionsScreenState
         }
         _usingAccountStateFallback = true;
       } else {
-        _errorMessage =
-            'Could not load live restock subscriptions. ${error.toString()}';
+        _errorMessage = ErrorMessageService.from(error, fallback: 'Could not load live restock subscriptions right now. Please try again.');
       }
     }
 

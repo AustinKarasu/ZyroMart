@@ -12,6 +12,7 @@ import '../../services/app_preferences_service.dart';
 import '../../services/app_telemetry_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/error_message_service.dart';
 import '../../services/order_service.dart';
 import '../../services/payment_gateway_service.dart';
 import '../../services/supabase_service.dart';
@@ -312,7 +313,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+          content: Text(ErrorMessageService.from(error, fallback: 'Could not save these settings right now.')),
           backgroundColor: AppTheme.primaryRed,
         ),
       );
@@ -482,7 +483,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+          content: Text(ErrorMessageService.from(error, fallback: 'Could not save these settings right now.')),
           backgroundColor: AppTheme.primaryRed,
         ),
       );

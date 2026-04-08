@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'error_message_service.dart';
 import 'supabase_service.dart';
 
 class AdminDashboardSnapshot {
@@ -134,7 +135,7 @@ class AdminService extends ChangeNotifier {
         orderStatusCounts: _buildStatusCounts(orders),
       );
     } catch (error) {
-      _errorMessage = 'Could not load admin dashboard. ${error.toString()}';
+      _errorMessage = ErrorMessageService.from(error, fallback: 'Could not load the admin dashboard right now. Please try again.');
     } finally {
       _isLoading = false;
       notifyListeners();

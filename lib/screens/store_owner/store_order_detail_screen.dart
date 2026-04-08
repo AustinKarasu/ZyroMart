@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/order.dart';
 import '../../services/order_service.dart';
+import '../../widgets/slide_to_confirm_button.dart';
 import '../../theme/app_theme.dart';
 
 class StoreOrderDetailScreen extends StatelessWidget {
@@ -358,9 +359,15 @@ class _ActionPanel extends StatelessWidget {
                           onPressed: () => _apply(context, orderService, status),
                           child: Text(_label(status)),
                         )
-                      : ElevatedButton(
-                          onPressed: () => _apply(context, orderService, status),
-                          child: Text(_label(status)),
+                      : SizedBox(
+                          width: 280,
+                          child: SlideToConfirmButton(
+                            label: 'Slide to ${_label(status).toLowerCase()}',
+                            backgroundColor: AppTheme.primaryRed,
+                            onConfirmed: () async {
+                              _apply(context, orderService, status);
+                            },
+                          ),
                         ),
                 )
                 .toList(),

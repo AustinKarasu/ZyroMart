@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/operator_preferences_service.dart';
+import '../../services/error_message_service.dart';
 import '../../theme/app_theme.dart';
 
 class DeliveryOperationsPreferencesScreen extends StatefulWidget {
@@ -167,7 +168,7 @@ class _DeliveryOperationsPreferencesScreenState
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            error.toString().replaceFirst('Bad state: ', ''),
+                            ErrorMessageService.from(error, fallback: 'Could not save delivery preferences right now.'),
                           ),
                           backgroundColor: AppTheme.primaryRed,
                         ),

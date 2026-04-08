@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/admin_auth_service.dart';
+import '../../services/error_message_service.dart';
 import '../../services/operator_preferences_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -182,7 +183,7 @@ class _AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            error.toString().replaceFirst('Bad state: ', ''),
+                            ErrorMessageService.from(error, fallback: 'Could not save admin preferences right now.'),
                           ),
                           backgroundColor: AppTheme.primaryRed,
                         ),

@@ -8,6 +8,7 @@ import '../../services/location_service.dart';
 import '../../services/order_service.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/slide_to_confirm_button.dart';
 
 class DeliveryDetailScreen extends StatelessWidget {
   final Order order;
@@ -545,8 +546,12 @@ class DeliveryDetailScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () async {
+                    child: SlideToConfirmButton(
+                      label: currentOrder.status == OrderStatus.readyForPickup
+                          ? 'Slide to pick up order'
+                          : 'Slide to mark as delivered',
+                      backgroundColor: AppTheme.primaryRed,
+                      onConfirmed: () async {
                         if (!SupabaseService.isInitialized) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -675,12 +680,6 @@ class DeliveryDetailScreen extends StatelessWidget {
                           );
                         }
                       },
-                      child: Text(
-                        currentOrder.status == OrderStatus.readyForPickup
-                            ? 'Pick Up Order'
-                            : 'Mark as Delivered',
-                        style: const TextStyle(fontSize: 16),
-                      ),
                     ),
                   ),
                 ],

@@ -1,0 +1,20 @@
+ZyroMart v1.4.17
+
+Highlights
+- Replaced more raw backend and exception dumps with professional user-facing error messages across auth, checkout, account tools, admin preferences, and operations settings.
+- Added slide-to-confirm actions for placing customer orders, key store order transitions, and delivery pickup/completion.
+- Improved live nearby-store selection with sorted radius matching and a soft-radius fallback for realistic location drift.
+- Cleaned visible mojibake and currency/bullet text in order and account views.
+
+UX and logic
+- Checkout now uses a slide interaction instead of a plain place-order button.
+- Store owners can slide to confirm the next live order step while keeping decline as an explicit secondary action.
+- Delivery partners can slide to pick up and slide to complete delivery.
+- Wishlist, payment settings, restock, delivery settings, store settings, and admin preferences now surface cleaner production-ready errors.
+
+Validation
+- flutter analyze passed with no issues.
+- storefront and admin release APKs rebuilt successfully.
+
+Important
+- I updated the local schema file and app logic, but I did not directly wipe or recreate your live Supabase database from here because this environment does not have your database admin session attached.
