@@ -311,7 +311,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: () => _openCategoryDirectory(context, categories),
                       child: const Text(
                         'See all',
                         style: TextStyle(
@@ -555,7 +555,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
         selected: selected,
-        label: Text(label),
+        label: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF145B28) : const Color(0xFF23303F),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         onSelected: (value) {
           setState(() {
             if (value) {
@@ -565,13 +571,60 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             }
           });
         },
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF1F4F7),
         selectedColor: const Color(0xFFD9F0DF),
         checkmarkColor: const Color(0xFF1D8C3A),
         side: BorderSide(
-          color: selected ? const Color(0xFF1D8C3A) : const Color(0xFFE4E8EC),
+          color: selected ? const Color(0xFF1D8C3A) : const Color(0xFFD4DCE4),
         ),
       ),
+    );
+  }
+
+  Future<void> _openCategoryDirectory(
+    BuildContext context,
+    List<Category> categories,
+  ) async {
+    if (categories.isEmpty) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: categories.length,
+            separatorBuilder: (_, index) => const SizedBox(height: 8),
+            itemBuilder: (itemContext, index) {
+              final category = categories[index];
+              return ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                tileColor: Theme.of(itemContext).cardColor,
+                leading: CircleAvatar(
+                  backgroundColor: category.color.withValues(alpha: 0.14),
+                  child: Icon(category.icon, color: category.color),
+                ),
+                title: Text(
+                  category.name,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CategoryProductsScreen(category: category),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

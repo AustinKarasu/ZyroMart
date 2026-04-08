@@ -12,6 +12,7 @@ import '../../services/app_preferences_service.dart';
 import '../../services/app_telemetry_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/catalog_service.dart';
+import '../../services/location_service.dart';
 import '../../services/order_service.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
@@ -93,6 +94,33 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       minLines: 2,
                       maxLines: 3,
                       decoration: const InputDecoration(labelText: 'Full address'),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final location = context.read<LocationService>();
+                          await location.refreshLocation();
+                          final current = location.currentLocation;
+                          if (!context.mounted) return;
+                          if (current == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  location.errorMessage ??
+                                      'Could not fetch current location.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          addressController.text =
+                              'Current location (${current.latitude.toStringAsFixed(6)}, ${current.longitude.toStringAsFixed(6)})';
+                        },
+                        icon: const Icon(Icons.my_location_rounded),
+                        label: const Text('Use current location'),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     SwitchListTile.adaptive(

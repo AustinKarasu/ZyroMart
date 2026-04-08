@@ -33,7 +33,14 @@ flutter run --dart-define=SUPABASE_URL=your_url --dart-define=SUPABASE_ANON_KEY=
 ## Build APK
 
 ```bash
-flutter build apk --release
+flutter build apk --release --flavor storefront -t lib/main.dart
+flutter build apk --release --flavor admin -t lib/admin_main.dart
+```
+
+PowerShell shortcuts:
+```powershell
+.\build_storefront.ps1
+.\build_admin.ps1
 ```
 
 ## Build Web

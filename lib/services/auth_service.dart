@@ -230,10 +230,15 @@ class AuthService extends ChangeNotifier {
         phone: _pendingPhone!,
         otpCode: otpCode.trim(),
       );
-      // ALWAYS upsert the profile with the role the user selected â€” do not
-      // inherit a stale role from DB on first-time signup paths.
       final existingProfile = await SupabaseService.getMyProfile();
       final existingRole = _roleFromDb(existingProfile?['role']?.toString());
+      if (existingRole != null && existingRole != _selectedRole!) {
+        await SupabaseService.signOut();
+        _errorMessage =
+            'This account is registered as ${_roleLabel(existingRole)}. Please select the correct role to sign in.';
+        return false;
+      }
+      // Always upsert the profile with the explicit role on first-time paths.
       // Only trust existing DB role if it was already set (not null/empty).
       final effectiveRole = existingRole ?? _selectedRole!;
       await _upsertCurrentProfile(

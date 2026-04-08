@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user.dart';
 import '../../services/auth_service.dart';
@@ -272,6 +274,10 @@ class _ProfessionalAuthCard extends StatefulWidget {
 }
 
 class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
+  static const _lastEmailKey = 'auth::last_email';
+  static const _lastPhoneKey = 'auth::last_phone';
+  static const _lastRoleKey = 'auth::last_role';
+
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -284,6 +290,12 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
   bool _isSignUp = false;
 
   @override
+  void initState() {
+    super.initState();
+    _restoreRememberedIdentity();
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
@@ -294,6 +306,39 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
     _storeNameController.dispose();
     _storeAddressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _restoreRememberedIdentity() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString(_lastEmailKey)?.trim() ?? '';
+    final phone = prefs.getString(_lastPhoneKey)?.trim() ?? '';
+    final roleRaw = prefs.getString(_lastRoleKey)?.trim() ?? '';
+    if (!mounted) return;
+    setState(() {
+      if (email.isNotEmpty) {
+        _emailController.text = email;
+      }
+      if (phone.isNotEmpty) {
+        _phoneController.text = phone;
+      }
+      _selectedRole = switch (roleRaw) {
+        'store_owner' => UserRole.storeOwner,
+        'delivery' => UserRole.delivery,
+        _ => UserRole.customer,
+      };
+    });
+    context.read<AuthService>().selectRole(_selectedRole);
+  }
+
+  Future<void> _rememberIdentity() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastEmailKey, _emailController.text.trim());
+    await prefs.setString(_lastPhoneKey, _phoneController.text.trim());
+    await prefs.setString(_lastRoleKey, switch (_selectedRole) {
+      UserRole.customer => 'customer',
+      UserRole.storeOwner => 'store_owner',
+      UserRole.delivery => 'delivery',
+    });
   }
 
   @override
@@ -421,7 +466,8 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                           color: const Color(0xFFFBF7F2),
                           borderRadius: BorderRadius.circular(26),
                         ),
-                        child: Column(
+                        child: AutofillGroup(
+                          child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
@@ -455,6 +501,7 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                   labelText: 'Full Name',
                                   prefixIcon: Icon(Icons.person_outline),
                                 ),
+                                autofillHints: const [AutofillHints.name],
                               ),
                               const SizedBox(height: 14),
                               if (_selectedRole == UserRole.storeOwner) ...[
@@ -489,6 +536,9 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                   labelText: 'Phone Number',
                                   prefixIcon: Icon(Icons.phone_outlined),
                                 ),
+                                autofillHints: const [
+                                  AutofillHints.telephoneNumber,
+                                ],
                               ),
                             if (_isSignUp || auth.isPasswordLogin) ...[
                               const SizedBox(height: 14),
@@ -499,6 +549,7 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                   labelText: 'Email Address',
                                   prefixIcon: Icon(Icons.alternate_email),
                                 ),
+                                autofillHints: const [AutofillHints.email],
                               ),
                               const SizedBox(height: 14),
                               TextField(
@@ -508,6 +559,9 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                   labelText: 'Password',
                                   prefixIcon: Icon(Icons.lock_outline),
                                 ),
+                                autofillHints: _isSignUp
+                                    ? const [AutofillHints.newPassword]
+                                    : const [AutofillHints.password],
                               ),
                             ],
                             if (_isSignUp) ...[
@@ -519,6 +573,7 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                                   labelText: 'Confirm Password',
                                   prefixIcon: Icon(Icons.lock_person_outlined),
                                 ),
+                                autofillHints: const [AutofillHints.newPassword],
                               ),
                             ],
                             if (auth.otpRequested) ...[
@@ -575,6 +630,7 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
                             ),
                           ],
                         ),
+                        ),
                       );
 
                       return compact
@@ -621,6 +677,8 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
         role: _selectedRole,
       );
       if (success && context.mounted) {
+        await _rememberIdentity();
+        TextInput.finishAutofillContext(shouldSave: true);
         messenger.showSnackBar(
           const SnackBar(content: Text('Signed in with password')),
         );
@@ -725,6 +783,9 @@ class _ProfessionalAuthCardState extends State<_ProfessionalAuthCard> {
             const SnackBar(content: Text('Could not verify OTP')),
           );
         }
+      } else if (success) {
+        await _rememberIdentity();
+        TextInput.finishAutofillContext(shouldSave: true);
       }
     }
   }

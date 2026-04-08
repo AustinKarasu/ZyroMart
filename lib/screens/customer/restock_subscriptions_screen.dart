@@ -5,6 +5,7 @@ import '../../models/product.dart';
 import '../../services/catalog_service.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_image.dart';
 
 class RestockSubscriptionsScreen extends StatefulWidget {
   const RestockSubscriptionsScreen({super.key});
@@ -20,6 +21,7 @@ class _RestockSubscriptionsScreenState
   final TextEditingController _searchController = TextEditingController();
   bool _loading = false;
   bool _activeOnly = false;
+  String _selectedCategoryId = 'all';
   String? _errorMessage;
   bool _usingAccountStateFallback = false;
 
@@ -93,7 +95,9 @@ class _RestockSubscriptionsScreenState
   bool _looksLikeMissingRestockTable(Object error) {
     final text = error.toString().toLowerCase();
     return text.contains('user_restock_subscriptions') ||
-        text.contains('pgrst205');
+        text.contains('pgrst205') ||
+        text.contains('relationship') ||
+        text.contains('schema cache');
   }
 
   Future<bool> _savePlan(_RestockPlan plan) async {
@@ -227,6 +231,9 @@ class _RestockSubscriptionsScreenState
   @override
   Widget build(BuildContext context) {
     final catalog = context.watch<CatalogService>();
+    final categoryById = {
+      for (final category in catalog.categories) category.id: category.name,
+    };
     final query = _searchController.text.trim().toLowerCase();
     final activePlans = _plansByProductId.values.where((plan) => plan.isActive).toList()
       ..sort((a, b) => a.nextRunAt.compareTo(b.nextRunAt));
@@ -234,9 +241,11 @@ class _RestockSubscriptionsScreenState
       final matchesQuery = query.isEmpty ||
           product.name.toLowerCase().contains(query) ||
           product.unit.toLowerCase().contains(query);
+      final matchesCategory = _selectedCategoryId == 'all' ||
+          product.categoryId == _selectedCategoryId;
       final matchesActive =
           !_activeOnly || (_plansByProductId[product.id]?.isActive ?? false);
-      return matchesQuery && matchesActive;
+      return matchesQuery && matchesCategory && matchesActive;
     }).take(24).toList();
 
     return Scaffold(
@@ -277,6 +286,25 @@ class _RestockSubscriptionsScreenState
                     _activeOnly = value;
                   }),
                 ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _categoryChip(
+                        id: 'all',
+                        label: 'All categories',
+                      ),
+                      ...catalog.categories.map(
+                        (category) => _categoryChip(
+                          id: category.id,
+                          label: category.name,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 12),
                   _RestockStateCard(
@@ -293,7 +321,7 @@ class _RestockSubscriptionsScreenState
                   const _RestockStateCard(
                     icon: Icons.sync_problem_rounded,
                     title: 'Using account-state backup',
-                    subtitle: 'The live restock table is missing in this backend right now. Plans are being stored in your account state until the schema is applied.',
+                    subtitle: 'Live restock sync is temporarily unavailable. Plans are being safely stored in your account state and will continue syncing once backend access is restored.',
                     tone: Color(0xFFFFF3E1),
                   ),
                 ],
@@ -326,9 +354,33 @@ class _RestockSubscriptionsScreenState
                     },
                   )
                 else
-                  ...filteredProducts.map(_productTile),
+                  ...filteredProducts.map(
+                    (product) => _productTile(
+                      product,
+                      categoryName: categoryById[product.categoryId] ?? 'General',
+                    ),
+                  ),
               ],
             ),
+    );
+  }
+
+  Widget _categoryChip({
+    required String id,
+    required String label,
+  }) {
+    final selected = _selectedCategoryId == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) {
+          setState(() {
+            _selectedCategoryId = id;
+          });
+        },
+      ),
     );
   }
 
@@ -391,7 +443,7 @@ class _RestockSubscriptionsScreenState
     );
   }
 
-  Widget _productTile(Product product) {
+  Widget _productTile(Product product, {required String categoryName}) {
     final plan = _plansByProductId[product.id] ??
         _RestockPlan.initial(productId: product.id, productName: product.name);
     final active = plan.isActive;
@@ -406,6 +458,24 @@ class _RestockSubscriptionsScreenState
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: product.imageUrl.trim().isEmpty
+                        ? Container(
+                            color: const Color(0xFFF2F3F5),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.image_outlined,
+                              color: AppTheme.textLight,
+                            ),
+                          )
+                        : AppImage(imageUrl: product.imageUrl, fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,8 +483,17 @@ class _RestockSubscriptionsScreenState
                       Text(
                         product.name,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 17,
                           fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        categoryName,
+                        style: const TextStyle(
+                          color: AppTheme.textMedium,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -573,7 +652,7 @@ class _RestockPlan {
       productId: (row['product_id'] ?? '').toString(),
       productName: productName,
       cadence: (row['cadence'] ?? 'weekly').toString(),
-      quantity: (row['quantity'] ?? 1) as int,
+      quantity: ((row['quantity'] ?? 1) as num).toInt(),
       reminderTime: TimeOfDay(hour: nextRun.hour, minute: nextRun.minute),
       isActive: row['is_active'] != false,
     );
@@ -584,10 +663,10 @@ class _RestockPlan {
       productId: (map['product_id'] ?? '').toString(),
       productName: (map['product_name'] ?? 'Product').toString(),
       cadence: (map['cadence'] ?? 'weekly').toString(),
-      quantity: (map['quantity'] ?? 1) as int,
+      quantity: ((map['quantity'] ?? 1) as num).toInt(),
       reminderTime: TimeOfDay(
-        hour: (map['reminder_hour'] ?? 9) as int,
-        minute: (map['reminder_minute'] ?? 0) as int,
+        hour: ((map['reminder_hour'] ?? 9) as num).toInt(),
+        minute: ((map['reminder_minute'] ?? 0) as num).toInt(),
       ),
       isActive: map['is_active'] != false,
     );

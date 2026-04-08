@@ -1,0 +1,15 @@
+ZyroMart Release Refresh (v1.4.10+15)
+
+Date: 2026-04-08
+
+Highlights:
+- Restored swipe-to-pay checkout interaction with real order confirmation flow.
+- Fixed customer home "See all" category button to open a live category directory and navigation.
+- Improved checkout defaults with primary address and payment preference hydration.
+- Added current-location helpers in address and checkout flows.
+- Improved restock experience with category filtering, product images, and stronger sync fallback behavior.
+- Hardened auth role enforcement for OTP sign-in to prevent cross-role routing.
+
+Build Artifacts:
+- release_assets/zyromart-storefront-v1.4.10+15-release.apk
+- release_assets/zyromart-admin-v1.4.10+15-release.apk

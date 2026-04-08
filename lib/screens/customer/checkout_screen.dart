@@ -1,13 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/order.dart';
 import '../../services/auth_service.dart';
 import '../../services/cart_service.dart';
 import '../../services/location_service.dart';
 import '../../services/order_service.dart';
+import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/slide_to_confirm.dart';
 import 'order_tracking_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -24,15 +29,220 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _addressController = TextEditingController();
   final _notesController = TextEditingController();
   final _couponController = TextEditingController();
+  final _upiController = TextEditingController();
+
   String _paymentMethod = 'cod';
   bool _isPlacing = false;
+  bool _hydratedDefaults = false;
+  bool _loadingAccountState = false;
+  List<_CheckoutSavedAddress> _savedAddresses = const [];
+  Map<String, dynamic> _paymentSettings = const {};
+  String? _selectedAddressId;
+
+  bool get _codEnabled =>
+      (_paymentSettings['cash_on_delivery_enabled'] as bool?) ?? true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hydrateCheckoutDefaults();
+    });
+  }
 
   @override
   void dispose() {
     _addressController.dispose();
     _notesController.dispose();
     _couponController.dispose();
+    _upiController.dispose();
     super.dispose();
+  }
+
+  Future<void> _hydrateCheckoutDefaults() async {
+    if (_hydratedDefaults || !mounted) return;
+    _hydratedDefaults = true;
+
+    final auth = context.read<AuthService>();
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    setState(() {
+      _loadingAccountState = true;
+    });
+
+    final accountState = await _loadAccountState(user.id);
+    final addresses = _decodeAddresses(
+      accountState['addresses'],
+      fallbackAddress: user.address,
+    );
+    final paymentSettings =
+        _decodePaymentSettings(accountState['payment_settings']);
+
+    final primaryAddress = _pickPrimaryAddress(addresses);
+    if (_addressController.text.trim().isEmpty &&
+        primaryAddress.address.trim().isNotEmpty) {
+      _addressController.text = primaryAddress.address.trim();
+      _selectedAddressId = primaryAddress.id;
+    } else if (_addressController.text.trim().isEmpty &&
+        user.address.trim().isNotEmpty) {
+      _addressController.text = user.address.trim();
+    }
+
+    final preferredMethod = _normalizePaymentMethod(
+      paymentSettings['preferred_method']?.toString(),
+    );
+    if (preferredMethod == 'upi' || preferredMethod == 'cod') {
+      _paymentMethod = preferredMethod;
+    }
+    _upiController.text = (paymentSettings['upi_id'] ?? '').toString().trim();
+
+    if (_paymentMethod == 'cod' && !_codEnabled) {
+      _paymentMethod = _upiController.text.contains('@') ? 'upi' : 'cod';
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _savedAddresses = addresses;
+      _paymentSettings = paymentSettings;
+      _loadingAccountState = false;
+    });
+  }
+
+  Future<Map<String, dynamic>> _loadAccountState(String userId) async {
+    try {
+      if (SupabaseService.isInitialized) {
+        final remote = await SupabaseService.getUserAccountState();
+        if (remote != null && remote.isNotEmpty) {
+          return remote;
+        }
+      }
+    } catch (_) {
+      // Fall back to local cache.
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final addressesRaw = prefs.getStringList('account::$userId::addresses');
+    final paymentRaw = prefs.getString('account::$userId::payment_methods');
+    return {
+      'addresses': addressesRaw
+          ?.map(
+            (entry) => Map<String, dynamic>.from(
+              jsonDecode(entry) as Map<String, dynamic>,
+            ),
+          )
+          .toList(),
+      'payment_settings': paymentRaw == null
+          ? null
+          : Map<String, dynamic>.from(
+              jsonDecode(paymentRaw) as Map<String, dynamic>,
+            ),
+    };
+  }
+
+  List<_CheckoutSavedAddress> _decodeAddresses(
+    dynamic raw, {
+    required String fallbackAddress,
+  }) {
+    final result = <_CheckoutSavedAddress>[];
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        final address = (map['address'] ?? '').toString().trim();
+        if (address.isEmpty) continue;
+        result.add(
+          _CheckoutSavedAddress(
+            id: (map['id'] ?? '').toString(),
+            label: (map['label'] ?? 'Saved address').toString(),
+            address: address,
+            isDefault: map['is_default'] == true,
+          ),
+        );
+      }
+    }
+
+    if (result.isEmpty && fallbackAddress.trim().isNotEmpty) {
+      result.add(
+        _CheckoutSavedAddress(
+          id: 'fallback-primary',
+          label: 'Primary',
+          address: fallbackAddress.trim(),
+          isDefault: true,
+        ),
+      );
+    }
+    return result;
+  }
+
+  Map<String, dynamic> _decodePaymentSettings(dynamic raw) {
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return const {};
+  }
+
+  _CheckoutSavedAddress _pickPrimaryAddress(List<_CheckoutSavedAddress> list) {
+    if (list.isEmpty) {
+      return const _CheckoutSavedAddress(
+        id: '',
+        label: '',
+        address: '',
+        isDefault: false,
+      );
+    }
+    return list.firstWhere(
+      (entry) => entry.isDefault,
+      orElse: () => list.first,
+    );
+  }
+
+  String _normalizePaymentMethod(String? raw) {
+    switch ((raw ?? '').trim().toLowerCase()) {
+      case 'cash_on_delivery':
+      case 'cod':
+        return 'cod';
+      case 'upi':
+        return 'upi';
+      default:
+        return 'cod';
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    final location = context.read<LocationService>();
+    final auth = context.read<AuthService>();
+    final messenger = ScaffoldMessenger.of(context);
+    await location.refreshLocation();
+    final current = location.currentLocation;
+    if (!mounted) return;
+    if (current == null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            location.errorMessage ?? 'Could not fetch current location.',
+          ),
+        ),
+      );
+      return;
+    }
+    final formatted =
+        'Current location (${current.latitude.toStringAsFixed(6)}, ${current.longitude.toStringAsFixed(6)})';
+    setState(() {
+      _addressController.text = formatted;
+      _selectedAddressId = null;
+    });
+    final user = auth.currentUser;
+    if (user != null) {
+      await auth.updateProfile(
+        name: user.name,
+        address: formatted,
+        phone: user.phone,
+        role: user.role,
+        profileImageUrl: user.profileImageUrl,
+        location: current,
+      );
+    }
   }
 
   @override
@@ -56,11 +266,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           location: location.currentLocation,
         );
       });
-    }
-
-    if (_addressController.text.isEmpty &&
-        (auth.currentUser?.address.isNotEmpty ?? false)) {
-      _addressController.text = auth.currentUser!.address;
     }
 
     return Scaffold(
@@ -107,6 +312,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               title: 'Delivery address',
               child: Column(
                 children: [
+                  if (_loadingAccountState)
+                    const LinearProgressIndicator(minHeight: 2),
+                  if (_savedAddresses.isNotEmpty) ...[
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedAddressId,
+                      decoration: const InputDecoration(
+                        labelText: 'Saved addresses',
+                        prefixIcon: Icon(Icons.bookmark_outline),
+                      ),
+                      items: _savedAddresses
+                          .map(
+                            (entry) => DropdownMenuItem<String>(
+                              value: entry.id,
+                              child: Text(
+                                '${entry.label}${entry.isDefault ? ' (Primary)' : ''}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        final match = _savedAddresses.where((e) => e.id == value);
+                        if (match.isEmpty) return;
+                        setState(() {
+                          _selectedAddressId = value;
+                          _addressController.text = match.first.address;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextField(
                     controller: _addressController,
                     maxLines: 2,
@@ -117,6 +354,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       hintText: 'Enter delivery address',
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _useCurrentLocation,
+                          icon: const Icon(Icons.my_location_rounded),
+                          label: const Text('Get current location'),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   _etaCard(),
@@ -210,9 +459,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   _paymentOption(
                     'cod',
                     'Cash on delivery',
-                    'Collected only after successful handoff. Order settlement and payout release happen only after delivery completion.',
+                    _codEnabled
+                        ? 'Collected only after successful handoff. Order settlement and payout release happen only after delivery completion.'
+                        : 'Disabled from your saved payment preferences.',
                     Icons.payments_outlined,
+                    enabled: _codEnabled,
                   ),
+                  const SizedBox(height: 10),
+                  _paymentOption(
+                    'upi',
+                    'UPI',
+                    'Secure UPI collect request will be used at order confirmation.',
+                    Icons.account_balance_wallet_outlined,
+                  ),
+                  if (_paymentMethod == 'upi') ...[
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _upiController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'UPI ID',
+                        hintText: 'name@bank',
+                        prefixIcon: Icon(Icons.alternate_email_outlined),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -285,30 +556,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         child: SizedBox(
           height: 56,
-          child: ElevatedButton(
-            onPressed: _isPlacing ? null : () => _placeOrder(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D8C3A),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            child: _isPlacing
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Text(
-                    'Place order - Rs ${cart.grandTotal.toInt()}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+          child: SlideToConfirm(
+            label: 'Swipe to pay - Rs ${cart.grandTotal.toInt()}',
+            confirmLabel: 'Processing order...',
+            onConfirmed: () => _placeOrder(context),
+            backgroundColor: const Color(0xFF1D8C3A),
+            knobColor: Colors.white,
+            textColor: Colors.white,
           ),
         ),
       ),
@@ -374,11 +628,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     String value,
     String title,
     String subtitle,
-    IconData icon,
-  ) {
+    IconData icon, {
+    bool enabled = true,
+  }) {
     final selected = _paymentMethod == value;
     return GestureDetector(
-      onTap: () => setState(() => _paymentMethod = value),
+      onTap: enabled ? () => setState(() => _paymentMethod = value) : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(16),
@@ -395,7 +650,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Icon(
               icon,
-              color: selected ? const Color(0xFF1D8C3A) : AppTheme.textMedium,
+              color: enabled
+                  ? (selected ? const Color(0xFF1D8C3A) : AppTheme.textMedium)
+                  : AppTheme.textLight,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -406,16 +663,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: selected
-                          ? const Color(0xFF1D8C3A)
-                          : AppTheme.textDark,
+                      color: enabled
+                          ? (selected
+                              ? const Color(0xFF1D8C3A)
+                              : AppTheme.textDark)
+                          : AppTheme.textLight,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: AppTheme.textMedium,
+                    style: TextStyle(
+                      color: enabled ? AppTheme.textMedium : AppTheme.textLight,
                       height: 1.35,
                     ),
                   ),
@@ -460,7 +719,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Future<void> _placeOrder(BuildContext context) async {
+  Future<bool> _placeOrder(BuildContext context) async {
     final address = _addressController.text.trim();
     final notes = _notesController.text.trim();
     final cart = context.read<CartService>();
@@ -474,7 +733,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       messenger.showSnackBar(
         const SnackBar(content: Text('Your cart is empty')),
       );
-      return;
+      return false;
     }
 
     if (!cart.meetsMinimumOrderRequirement) {
@@ -483,7 +742,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           content: Text('Add at least 3 products before placing an order'),
         ),
       );
-      return;
+      return false;
     }
 
     final customerPhone = auth.currentUser?.phone.trim() ?? '';
@@ -495,36 +754,64 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
       );
-      return;
+      return false;
     }
 
     if (address.isEmpty || address.length < 10) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Please enter a valid delivery address')),
       );
-      return;
+      return false;
     }
 
     if (address.length > _maxAddressLength) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Delivery address is too long')),
       );
-      return;
+      return false;
     }
 
     if (notes.length > _maxNotesLength) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Delivery instructions are too long')),
       );
-      return;
+      return false;
+    }
+
+    if (_paymentMethod == 'cod' && !_codEnabled) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Cash on delivery is disabled for your account')),
+      );
+      return false;
+    }
+
+    if (_paymentMethod == 'upi') {
+      final upiId = _upiController.text.trim();
+      if (!upiId.contains('@')) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Enter a valid UPI ID to continue')),
+        );
+        return false;
+      }
+    }
+
+    if (_isPlacing) {
+      return false;
     }
 
     setState(() => _isPlacing = true);
     await Future.delayed(const Duration(milliseconds: 700));
 
-    if (!mounted) return;
+    if (!mounted) return false;
     Order order;
     try {
+      final composedNotes = _paymentMethod == 'upi'
+          ? [
+              if (notes.isNotEmpty) notes,
+              'UPI: ${_upiController.text.trim()}',
+            ].join(' | ')
+          : notes;
+
       order = orderService.placeOrder(
         items: cart.items,
         totalAmount: cart.totalAmount,
@@ -538,7 +825,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         handlingFee: cart.handlingFee,
         deliveryTip: cart.deliveryTip,
         couponDiscount: cart.couponDiscount,
-        notes: notes.isEmpty ? null : notes,
+        notes: composedNotes.isEmpty ? null : composedNotes,
         paymentMethod: _paymentMethod,
       );
     } catch (error) {
@@ -550,15 +837,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       }
       setState(() => _isPlacing = false);
-      return;
+      return false;
     }
 
     cart.clear();
-    if (!mounted) return;
+    if (!mounted) return true;
 
     navigator.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => OrderTrackingScreen(orderId: order.id)),
       (route) => route.isFirst,
     );
+    return true;
   }
+}
+
+class _CheckoutSavedAddress {
+  final String id;
+  final String label;
+  final String address;
+  final bool isDefault;
+
+  const _CheckoutSavedAddress({
+    required this.id,
+    required this.label,
+    required this.address,
+    required this.isDefault,
+  });
 }

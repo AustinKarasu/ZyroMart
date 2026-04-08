@@ -777,12 +777,25 @@ class SupabaseService {
 
   static Future<List<Map<String, dynamic>>> getRestockSubscriptions() async {
     if (!isInitialized || currentUser == null) return [];
-    final response = await client
-        .from('user_restock_subscriptions')
-        .select('*, products(*)')
-        .eq('user_id', currentUser!.id)
-        .order('next_run_at', ascending: true);
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      final response = await client
+          .from('user_restock_subscriptions')
+          .select('*, products(name)')
+          .eq('user_id', currentUser!.id)
+          .order('next_run_at', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (error) {
+      final lowered = error.toString().toLowerCase();
+      if (!lowered.contains('relationship') && !lowered.contains('schema cache')) {
+        rethrow;
+      }
+      final fallback = await client
+          .from('user_restock_subscriptions')
+          .select()
+          .eq('user_id', currentUser!.id)
+          .order('next_run_at', ascending: true);
+      return List<Map<String, dynamic>>.from(fallback);
+    }
   }
 
   // â”€â”€â”€ Real-time subscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
